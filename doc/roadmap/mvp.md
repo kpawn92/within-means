@@ -94,46 +94,64 @@ Excepción a la regla de "una pantalla por fase": el kernel no tiene UI propia, 
 
 ---
 
-## Fase 3 — `users` + pantalla "Onboarding"
+## Fase 3 — `users` + pantalla "Onboarding" ✅
 
 Primer vertical end-to-end. Introduce **el cableado completo de `apps/android`** (Koin, SQLCipher, navegación, theming) porque es la primera fase con UI.
 
 ### Dominio `users`
 
-- [ ] `UserProfile`, `UserId`, `DisplayName`, `Locale`, `BaseCurrency`.
-- [ ] Events: `UserDefaultCreated`, `UserPreferencesUpdated`.
-- [ ] `UserProfileRepository` (interfaz).
-- [ ] Application:
-  - `EnsureDefaultUserCommand` + handler (idempotente).
-  - `UpdateUserPreferencesCommand` + handler.
-  - `FindUserQuery` + handler.
-- [ ] Infrastructure:
-  - `users.sq` con tabla `user_profile`.
+- [x] `UserProfile`, `UserId`, `DisplayName`, `Locale (ES/EN)`, `Currency (USD/EUR/CUP)`.
+- [x] Events `@Serializable`: `UserDefaultCreated`, `UserPreferencesUpdated`.
+- [x] `UserProfileRepository` (interfaz en `domain/`).
+- [x] Application:
+  - `EnsureDefaultUserCommand` + handler + `DefaultUserBootstrap` (idempotente).
+  - `UpdateUserPreferencesCommand` + handler + `UserPreferencesUpdater`.
+  - `FindDefaultUserQuery` + handler + `OptionalUserResponse` DTO.
+- [x] Infrastructure:
+  - `UserProfile.sq` con tabla `user_profile` y `is_default` (índice único parcial).
   - `UserProfileRowMapper` (con `rehydrate` y `toRow`).
   - `SqlDelightUserProfileRepository`, `InMemoryUserProfileRepository`.
-- [ ] Factorías: `UserProfile.bootstrap(...)` (emite evento) y `UserProfile.rehydrate(...)`.
-- [ ] Tests unitarios completos.
+- [x] Factorías: `UserProfile.bootstrap(...)` (emite evento) y `UserProfile.rehydrate(...)` (silenciosa).
+- [x] Tests: `UserProfileTest`, `DisplayNameTest`, `DefaultUserBootstrapTest` (idempotencia), `UserPreferencesUpdaterTest`, `SqlDelightUserProfileRepositoryTest` (jvmTest con `JdbcSqliteDriver.IN_MEMORY`).
+- [x] `./gradlew :users:test :users:jvmTest` → BUILD SUCCESSFUL.
 
-### Cableado `apps/android` (común a todas las fases siguientes)
+### Cableado `apps/android`
 
-- [ ] Koin con módulos `SharedModule`, `UsersModule`, `BusModule`, `PersistenceModule`. Se irán añadiendo `CategoriesModule`, `TransactionsModule`, `AnalyticsModule` en las próximas fases.
-- [ ] `AndroidDatabaseFactory` con `AndroidSqliteDriver` + `SupportFactory` de SQLCipher.
-- [ ] `KeystoreManager` (clave maestra en Android Keystore, no exportable).
-- [ ] `PassphraseProvider` (PIN inicial; biometría llega en post-MVP).
-- [ ] Navegación: `androidx.navigation:navigation-compose` con un `NavHost` declarado en `MainActivity`.
-- [ ] Theming Material 3 inicial (paleta clara/oscura básica, tipografía por defecto).
-- [ ] `EnsureDefaultUserCommand` ejecutado al primer arranque (dentro de un `LaunchedEffect` en el composable raíz).
+- [x] Koin con módulos `appModule`, `persistenceModule`, `usersModule`, `busModule`, `uiModule`.
+- [x] `WithinMeansApplication.onCreate` arranca Koin con todos los módulos.
+- [x] `AndroidDatabaseFactory` con `AndroidSqliteDriver` + `SupportOpenHelperFactory` de SQLCipher.
+  - **Bootstrap manual de schemas:** SQLCipher no dispara fiable el `onCreate` del callback. Solución: detectar presencia de la tabla centinela (`domain_events` para `SharedDatabase`, `user_profile` para `UsersDatabase`) en `sqlite_master`; si no existe, ejecutar `Schema.create(driver)`. Esto es idempotente y resistente a archivos residuales.
+- [x] `KeystoreManager` con HMAC-SHA256 no exportable en Android Keystore.
+- [x] `PassphraseProvider`: `HMAC-SHA256(masterKey, utf8(pin))` produce 32 bytes para SQLCipher.
+- [x] `DatabaseUnlocker`: tenedor lazy de `SharedDatabase` + `UsersDatabase`; lanza error explícito si se accede antes de `unlock(pin)`.
+- [x] `OnboardingState` (`EncryptedSharedPreferences` AES-GCM) guarda el flag `isCompleted`.
+- [x] `androidx.navigation:navigation-compose` con `NavHost` en `MainActivity` y rutas `Onboarding`, `Unlock`, `Home`.
+- [x] Theming Material 3 (paleta verde/light + dark).
 
-### Pantalla "Onboarding" (`apps/android/.../ui/onboarding/`)
+### Pantallas
 
-- [ ] `OnboardingScreen` (composable): 3 pasos en secuencia.
-  - **Paso 1 — Bienvenida:** título + descripción + botón "Empezar".
-  - **Paso 2 — PIN:** input PIN 4-6 dígitos + confirmación (despacha derivación de passphrase para SQLCipher).
-  - **Paso 3 — Preferencias:** dropdown idioma (ES/EN) + dropdown moneda base (EUR/USD/...). Botón "Finalizar" → despacha `UpdateUserPreferencesCommand` y navega a una pantalla placeholder "Home" temporal.
-- [ ] `OnboardingViewModel` (con Koin + `koin-compose-viewmodel`) que recibe `CommandBus` y `QueryBus`.
-- [ ] Si `FindUserQuery` ya devuelve un usuario con preferencias completas, el onboarding se salta en arranques posteriores.
+- [x] **OnboardingScreen** con 3 pasos: Welcome → PIN (6 dígitos + confirmación) → Preferencias (nombre + idioma ES/EN + moneda USD/EUR/CUP).
+- [x] **UnlockScreen** para arranques posteriores: pide PIN para descifrar la DB y entrar a Home.
+- [x] **HomePlaceholderScreen** muestra "Hola, <nombre>" + moneda base (vía `FindDefaultUserQuery`).
+- [x] Navegación: `MainActivity` resuelve start destination en `LaunchedEffect`:
+  - `!onboardingCompleted` → `Onboarding`.
+  - `onboardingCompleted && !unlocker.isUnlocked` → `Unlock`.
+  - resto → `Home`.
 
-**Entrega:** instalas el APK por primera vez → pasas el onboarding → la DB se cifra con tu PIN → el `UserProfile` queda persistido. En arranques posteriores entras directo a Home placeholder.
+### Decisiones técnicas registradas
+
+- [x] **Resolución de buses lazy con `KoinComponent.get<X>()`** dentro del coroutine del ViewModel. No se pueden inyectar `() -> CommandBus`/`() -> QueryBus` porque ambos colapsan a `Function0<Any>` en runtime y Koin no los distingue.
+- [x] **`UserErrorMessages`** mapea excepciones técnicas (SQLite, cipher) a mensajes en español user-friendly. La traza completa va a Kermit para devs.
+- [x] **`UnlockViewModel.submit`** fuerza una query real tras `unlock(pin)` (`userProfileQueries.findDefault()`) — SQLCipher solo falla al primer query si el PIN es incorrecto, no al abrir el driver.
+
+### Verificado end-to-end
+
+- Cold install → Welcome → PIN 123456 → Preferences → Finalizar → Home `Hola, Yo / Moneda base: EUR`.
+- Force-stop + relaunch → Unlock screen.
+- Unlock con PIN incorrecto → "No se pudo descifrar la base de datos. Comprueba tu PIN." con el campo limpiado.
+- Unlock con PIN correcto → Home con los datos persistidos.
+
+**Entrega:** instalas el APK por primera vez → pasas el onboarding → la DB se cifra con tu PIN → el `UserProfile` queda persistido. En arranques posteriores entras directo a Unlock y de ahí a Home.
 
 ---
 

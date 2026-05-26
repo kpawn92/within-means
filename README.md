@@ -10,12 +10,13 @@ Empezamos respondiendo dos preguntas básicas — _¿de dónde viene el dinero?_
 
 ## Estado actual
 
-**Fase 1 — Bootstrap** y **Fase 2 — Kernel `:shared`** completadas:
+**Fases 1, 2 y 3** completadas:
 
-- Fase 1: el repo compila y empaqueta un APK Android que arranca en emulador Pixel 9 (Android 14+, minSdk 21).
-- Fase 2: kernel DDD/CQRS completo en `:shared` — `AggregateRoot`, value objects, `Identifier` con validación UUID, `Money` (USD/EUR/CUP), buses `Command`/`Query`/`Event` con in-memory impls, **Event Store** sobre SQLDelight (`DomainEvents.sq`), `EventStoreBackedEventBus` con persist-then-dispatch, `Criteria` → SQL parametrizado con whitelist. ~42 casos de test, todos verdes en `jvmTest` y `androidUnitTest`.
+- **Fase 1** — Bootstrap: el repo compila y empaqueta un APK Android (minSdk 21) que arranca en emulador.
+- **Fase 2** — Kernel `:shared`: `AggregateRoot`, value objects, `Identifier`, `Money` (USD/EUR/CUP), buses CQRS, Event Store (SQLDelight + `EventStoreBackedEventBus`), `Criteria` → SQL parametrizado. ~42 tests.
+- **Fase 3** — `users` + Onboarding Android: agregado `UserProfile` con factorías `bootstrap`/`rehydrate`, repositorio SQLDelight, comandos/consultas, integración Koin completa, **SQLCipher (AES-256)** con passphrase derivada de PIN + Android Keystore, navegación Compose (`Onboarding` → `Unlock` → `Home`), mapeador de errores user-friendly. Verificado end-to-end en emulador Pixel 9.
 
-**Próximo:** Fase 3 — contexto `users` + pantalla de Onboarding (PIN + idioma + moneda) en Android. Detalle en [doc/roadmap/mvp.md](doc/roadmap/mvp.md).
+**Próximo:** Fase 4 — contexto `categories` con clasificadores semánticos + pantalla CRUD de categorías. Detalle en [doc/roadmap/mvp.md](doc/roadmap/mvp.md).
 
 ## Stack
 
