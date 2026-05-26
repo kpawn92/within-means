@@ -4,15 +4,15 @@ Mapa de los contextos del proyecto. Sigue el patrón estricto del esqueleto Java
 
 ## Contextos del MVP
 
-Detalle completo en [`mvp.md`](mvp.md).
+Detalle completo en [`mvp.md`](mvp.md). Cada contexto se entrega junto con su pantalla mínima en Android (ver [`../roadmap/mvp.md`](../roadmap/mvp.md)).
 
-| Contexto | Responsabilidad | Notas |
-|---|---|---|
-| `users` | Usuario por defecto (single-user) | Mínimo viable; sin login. Modelado desde ya para no migrar después. |
-| `categories` | Taxonomía de categorías | **Enriquecida** con `nature`, `essentiality`, `productive`, `engelGroup`. |
-| `transactions` | Movimientos diarios (núcleo) | **Enriquecida** con `incomeSource`, `originRef`, `recurringRef`. |
-| `analytics` | Read models básicos | Resumen mensual, ingresos por categoría, gastos por categoría, evolución histórica. |
-| `shared` | Kernel técnico + Event Store | No es contexto de negocio. Contiene buses, criteria, `domain_events`. |
+| Contexto | Responsabilidad | Pantalla asociada | Notas |
+|---|---|---|---|
+| `users` | Usuario por defecto (single-user) | Onboarding (PIN + idioma + moneda) + Ajustes | Modelado desde ya para no migrar después. |
+| `categories` | Taxonomía de categorías | Lista + alta/edición/borrado | **Enriquecida** con `nature`, `essentiality`, `productive`, `engelGroup`. |
+| `transactions` | Movimientos diarios (núcleo) | Lista con filtros + alta/edición rápida | **Enriquecida** con `incomeSource`, `originRef`, `recurringRef`. |
+| `analytics` | Read models básicos | Estadísticas con 3 pestañas (resumen, categorías, evolución) | Resumen mensual, desglose por categoría, evolución histórica. |
+| `shared` | Kernel técnico + Event Store | — (sin UI propia) | No es contexto de negocio. Contiene buses, criteria, `domain_events`. |
 
 ## Contextos post-MVP
 

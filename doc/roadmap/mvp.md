@@ -2,7 +2,15 @@
 
 Fases del MVP. Objetivo: app Android que permite **registrar ingresos y gastos diarios** y responde a "de dónde viene mi dinero" y "en qué se va".
 
-Cada fase entrega un incremento verificable. Las fases posteriores al MVP están en [`post-mvp.md`](post-mvp.md).
+**Estrategia de entrega:** _una pantalla Android mínima por contexto_. Desde la Fase 3, cada fase añade simultáneamente el dominio y una pantalla Compose que lo ejercita. Cada fase entrega un APK instalable y observable en el emulador, no solo tests verdes. Esto:
+
+- Mantiene el dominio DDD intacto (las pantallas viven en `apps/android/.../ui/`, no en los módulos KMP).
+- Acelera el feedback visual: cada fase es presentable.
+- Reduce el riesgo de la Fase 7 al distribuir el trabajo de UI entre Fases 3-6.
+
+Las fases posteriores al MVP están en [`post-mvp.md`](post-mvp.md).
+
+---
 
 ## Fase 1 — Bootstrap del repositorio ✅
 
@@ -26,70 +34,127 @@ Cada fase entrega un incremento verificable. Las fases posteriores al MVP están
 
 ---
 
-## Fase 2 — Kernel `:shared`
+## Fase 2 — Kernel `:shared` (sin UI)
 
-- [ ] Base classes en `commonMain`:
-  - `AggregateRoot` (con `pullDomainEvents()`).
-  - `ValueObject`, `StringValueObject`, `IntValueObject`, `DateValueObject`.
-  - `Identifier` (validación UUID).
-- [ ] Buses (interfaces) en `commonMain`:
-  - `Command`, `CommandBus`, `CommandHandler<C>`.
-  - `Query`, `QueryBus`, `QueryHandler<Q, R>`, `Response`.
-  - `DomainEvent`, `EventBus`, `DomainEventSubscriber`.
-- [ ] Implementaciones in-memory:
-  - `InMemoryCommandBus`, `InMemoryQueryBus`, `InMemoryEventBus`.
-- [ ] **Event Store** (`domain_events.sq` + `SqlDelightDomainEventStore` + `EventStoreBackedEventBus`).
-- [ ] `Criteria`, `Filter`, `Filters`, `Order`, `FilterField`, `FilterOperator`, `FilterValue`.
-- [ ] `SqlCriteriaTranslator` en `shared/infrastructure/persistence/`.
-- [ ] `UuidGenerator` (interfaz) + `RealUuidGenerator` (impl con `benasher44/uuid`).
-- [ ] VOs compartidos: `Money`, `Currency`.
-- [ ] Configuración del plugin SQLDelight en cada módulo: `SharedDatabase` en `:shared`, y una DB por contexto (`UsersDatabase`, `CategoriesDatabase`, `TransactionsDatabase`, `AnalyticsDatabase`) compartiendo el archivo físico `within_means.db`. `verifyMigrations = true` en todas.
-- [ ] Tests de buses, `Criteria`, `SqlCriteriaTranslator`, `UuidGenerator` y Event Store en `commonTest`.
+Excepción a la regla de "una pantalla por fase": el kernel no tiene UI propia, sólo provee las piezas que usarán los demás. Sigue el patrón estricto del esqueleto Java DDD.
 
-**Entrega:** kernel testeado; los buses dispatch/ask funcionan y los eventos se persisten en el Event Store.
+### Dominio compartido (`commonMain/.../shared/domain/`)
+
+- [ ] `AggregateRoot` con `record(event)` y `pullDomainEvents()`.
+- [ ] `ValueObject`, `StringValueObject`, `IntValueObject`, `DateValueObject`.
+- [ ] `Identifier` (validación UUID con regex).
+- [ ] `UuidGenerator` (interfaz).
+- [ ] `money/`: `Money(cents: Long, currency: Currency)` inmutable con operaciones; `Currency` (enum ISO 4217 reducido a las relevantes).
+- [ ] `bus/command/{Command, CommandBus, CommandHandler}`.
+- [ ] `bus/query/{Query, QueryBus, QueryHandler, Response}`.
+- [ ] `bus/event/{DomainEvent, EventBus, DomainEventSubscriber, DomainEventStore}`.
+- [ ] `criteria/{Criteria, Filter, Filters, Order, FilterField, FilterOperator, FilterValue, OrderType}`.
+
+### Infraestructura compartida (`commonMain/.../shared/infrastructure/`)
+
+- [ ] `RealUuidGenerator` (con `com.benasher44:uuid`).
+- [ ] `InMemoryCommandBus`, `InMemoryQueryBus`, `InMemoryEventBus`.
+- [ ] `SqlDelightDomainEventStore` (persistencia a `domain_events.sq`).
+- [ ] `EventStoreBackedEventBus` (envoltorio: persiste y distribuye).
+- [ ] `DomainEventJsonSerializer` (kotlinx.serialization).
+- [ ] `SqlCriteriaTranslator` (Criteria → SQL parametrizado).
+
+### Persistencia
+
+- [ ] `src/shared/sqldelight/within/means/shared/db/domain_events.sq`.
+- [ ] Configuración del plugin SQLDelight: una clase DB por módulo (`SharedDatabase`, y luego `UsersDatabase`, `CategoriesDatabase`, etc.) compartiendo el archivo físico `within_means.db`. `verifyMigrations = true` en todas.
+
+### Tests (`commonTest`)
+
+- [ ] Tests unitarios de los tres buses con handlers stub.
+- [ ] Tests de `Identifier` (UUID válido vs inválido).
+- [ ] Tests de `Money` (operaciones, igualdad, currency mismatch).
+- [ ] Tests de `Criteria` y `SqlCriteriaTranslator` (filtros, orden, paginación, sanitización).
+- [ ] Tests del Event Store con `JdbcSqliteDriver.IN_MEMORY` (append, findByAggregate, findByName, findAllSince).
+- [ ] Tests del `EventStoreBackedEventBus` (persiste primero, luego notifica subscribers).
+- [ ] Tests del `DomainEventJsonSerializer` (ida y vuelta).
+
+**Entrega:** kernel `:shared` testeado al 100%; los buses dispatch/ask funcionan, los eventos se persisten y se entregan a subscribers. `./gradlew :shared:test` pasa.
 
 ---
 
-## Fase 3 — Contexto `users` (mínimo single-user)
+## Fase 3 — `users` + pantalla "Onboarding"
 
-Primer contexto end-to-end. Valida la arquitectura de extremo a extremo en su forma más simple.
+Primer vertical end-to-end. Introduce **el cableado completo de `apps/android`** (Koin, SQLCipher, navegación, theming) porque es la primera fase con UI.
 
-- [ ] Domain: `UserProfile`, `UserId`, `DisplayName`, `Locale`, `BaseCurrency`.
+### Dominio `users`
+
+- [ ] `UserProfile`, `UserId`, `DisplayName`, `Locale`, `BaseCurrency`.
 - [ ] Events: `UserDefaultCreated`, `UserPreferencesUpdated`.
-- [ ] Repository: `UserProfileRepository` (interfaz en `domain/`).
-- [ ] Application: `EnsureDefaultUserCommand` + handler; `UpdateUserPreferencesCommand` + handler.
-- [ ] Queries: `FindUserQuery` + handler.
+- [ ] `UserProfileRepository` (interfaz).
+- [ ] Application:
+  - `EnsureDefaultUserCommand` + handler (idempotente).
+  - `UpdateUserPreferencesCommand` + handler.
+  - `FindUserQuery` + handler.
 - [ ] Infrastructure:
-  - Schema SQLDelight `users.sq` en `src/users/sqldelight/within/means/users/db/`.
+  - `users.sq` con tabla `user_profile`.
   - `UserProfileRowMapper` (con `rehydrate` y `toRow`).
   - `SqlDelightUserProfileRepository`, `InMemoryUserProfileRepository`.
 - [ ] Factorías: `UserProfile.bootstrap(...)` (emite evento) y `UserProfile.rehydrate(...)`.
 - [ ] Tests unitarios completos.
 
-**Entrega:** ejecutar `EnsureDefaultUserCommand` crea el usuario por defecto idempotentemente; se puede actualizar preferencias.
+### Cableado `apps/android` (común a todas las fases siguientes)
+
+- [ ] Koin con módulos `SharedModule`, `UsersModule`, `BusModule`, `PersistenceModule`. Se irán añadiendo `CategoriesModule`, `TransactionsModule`, `AnalyticsModule` en las próximas fases.
+- [ ] `AndroidDatabaseFactory` con `AndroidSqliteDriver` + `SupportFactory` de SQLCipher.
+- [ ] `KeystoreManager` (clave maestra en Android Keystore, no exportable).
+- [ ] `PassphraseProvider` (PIN inicial; biometría llega en post-MVP).
+- [ ] Navegación: `androidx.navigation:navigation-compose` con un `NavHost` declarado en `MainActivity`.
+- [ ] Theming Material 3 inicial (paleta clara/oscura básica, tipografía por defecto).
+- [ ] `EnsureDefaultUserCommand` ejecutado al primer arranque (dentro de un `LaunchedEffect` en el composable raíz).
+
+### Pantalla "Onboarding" (`apps/android/.../ui/onboarding/`)
+
+- [ ] `OnboardingScreen` (composable): 3 pasos en secuencia.
+  - **Paso 1 — Bienvenida:** título + descripción + botón "Empezar".
+  - **Paso 2 — PIN:** input PIN 4-6 dígitos + confirmación (despacha derivación de passphrase para SQLCipher).
+  - **Paso 3 — Preferencias:** dropdown idioma (ES/EN) + dropdown moneda base (EUR/USD/...). Botón "Finalizar" → despacha `UpdateUserPreferencesCommand` y navega a una pantalla placeholder "Home" temporal.
+- [ ] `OnboardingViewModel` (con Koin + `koin-compose-viewmodel`) que recibe `CommandBus` y `QueryBus`.
+- [ ] Si `FindUserQuery` ya devuelve un usuario con preferencias completas, el onboarding se salta en arranques posteriores.
+
+**Entrega:** instalas el APK por primera vez → pasas el onboarding → la DB se cifra con tu PIN → el `UserProfile` queda persistido. En arranques posteriores entras directo a Home placeholder.
 
 ---
 
-## Fase 4 — Contexto `categories` (enriquecido)
+## Fase 4 — `categories` + pantalla "Categorías"
 
-Categorías con clasificadores semánticos desde el día 1 (ver [`../contexts/mvp.md`](../contexts/mvp.md#categories) para justificación).
+### Dominio `categories`
 
-- [ ] Domain: `Category`, `CategoryId`, `CategoryName`, `CategoryColor`, `CategoryIcon`, `ParentCategoryId`.
+- [ ] `Category`, `CategoryId`, `CategoryName`, `CategoryColor`, `CategoryIcon`, `ParentCategoryId`.
 - [ ] VOs de clasificación: `CategoryKind`, `CategoryNature`, `CategoryEssentiality`, `CategoryProductive`, `EngelGroup`.
 - [ ] Events: `CategoryCreated`, `CategoryRenamed`, `CategoryReclassified`, `CategoryDeleted`.
 - [ ] Repository + impl SQLDelight + InMemory.
-- [ ] Application: comandos CRUD + query `SearchCategoriesByCriteriaQuery`.
-- [ ] **Seed por defecto** suscrito a `UserDefaultCreated`: `DefaultCategoriesSeeder` siembra las categorías base.
+- [ ] Application: comandos CRUD + `SearchCategoriesByCriteriaQuery`.
+- [ ] **Seed por defecto** suscrito a `UserDefaultCreated`: `DefaultCategoriesSeeder` siembra las ~13 categorías base con sus clasificadores.
 - [ ] Tests unitarios + tests de integración del seeder.
 
-**Entrega:** al crear el usuario por defecto, se crean automáticamente las ~13 categorías base con sus clasificadores.
+### Pantalla "Categorías" (`apps/android/.../ui/categories/`)
+
+- [ ] `CategoriesListScreen`: lista categorías agrupadas por kind (ingreso/gasto/transferencia), cada una con su color e icono. Filtro por kind.
+- [ ] `CategoryEditScreen`: formulario crear/editar con name, color (color picker básico), icono (seleccionable de un set Material Symbols), kind, nature, essentiality, productive, engelGroup. Botón guardar despacha `CreateCategoryCommand` o `ReclassifyCategoryCommand`.
+- [ ] `CategoryDeleteDialog` con confirmación.
+- [ ] `CategoriesViewModel` con `Flow<List<CategoryResponse>>` reactivo (`Query.asFlow()` de SQLDelight).
+
+### Cableado `apps/android`
+
+- [ ] Añadir `CategoriesModule` a Koin.
+- [ ] Añadir entrada de navegación: `home → categorias` (botón en la home placeholder).
+
+**Entrega:** flujo completo CRUD de categorías. Al pasar el onboarding, las categorías por defecto ya están creadas y se ven en la lista. Se pueden crear, editar y borrar nuevas.
 
 ---
 
-## Fase 5 — Contexto `transactions` (núcleo enriquecido)
+## Fase 5 — `transactions` + pantalla "Registrar / Listar"
 
-- [ ] Domain: `Transaction`, `TransactionId`, `TransactionType`, `TransactionDate`, `TransactionDescription`, `Amount`.
-- [ ] VOs adicionales: `IncomeSource`, `OriginRef`, `RecurringRef` (este último reservado, siempre null en MVP).
+### Dominio `transactions`
+
+- [ ] `Transaction`, `TransactionId`, `TransactionType`, `TransactionDate`, `TransactionDescription`, `Amount`.
+- [ ] VOs adicionales: `IncomeSource`, `OriginRef`, `RecurringRef` (reservado, siempre null en MVP).
 - [ ] Events: `TransactionRegistered`, `TransactionEdited`, `TransactionDeleted`.
 - [ ] Repository + impl SQLDelight + InMemory.
 - [ ] Application:
@@ -98,14 +163,29 @@ Categorías con clasificadores semánticos desde el día 1 (ver [`../contexts/mv
   - `DeleteTransactionCommand` + handler.
   - `FindTransactionQuery` + handler.
   - `SearchTransactionsByCriteriaQuery` + handler (usa `SqlCriteriaTranslator`).
-- [ ] Invariantes en el agregado: monto positivo, fecha ≤ hoy, coherencia `type`↔`incomeSource`.
+- [ ] Invariantes: monto positivo, fecha ≤ hoy, coherencia `type`↔`incomeSource`.
 - [ ] Tests unitarios + repo tests con SQLite in-memory.
 
-**Entrega:** registrar/editar/borrar transacciones funciona end-to-end; búsquedas con filtros dinámicos funcionan.
+### Pantalla "Transacciones" (`apps/android/.../ui/transactions/`)
+
+- [ ] `TransactionsListScreen`: lista reverse-cronológica con filtros (rango fechas, categoría, tipo, monto min/max). FAB "+" para añadir.
+- [ ] `TransactionEditScreen`: formulario tipo (ingreso/gasto), monto, categoría (selector que hace `SearchCategoriesByCriteriaQuery`), fecha (DatePicker), descripción, opcional fuente (`originRef`). Botón guardar despacha `RegisterTransactionCommand` o `EditTransactionCommand`.
+- [ ] `TransactionDeleteDialog`.
+- [ ] `TransactionsViewModel` con paginación opcional (SQLDelight `mapToList`).
+
+### Cableado `apps/android`
+
+- [ ] Añadir `TransactionsModule` a Koin.
+- [ ] Navegación: `home → transacciones → registrar/editar`.
+- [ ] La home placeholder ahora muestra "últimas 5 transacciones" como mejora iterativa.
+
+**Entrega:** flujo completo de registrar, editar y borrar transacciones. La lista refleja cambios en tiempo real (Flow reactivo).
 
 ---
 
-## Fase 6 — Contexto `analytics` (read models MVP)
+## Fase 6 — `analytics` + pantalla "Estadísticas"
+
+### Dominio `analytics`
 
 - [ ] Read models: `MonthlySummary`, `CategoryBreakdown`, `MonthlyEvolution`.
 - [ ] Schemas SQLDelight: `monthly_summary.sq`, `category_breakdown.sq`, `monthly_evolution.sq`.
@@ -114,34 +194,48 @@ Categorías con clasificadores semánticos desde el día 1 (ver [`../contexts/mv
   - `UpdateCategoryBreakdownOnTransactionRegistered` (+ edited, deleted).
   - `UpdateMonthlyEvolutionOnTransactionRegistered` (+ edited, deleted).
 - [ ] Queries: `FindCurrentMonthSummaryQuery`, `FindMonthlySummaryQuery`, `FindCategoryBreakdownQuery`, `FindMonthlyEvolutionQuery`.
-- [ ] Comando administrativo `RebuildProjectionsCommand` que reproduce eventos del Event Store y reconstruye los read models desde cero (utilidad de mantenimiento).
+- [ ] Comando administrativo `RebuildProjectionsCommand` que reproduce eventos del Event Store y reconstruye los read models desde cero.
 - [ ] Tests: dado un set de transacciones, las proyecciones reflejan los totales correctos.
 
-**Entrega:** las preguntas "¿cuánto entró/salió este mes?", "¿en qué categorías?" y "¿cómo evolucionó?" se responden vía `QueryBus`.
+### Pantalla "Estadísticas" (`apps/android/.../ui/analytics/`)
+
+- [ ] `StatsScreen` con `TabRow` de tres pestañas:
+  - **Resumen mensual:** totales ingreso/gasto/saldo + cards de fijo/variable/esencial/discrecional. Selector de mes.
+  - **Por categoría:** pie chart o bar chart por categoría (gastos por defecto, toggle a ingresos). Selector de periodo.
+  - **Evolución:** gráfica de líneas de ingresos y gastos por mes (últimos 6/12 meses).
+- [ ] Gráficas con Compose `Canvas` o librería ligera (decisión en la fase).
+- [ ] `AnalyticsViewModel` que llama a las queries vía `QueryBus`.
+
+### Cableado `apps/android`
+
+- [ ] Añadir `AnalyticsModule` a Koin.
+- [ ] Navegación: `home → estadísticas`.
+
+**Entrega:** se ven los gráficos respondiendo a las preguntas del MVP. Al editar o borrar una transacción, las estadísticas se actualizan automáticamente vía Event Store + subscribers.
 
 ---
 
-## Fase 7 — `apps/android` mínimo viable
+## Fase 7 — Pulido e integración
 
-Cableado completo: UI → buses → handlers → repos → DB cifrada.
+Cierre del MVP. Sin contextos nuevos: integra las pantallas existentes en una experiencia coherente.
 
-- [ ] Configuración `com.android.application` con Compose Multiplatform.
-- [ ] `MainActivity` con `setContent { ... }`.
-- [ ] Cableado Koin: módulos `SharedModule`, `UsersModule`, `CategoriesModule`, `TransactionsModule`, `AnalyticsModule`, `BusModule`, `PersistenceModule`.
-- [ ] `AndroidDatabaseFactory` con `AndroidSqliteDriver` + `SupportFactory` de SQLCipher.
-- [ ] `KeystoreManager` (clave maestra en Android Keystore, no exportable).
-- [ ] `PassphraseProvider` (PIN inicial; biometría más adelante).
-- [ ] `EnsureDefaultUserCommand` ejecutado al primer arranque.
-- [ ] Pantallas Compose:
-  - **Onboarding** (PIN inicial + idioma + moneda base).
-  - **Inicio**: resumen del mes (totales + saldo neto) + lista de transacciones recientes.
-  - **Registrar transacción** (formulario con tipo, monto, categoría, fecha, descripción, opcional fuente).
-  - **Categorías** (lista + crear/editar/borrar).
-  - **Estadísticas** (3 vistas: desglose gastos, desglose ingresos, evolución mensual).
-- [ ] Theming Material 3.
-- [ ] Smoke tests manuales en emulador.
+- [ ] **Pantalla Home definitiva:**
+  - Saludo con el `displayName` del usuario.
+  - Resumen del mes en curso (totales).
+  - "Últimos movimientos" (5 más recientes con scroll a la lista completa).
+  - Botón flotante "+" para registrar transacción rápida.
+  - Acceso rápido a las otras pantallas.
+- [ ] **Bottom navigation** o **Navigation Rail** con: Home, Transacciones, Estadísticas, Categorías, Ajustes.
+- [ ] **Pantalla "Ajustes":** editar perfil, cambiar PIN, cambiar idioma/moneda base (despacha `UpdateUserPreferencesCommand`).
+- [ ] **Theming Material 3 refinado:** paleta personalizada (no la system), tipografía, iconografía consistente.
+- [ ] **Estados vacíos** ilustrativos en cada pantalla (cuando no hay transacciones, no hay categorías, etc.).
+- [ ] **Estados de error** unificados con `Snackbar`.
+- [ ] **Loading skeletons** o indicadores en las queries pesadas.
+- [ ] **Accesibilidad:** content descriptions, contraste, tamaños tap mínimos.
+- [ ] **Validación del cifrado:** test instrumentado que verifica que `within_means.db` no es legible sin passphrase.
+- [ ] **Smoke tests manuales completos:** flujo completo desde primer arranque hasta dashboard funcional.
 
-**Entrega:** APK instalable en Android 5.0+; flujo completo de registrar movimientos durante un mes y ver estadísticas.
+**Entrega:** APK MVP entregable. App usable y atractiva con flujo coherente.
 
 ---
 
@@ -156,6 +250,15 @@ El MVP se da por entregado cuando se cumplen **todos**:
 5. **Reconstrucción:** `RebuildProjectionsCommand` regenera los read models correctamente desde el Event Store.
 6. **Sin deuda crítica:** no hay TODOs sin fecha; no hay `expect/actual` sin implementar.
 7. **Doc actualizada:** cualquier desviación del plan está reflejada en los `.md` correspondientes.
+
+---
+
+## Política sobre las pantallas en `apps/android`
+
+- **Cada pantalla vive en `apps/android/src/main/kotlin/within/means/android/ui/<context>/`**, no en el módulo KMP. Razón: el módulo de dominio (`:transactions`, `:categories`...) permanece KMP-portable; la UI es Android-specific (Compose Multiplatform aún no es objetivo en MVP, pero esta separación deja la puerta abierta a iOS / Desktop sin reescritura del dominio).
+- **Un `ViewModel` por pantalla**, recibe los buses por DI. Sin lógica de negocio.
+- **Sin estado mutable global.** El estado de UI vive en el `ViewModel`; el estado de dominio vive en SQLite + Event Store.
+- **Pantallas reactivas con `Flow`** donde aplique (`Query.asFlow().mapToList(Dispatchers.IO)`), no polling.
 
 ---
 

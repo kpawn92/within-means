@@ -4,6 +4,8 @@ Detalle de los cuatro contextos del MVP. Para el resto, ver [`future.md`](future
 
 Los modelos llevan ya los **metadatos enriquecidos** necesarios para escalar a KPIs profesionales sin migraciones futuras (justificado en [`../scalability/strategy.md`](../scalability/strategy.md)).
 
+**Política de UI:** cada contexto se entrega junto con una pantalla Compose mínima en `apps/android` que lo ejercita. Las pantallas viven en `apps/android/.../ui/<context>/`, **no** en el módulo KMP del contexto (que permanece portable). Detalle por fase en [`../roadmap/mvp.md`](../roadmap/mvp.md).
+
 ---
 
 ## `users`
