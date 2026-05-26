@@ -10,7 +10,9 @@ Empezamos respondiendo dos preguntas básicas — _¿de dónde viene el dinero?_
 
 ## Estado actual
 
-Fase de diseño y documentación. Sin código aún. Plan de trabajo en [doc/roadmap/mvp.md](doc/roadmap/mvp.md).
+**Fase 1 — Bootstrap** completada: el repo compila y empaqueta un APK Android que arranca en emulador Pixel 9 (Android 14+, minSdk 21). El placeholder muestra "within means / Fase 1 — Bootstrap" en una pantalla Compose vacía.
+
+**Próximo:** Fase 2 — kernel `:shared` (Aggregate, ValueObject, buses, Event Store, Criteria, UUID). Detalle en [doc/roadmap/mvp.md](doc/roadmap/mvp.md).
 
 ## Stack
 

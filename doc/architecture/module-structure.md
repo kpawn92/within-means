@@ -204,6 +204,23 @@ sqldelight {
 
 **Por qué una DB por módulo y no una global:** SQLDelight no soporta fusionar schemas declarados en módulos Gradle separados. Si todos los `.sq` viven en un único módulo se pierde el encapsulamiento del contexto. La solución idiomática es **una clase DB por contexto** que apunta al **mismo archivo SQLite físico** desde el driver. Ver detalle en [`../persistence/overview.md`](../persistence/overview.md#una-db-por-contexto).
 
+## Configuration cache: deshabilitada por ahora
+
+En `gradle.properties` está fijado:
+
+```properties
+org.gradle.configuration-cache=false
+```
+
+**Razón:** el Kotlin Multiplatform plugin tiene fallos conocidos de serialización al guardar el estado del classpath de `BuildToolsApiClasspathEntrySnapshotTransform` cuando se combina con AGP + SQLDelight. Síntoma observado durante la Fase 1:
+
+```
+Configuration cache state could not be cached: field `provider` of
+`ProviderBackedFileCollectionSpec` ... found in `KotlinCompile$ClasspathSnapshotProperties`
+```
+
+**Cuándo reactivar:** cuando madure el soporte (probable Kotlin 2.2+ o AGP 8.9+). Sin config-cache seguimos teniendo `org.gradle.caching=true` (build cache) y `org.gradle.parallel=true`, suficientes para tiempos razonables.
+
 ### `:apps:android`
 
 Aplicación Android con plugin `com.android.application` y Compose Multiplatform.

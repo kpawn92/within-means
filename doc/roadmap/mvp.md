@@ -4,16 +4,25 @@ Fases del MVP. Objetivo: app Android que permite **registrar ingresos y gastos d
 
 Cada fase entrega un incremento verificable. Las fases posteriores al MVP están en [`post-mvp.md`](post-mvp.md).
 
-## Fase 1 — Bootstrap del repositorio
+## Fase 1 — Bootstrap del repositorio ✅
 
-- [ ] `settings.gradle.kts` con módulos (`:shared`, contextos del MVP, `:apps:android`).
-- [ ] `build.gradle.kts` raíz con plugins comunes.
-- [ ] `gradle/libs.versions.toml` (version catalog).
-- [ ] `.gitignore`, `.editorconfig`.
-- [ ] Wrapper de Gradle.
-- [ ] `./gradlew tasks` compila sin errores.
+- [x] `settings.gradle.kts` con módulos (`:shared`, contextos del MVP, `:apps:android`).
+- [x] `build.gradle.kts` raíz con plugins comunes.
+- [x] `gradle/libs.versions.toml` (version catalog).
+- [x] `.gitignore`, `.editorconfig`.
+- [x] `gradle.properties` con `configuration-cache=false` (incompatibilidad KMP+AGP+SQLDelight, ver [`../architecture/module-structure.md`](../architecture/module-structure.md#configuration-cache-deshabilitada-por-ahora)).
+- [x] Wrapper de Gradle (8.11.1 con `networkTimeout=120000` + `retries=3`).
+- [x] Esqueletos `build.gradle.kts` por módulo (`:shared`, `:users`, `:categories`, `:transactions`, `:analytics`) + `AndroidManifest.xml` vacío.
+- [x] `apps/android` con `MainActivity` Compose placeholder ("within means / Fase 1 — Bootstrap").
+- [x] `local.properties` con `sdk.dir` (gitignorado, per-máquina).
+- [x] **Verificado end-to-end:**
+  - `./gradlew help` → BUILD SUCCESSFUL.
+  - `./gradlew projects` → lista los 6 módulos en 7s.
+  - `./gradlew :shared:tasks` → resuelve plugins KMP+Android+Compose+SQLDelight en 6s.
+  - `./gradlew :apps:android:assembleDebug` → APK debug 22.9 MB en 1m 44s.
+  - `adb install` + lanzamiento en emulador Pixel 9 → app arranca correctamente.
 
-**Entrega:** repositorio que compila vacío.
+**Entrega:** APK instalable que muestra el placeholder; toda la cadena de build funciona end-to-end.
 
 ---
 
