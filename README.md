@@ -10,9 +10,12 @@ Empezamos respondiendo dos preguntas básicas — _¿de dónde viene el dinero?_
 
 ## Estado actual
 
-**Fase 1 — Bootstrap** completada: el repo compila y empaqueta un APK Android que arranca en emulador Pixel 9 (Android 14+, minSdk 21). El placeholder muestra "within means / Fase 1 — Bootstrap" en una pantalla Compose vacía.
+**Fase 1 — Bootstrap** y **Fase 2 — Kernel `:shared`** completadas:
 
-**Próximo:** Fase 2 — kernel `:shared` (Aggregate, ValueObject, buses, Event Store, Criteria, UUID). Detalle en [doc/roadmap/mvp.md](doc/roadmap/mvp.md).
+- Fase 1: el repo compila y empaqueta un APK Android que arranca en emulador Pixel 9 (Android 14+, minSdk 21).
+- Fase 2: kernel DDD/CQRS completo en `:shared` — `AggregateRoot`, value objects, `Identifier` con validación UUID, `Money` (USD/EUR/CUP), buses `Command`/`Query`/`Event` con in-memory impls, **Event Store** sobre SQLDelight (`DomainEvents.sq`), `EventStoreBackedEventBus` con persist-then-dispatch, `Criteria` → SQL parametrizado con whitelist. ~42 casos de test, todos verdes en `jvmTest` y `androidUnitTest`.
+
+**Próximo:** Fase 3 — contexto `users` + pantalla de Onboarding (PIN + idioma + moneda) en Android. Detalle en [doc/roadmap/mvp.md](doc/roadmap/mvp.md).
 
 ## Stack
 

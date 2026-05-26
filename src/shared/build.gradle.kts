@@ -15,6 +15,9 @@ kotlin {
             }
         }
     }
+    // JVM target enabled solely for fast unit tests with JdbcSqliteDriver.IN_MEMORY.
+    // The production Android app does not depend on this target.
+    jvm()
 
     sourceSets {
         commonMain.dependencies {
@@ -36,6 +39,9 @@ kotlin {
         }
         androidMain.dependencies {
             implementation(libs.sqldelight.driver.android)
+        }
+        jvmTest.dependencies {
+            implementation(libs.sqldelight.driver.sqlite)
         }
     }
 }

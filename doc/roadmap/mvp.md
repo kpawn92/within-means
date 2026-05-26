@@ -34,47 +34,63 @@ Las fases posteriores al MVP están en [`post-mvp.md`](post-mvp.md).
 
 ---
 
-## Fase 2 — Kernel `:shared` (sin UI)
+## Fase 2 — Kernel `:shared` (sin UI) ✅
 
 Excepción a la regla de "una pantalla por fase": el kernel no tiene UI propia, sólo provee las piezas que usarán los demás. Sigue el patrón estricto del esqueleto Java DDD.
 
 ### Dominio compartido (`commonMain/.../shared/domain/`)
 
-- [ ] `AggregateRoot` con `record(event)` y `pullDomainEvents()`.
-- [ ] `ValueObject`, `StringValueObject`, `IntValueObject`, `DateValueObject`.
-- [ ] `Identifier` (validación UUID con regex).
-- [ ] `UuidGenerator` (interfaz).
-- [ ] `money/`: `Money(cents: Long, currency: Currency)` inmutable con operaciones; `Currency` (enum ISO 4217 reducido a las relevantes).
-- [ ] `bus/command/{Command, CommandBus, CommandHandler}`.
-- [ ] `bus/query/{Query, QueryBus, QueryHandler, Response}`.
-- [ ] `bus/event/{DomainEvent, EventBus, DomainEventSubscriber, DomainEventStore}`.
-- [ ] `criteria/{Criteria, Filter, Filters, Order, FilterField, FilterOperator, FilterValue, OrderType}`.
+- [x] `AggregateRoot` con `record(event)` y `pullDomainEvents()`.
+- [x] `ValueObject`, `StringValueObject`, `IntValueObject`, `DateValueObject`.
+- [x] `Identifier` (validación UUID con regex).
+- [x] `UuidGenerator` (interfaz).
+- [x] `money/`: `Money(cents: Long, currency: Currency)` inmutable con operaciones; `Currency` (enum **USD / EUR / CUP**).
+- [x] `bus/command/{Command, CommandBus, CommandHandler}`.
+- [x] `bus/query/{Query, QueryBus, QueryHandler, Response}`.
+- [x] `bus/event/{DomainEvent, EventBus, DomainEventSubscriber, DomainEventStore, DomainEventRecord}`.
+- [x] `criteria/{Criteria, Filter, Filters, Order, FilterField, FilterOperator, FilterValue, OrderType, OrderField}`.
 
 ### Infraestructura compartida (`commonMain/.../shared/infrastructure/`)
 
-- [ ] `RealUuidGenerator` (con `com.benasher44:uuid`).
-- [ ] `InMemoryCommandBus`, `InMemoryQueryBus`, `InMemoryEventBus`.
-- [ ] `SqlDelightDomainEventStore` (persistencia a `domain_events.sq`).
-- [ ] `EventStoreBackedEventBus` (envoltorio: persiste y distribuye).
-- [ ] `DomainEventJsonSerializer` (kotlinx.serialization).
-- [ ] `SqlCriteriaTranslator` (Criteria → SQL parametrizado).
+- [x] `RealUuidGenerator` (con `com.benasher44:uuid`).
+- [x] `InMemoryCommandBus`, `InMemoryQueryBus`, `InMemoryEventBus`.
+- [x] `SqlDelightDomainEventStore` (persistencia a `DomainEvents.sq`).
+- [x] `EventStoreBackedEventBus` (persist-then-dispatch).
+- [x] `DomainEventJsonSerializer` (kotlinx.serialization con registry por nombre de evento).
+- [x] `SqlCriteriaTranslator` (Criteria → SQL parametrizado con whitelist de columnas y validación de nombre de tabla).
 
 ### Persistencia
 
-- [ ] `src/shared/sqldelight/within/means/shared/db/domain_events.sq`.
-- [ ] Configuración del plugin SQLDelight: una clase DB por módulo (`SharedDatabase`, y luego `UsersDatabase`, `CategoriesDatabase`, etc.) compartiendo el archivo físico `within_means.db`. `verifyMigrations = true` en todas.
+- [x] `src/shared/sqldelight/within/means/shared/db/DomainEvents.sq` (tabla + índices + 6 queries: `append`, `findById`, `findByAggregate`, `findByName`, `findAllSince`, `findAll`).
+- [x] `verifyMigrations = true` en el bloque sqldelight.
+- [x] **Decisión técnica registrada:** Los archivos `.sq` se nombran en PascalCase (no snake_case) para que SQLDelight genere la propiedad de queries en camelCase (`domainEventsQueries`).
 
-### Tests (`commonTest`)
+### Build
 
-- [ ] Tests unitarios de los tres buses con handlers stub.
-- [ ] Tests de `Identifier` (UUID válido vs inválido).
-- [ ] Tests de `Money` (operaciones, igualdad, currency mismatch).
-- [ ] Tests de `Criteria` y `SqlCriteriaTranslator` (filtros, orden, paginación, sanitización).
-- [ ] Tests del Event Store con `JdbcSqliteDriver.IN_MEMORY` (append, findByAggregate, findByName, findAllSince).
-- [ ] Tests del `EventStoreBackedEventBus` (persiste primero, luego notifica subscribers).
-- [ ] Tests del `DomainEventJsonSerializer` (ida y vuelta).
+- [x] Target `jvm()` añadido a `:shared` exclusivamente para tests con `JdbcSqliteDriver.IN_MEMORY` (no se usa en producción Android).
 
-**Entrega:** kernel `:shared` testeado al 100%; los buses dispatch/ask funcionan, los eventos se persisten y se entregan a subscribers. `./gradlew :shared:test` pasa.
+### Tests
+
+- [x] **commonTest** (corre en Android Debug/Release + JVM):
+  - `IdentifierTest` — 5 casos (UUID válido/inválido, igualdad por tipo concreto).
+  - `MoneyTest` — 9 casos (suma, resta, multiplicación, negación, abs, comparación, currency mismatch, igualdad incluye currency, lookup por código).
+  - `AggregateRootTest` — 2 casos (record + pull, pull clears buffer).
+  - `InMemoryCommandBusTest` — 3 casos (dispatch correcto, falla sin handler, rechaza duplicados).
+  - `InMemoryQueryBusTest` — 2 casos (routing, falla sin handler).
+  - `InMemoryEventBusTest` — 1 caso multievento (delivery selectivo por tipo).
+  - `SqlCriteriaTranslatorTest` — 8 casos (vacío, filtros simples y combinados, CONTAINS con `LIKE`, orden+limit+offset, columna no permitida, tabla con SQL injection).
+  - `RealUuidGeneratorTest` — 2 casos.
+- [x] **jvmTest** (Event Store, requiere driver SQLite):
+  - `SqlDelightDomainEventStoreTest` — 7 casos (append, findById, appendAll transaccional, findByAggregate, findByName, findAllSince, empty append).
+  - `EventStoreBackedEventBusTest` — 3 casos (persist-then-dispatch, empty publish no-op, serializer round-trip).
+
+### Verificado
+
+- `./gradlew :shared:test` → BUILD SUCCESSFUL en 23s (Android Debug + Release).
+- `./gradlew :shared:jvmTest` → BUILD SUCCESSFUL en 17s (incluye Event Store).
+- ~42 casos en total, 0 fallos.
+
+**Entrega:** kernel `:shared` testeado; los buses dispatch/ask funcionan, los eventos se persisten en el Event Store y se entregan a subscribers. Listo para construir contextos sobre él.
 
 ---
 

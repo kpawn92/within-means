@@ -1,0 +1,33 @@
+CREATE TABLE domain_events (
+    event_id        TEXT NOT NULL PRIMARY KEY,
+    event_name      TEXT NOT NULL,
+    aggregate_id    TEXT NOT NULL,
+    aggregate_type  TEXT NOT NULL,
+    occurred_on     TEXT NOT NULL,
+    payload_json    TEXT NOT NULL,
+    schema_version  INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE INDEX idx_events_aggregate ON domain_events(aggregate_id, occurred_on);
+CREATE INDEX idx_events_name      ON domain_events(event_name, occurred_on);
+CREATE INDEX idx_events_time      ON domain_events(occurred_on);
+
+append:
+INSERT INTO domain_events(
+    event_id, event_name, aggregate_id, aggregate_type, occurred_on, payload_json, schema_version
+) VALUES (?, ?, ?, ?, ?, ?, ?);
+
+findById:
+SELECT * FROM domain_events WHERE event_id = ?;
+
+findByAggregate:
+SELECT * FROM domain_events WHERE aggregate_id = ? ORDER BY occurred_on ASC;
+
+findByName:
+SELECT * FROM domain_events WHERE event_name = ? ORDER BY occurred_on ASC;
+
+findAllSince:
+SELECT * FROM domain_events WHERE occurred_on >= ? ORDER BY occurred_on ASC;
+
+findAll:
+SELECT * FROM domain_events ORDER BY occurred_on ASC;
