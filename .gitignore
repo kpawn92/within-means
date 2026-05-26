@@ -2,7 +2,6 @@
 .gradle/
 build/
 **/build/
-!**/src/**/build/
 gradle-app.setting
 !gradle-wrapper.jar
 !gradle-wrapper.properties
@@ -19,6 +18,8 @@ captures/
 
 # macOS
 .DS_Store
+.AppleDouble
+.LSOverride
 
 # Windows
 Thumbs.db
@@ -30,6 +31,8 @@ Desktop.ini
 
 # Logs
 *.log
+hs_err_pid*
+*.hprof
 
 # Android
 *.apk
@@ -41,11 +44,12 @@ bin/
 gen/
 out/
 release/
+.cxx/
 
 # Kotlin
 .kotlin/
 
-# SQLDelight generated
+# SQLDelight: schema cache local (no se versiona; se regenera de los .sq)
 **/sqldelight/databases/
 
 # Local secrets / signing
@@ -57,3 +61,6 @@ signing.properties
 # Test reports
 **/test-results/
 **/reports/
+
+# Native libs cache
+**/*.so.tmp
