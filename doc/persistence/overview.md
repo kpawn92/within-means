@@ -8,11 +8,13 @@ Este documento fija las decisiones técnicas de persistencia y cómo se cablean 
 |---|---|
 | Motor | **SQLDelight** (multiplataforma, type-safe, SQL real). |
 | Driver Android | `AndroidSqliteDriver` con **SQLCipher** (`net.zetetic:sqlcipher-android`). |
-| Driver Desktop (Fase 10) | `JdbcSqliteDriver` con `sqlcipher-jdbc` o equivalente JVM. |
+| Driver Desktop (post-MVP) | `JdbcSqliteDriver` con `sqlcipher-jdbc` o equivalente JVM. |
 | Driver tests | `JdbcSqliteDriver` in-memory **sin cifrado** (la seguridad se testea aparte). |
 | Esquema | **Un `.sq` por bounded context.** Sin foreign keys cross-context. |
 | IDs | **UUID v4** generados en cliente vía `UuidGenerator`. |
-| Cifrado at-rest | **SQLCipher (AES-256)** desde la Fase 4. Passphrase derivada de Android Keystore + PIN/biometría. |
+| Cifrado at-rest | **SQLCipher (AES-256)** desde la Fase 7 (cableado Android). Passphrase derivada de Android Keystore + PIN/biometría. |
+| Event Store | Tabla `domain_events` en `:shared` desde la Fase 2. Persiste todos los eventos publicados. |
+| Snapshots periódicos | Tablas materializadas en `analytics` para cierres mensuales y bases de KPIs históricos (post-MVP). |
 | Migraciones | Archivos `.sqm` versionados por contexto, ejecutados por SQLDelight. |
 | Reactividad | `Query.asFlow().mapToList(Dispatchers.IO)` para observar cambios desde la UI. |
 | Key-value (preferencias) | **Multiplatform Settings**, solo para UI state (tema, idioma, último filtro). Nunca para datos de dominio. |
@@ -340,6 +342,154 @@ object SqlCriteriaTranslator {
 
 Esto replica el `CriteriaToSqlConverter` del esqueleto Java. Los nombres de columna permitidos por contexto se configuran con un `FilterFieldMapper` por agregado para no exponer SQL crudo a la UI.
 
+## Event Store
+
+Tabla en `:shared` que registra **todos** los eventos de dominio publicados, sirviendo de fuente de verdad para reconstruir cualquier proyección, auditar y, en el futuro, sincronizar.
+
+### Esquema
+
+```sql
+-- src/shared/sqldelight/within/means/shared/db/domain_events.sq
+CREATE TABLE domain_events (
+    event_id        TEXT NOT NULL PRIMARY KEY,        -- UUID v4
+    event_name      TEXT NOT NULL,                    -- "transactions.registered"
+    aggregate_id    TEXT NOT NULL,
+    aggregate_type  TEXT NOT NULL,                    -- "Transaction", "Category", ...
+    occurred_on     TEXT NOT NULL,                    -- ISO-8601 Instant
+    payload_json    TEXT NOT NULL,
+    schema_version  INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE INDEX idx_events_aggregate ON domain_events(aggregate_id, occurred_on);
+CREATE INDEX idx_events_name      ON domain_events(event_name, occurred_on);
+CREATE INDEX idx_events_time      ON domain_events(occurred_on);
+
+append:
+INSERT INTO domain_events VALUES ?;
+
+findByAggregate:
+SELECT * FROM domain_events WHERE aggregate_id = ? ORDER BY occurred_on;
+
+findByName:
+SELECT * FROM domain_events WHERE event_name = ? ORDER BY occurred_on;
+
+findAllSince:
+SELECT * FROM domain_events WHERE occurred_on >= ? ORDER BY occurred_on;
+```
+
+### Cómo se publica un evento (flujo completo)
+
+```kotlin
+// shared/infrastructure/bus/event/EventStoreBackedEventBus.kt
+class EventStoreBackedEventBus(
+    private val store: DomainEventStore,
+    private val subscribers: List<DomainEventSubscriber<*>>,
+    private val serializer: DomainEventJsonSerializer,
+) : EventBus {
+
+    override suspend fun publish(events: List<DomainEvent>) {
+        store.append(events.map { serializer.toRecord(it) })   // persistencia primero
+        events.forEach { event ->
+            subscribers
+                .filter { it.subscribesTo(event::class) }
+                .forEach { it.consume(event) }
+        }
+    }
+}
+```
+
+**Orden importa:** primero se persiste, luego se notifica. Si un subscriber falla, los demás siguen ejecutando, y el evento ya está en el store para reintento.
+
+### Serialización
+
+Cada `DomainEvent` implementa `toPrimitives()`/`fromPrimitives()` (patrón del esqueleto Java) o, alternativamente, se usa `kotlinx.serialization` con `@Serializable`. Decisión: **`kotlinx.serialization`** por idiomático en Kotlin.
+
+```kotlin
+@Serializable
+data class TransactionRegistered(
+    override val eventId: String,
+    override val aggregateId: String,
+    override val occurredOn: Instant,
+    val accountId: String? = null,           // opcional en MVP
+    val categoryId: String,
+    val amountCents: Long,
+    val currency: String,
+    val type: String,
+    val date: String,
+    val description: String,
+    val incomeSource: String? = null,
+    val originRef: String? = null,
+    val recurringRef: String? = null,
+) : DomainEvent {
+    override val eventName: String = "transactions.registered"
+}
+```
+
+### Reconstrucción de proyecciones
+
+Comando administrativo `RebuildProjectionsCommand` que:
+
+1. Borra las tablas materializadas (read models) del contexto destino.
+2. Lee eventos del store desde el inicio.
+3. Re-publica cada evento al subscriber correspondiente.
+4. Las proyecciones se reconstruyen.
+
+Operación cara pero rara; útil al introducir un read model nuevo retroactivo.
+
+### Versionado de eventos
+
+Si un evento cambia de forma incompatible:
+
+- Se mantiene el evento original con `schema_version = 1`.
+- Se crea `<EventName>V2` con `schema_version = 2`.
+- El deserializador inspecciona `schema_version` y migra v1 → v2 al cargar.
+- Nunca se reescriben eventos del pasado.
+
+## Snapshots periódicos (`analytics`)
+
+Patrón complementario al Event Store: para KPIs históricos caros (CAGR, varianza, runway, dashboard) se materializan **snapshots** mensuales inmutables.
+
+### Esquema (ejemplo simplificado, post-MVP)
+
+```sql
+-- src/analytics/sqldelight/within/means/analytics/db/monthly_close.sq
+CREATE TABLE monthly_close (
+    period              TEXT NOT NULL PRIMARY KEY,    -- "2026-05"
+    total_income_cents  INTEGER NOT NULL,
+    total_expenses_cents INTEGER NOT NULL,
+    net_saving_cents    INTEGER NOT NULL,
+    fixed_expenses_cents INTEGER NOT NULL,
+    variable_expenses_cents INTEGER NOT NULL,
+    essential_expenses_cents INTEGER NOT NULL,
+    discretionary_expenses_cents INTEGER NOT NULL,
+    burn_rate_3m_cents  INTEGER,
+    snapshot_json       TEXT NOT NULL,                -- detalle por categoría
+    closed_at           TEXT NOT NULL
+);
+```
+
+### Generación
+
+- **Trigger:** comando `CloseMonthCommand(period)` ejecutado:
+  - Manualmente desde la UI ("cerrar mes").
+  - Automáticamente al abrir la app si hay meses pasados sin cerrar.
+- **Naturaleza:** un snapshot **no se modifica** una vez cerrado, salvo recálculo explícito vía `RecomputeMonthCommand`.
+
+### Por qué snapshots y no recalcular siempre
+
+- Las queries de KPIs históricos (12-24 meses) se vuelven `O(1)` lectura de N filas.
+- CAGR, variabilidad, tendencias mensuales: trivial sobre snapshots.
+- Las proyecciones (`forecasts`) leen snapshots; no reagregan el ledger completo.
+
+### Coexistencia con el Event Store
+
+| Origen | Para qué |
+|---|---|
+| Event Store (eventos crudos) | Reconstruir proyecciones, auditoría, sync futura. |
+| Snapshots mensuales | Lecturas rápidas de KPIs históricos, dashboard. |
+
+Si un snapshot se corrompe, se recalcula desde el Event Store. El Event Store es la fuente de verdad; los snapshots son cache.
+
 ## Migraciones
 
 - Archivos `.sqm` numerados consecutivamente dentro de `migrations/`.
@@ -397,4 +547,9 @@ Solo para validar el cifrado: instalan la app en emulador, crean DB cifrada, ver
 | Row ↔ Aggregate mapper | `infrastructure` del contexto | `<X>RowMapper.kt` |
 | Repo InMemory (tests) | `infrastructure` del contexto | `InMemory<X>Repository.kt` |
 | `Criteria` → SQL | `shared/infrastructure` | `SqlCriteriaTranslator.kt` |
+| Event Store (tabla) | `shared` recursos | `src/shared/sqldelight/.../domain_events.sq` |
+| Event Store (impl) | `shared/infrastructure` | `SqlDelightDomainEventStore.kt` |
+| EventBus persistente | `shared/infrastructure` | `EventStoreBackedEventBus.kt` |
+| Serializador de eventos | `shared/infrastructure` | `DomainEventJsonSerializer.kt` (kotlinx.serialization) |
+| Snapshots mensuales | `analytics` recursos | `src/analytics/sqldelight/.../monthly_close.sq` (post-MVP) |
 | Multiplatform Settings (UI prefs) | `apps/<app>` | `Preferences.kt` |

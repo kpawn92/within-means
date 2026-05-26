@@ -68,7 +68,7 @@ application/create/
 
 Implementaciones concretas. Es donde varía entre plataformas en KMP.
 
-- **Persistencia.** `SqlDelight<Aggregate>Repository` implementa la interfaz del dominio. Para tests, `InMemory<Aggregate>Repository`. El detalle completo (SQLCipher, mapping fila↔agregado, `Criteria` → SQL) está en [persistence.md](persistence.md).
+- **Persistencia.** `SqlDelight<Aggregate>Repository` implementa la interfaz del dominio. Para tests, `InMemory<Aggregate>Repository`. El detalle completo (SQLCipher, mapping fila↔agregado, `Criteria` → SQL) está en [persistence/overview.md](../persistence/overview.md).
 - **Source sets por plataforma.** La interfaz del repo en `commonMain`. La implementación con driver SQLDelight vive en `commonMain` (lógica) y los drivers concretos en `androidMain` (y `desktopMain` en la Fase 10).
 - **Adaptadores externos.** Cliente HTTP, serializadores, etc.
 
@@ -93,18 +93,27 @@ src/shared/
 │   ├── StringValueObject.kt
 │   ├── IntValueObject.kt
 │   ├── DateValueObject.kt
+│   ├── UuidGenerator.kt
+│   ├── money/{Money,Currency}.kt
 │   ├── bus/
 │   │   ├── command/{Command,CommandBus,CommandHandler}.kt
 │   │   ├── query/{Query,QueryBus,QueryHandler,Response}.kt
-│   │   └── event/{DomainEvent,EventBus,DomainEventSubscriber}.kt
+│   │   └── event/{DomainEvent,EventBus,DomainEventSubscriber,DomainEventStore}.kt
 │   └── criteria/{Criteria,Filter,Filters,Order,FilterField,FilterOperator,FilterValue,OrderType}.kt
-└── infrastructure/
-    ├── bus/
-    │   ├── command/InMemoryCommandBus.kt
-    │   ├── query/InMemoryQueryBus.kt
-    │   └── event/InMemoryEventBus.kt
-    ├── persistence/SqlDelightRepository.kt   (base helpers)
-    └── serialization/DomainEventJsonSerializer.kt
+├── infrastructure/
+│   ├── RealUuidGenerator.kt
+│   ├── bus/
+│   │   ├── command/InMemoryCommandBus.kt
+│   │   ├── query/InMemoryQueryBus.kt
+│   │   ├── event/InMemoryEventBus.kt
+│   │   └── event/EventStoreBackedEventBus.kt
+│   ├── persistence/
+│   │   ├── SqlDelightRepository.kt              (base helpers)
+│   │   ├── SqlCriteriaTranslator.kt             (Criteria -> SQL)
+│   │   └── SqlDelightDomainEventStore.kt        (Event Store)
+│   └── serialization/DomainEventJsonSerializer.kt
+└── sqldelight/within/means/shared/db/
+    └── domain_events.sq                         (tabla del Event Store)
 ```
 
 ## CQRS con buses
@@ -147,15 +156,41 @@ class InMemoryCommandBus(
 
 El cableado vive en un módulo Koin por contexto (`UsersModule`, `TransactionsModule`...), agregado en un `BusModule` en `apps/`. Equivalente conceptual al `MoocBackendServerConfiguration` del esqueleto.
 
-## Eventos de dominio
+## Eventos de dominio y Event Store
 
-Los agregados registran eventos en `AggregateRoot.record(event)`. El repositorio, al persistir, los extrae con `pullDomainEvents()` y los entrega al `EventBus`, que los distribuye a los `DomainEventSubscriber` registrados.
+Los agregados registran eventos en `AggregateRoot.record(event)`. El repositorio, al persistir, los extrae con `pullDomainEvents()` y los entrega al `EventBus`, que (a) **los persiste en el Event Store** y (b) los distribuye a los `DomainEventSubscriber` registrados.
 
-Casos de uso típicos:
+```
+AggregateRoot.record(event)
+        |
+        v
+Repository.save(aggregate)
+        |
+        v
+EventBus.publish(events)
+        |
+        +-> DomainEventStore.append(events)   # persistencia (tabla domain_events)
+        |
+        +-> [subscriber 1].consume(event)     # proyecciones, side effects
+        +-> [subscriber 2].consume(event)
+        +-> ...
+```
 
-- `TransactionRegistered` -> `budgets` actualiza el consumo del presupuesto.
-- `TransactionRegistered` -> `analytics` actualiza la proyección mensual.
-- `BudgetExceeded` -> `users` envía notificación (futuro).
+### Por qué un Event Store desde el inicio
+
+- **Reconstruir proyecciones desde cero.** Cuando se añade un KPI nuevo retroactivo (p. ej. Coeficiente de Engel sobre histórico), basta con reproducir los eventos del store en el nuevo subscriber.
+- **Auditoría completa.** Quedan registrados todos los cambios con su `occurred_on`, `aggregate_id` y payload.
+- **Stress tests "what-if".** Reproducir eventos pasados con variaciones (caída de ingreso, subida de gastos) sin tocar datos reales.
+- **Base de sincronización futura.** Push/pull de eventos entre dispositivos para la futura sincronización familiar.
+
+Detalle del esquema y serialización en [`../persistence/overview.md`](../persistence/overview.md#event-store).
+
+### Casos de uso típicos
+
+- `TransactionRegistered` → `analytics` actualiza `MonthlySummary` y `CategoryBreakdown`.
+- `TransactionRegistered` → `budgets` actualiza el consumo (post-MVP).
+- `UserDefaultCreated` → `categories` siembra las categorías por defecto.
+- `BudgetExceeded` → notificación (futuro).
 
 ## Criteria pattern
 
