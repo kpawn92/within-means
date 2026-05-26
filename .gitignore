@@ -1,0 +1,59 @@
+# Gradle
+.gradle/
+build/
+**/build/
+!**/src/**/build/
+gradle-app.setting
+!gradle-wrapper.jar
+!gradle-wrapper.properties
+.gradletasknamecache
+
+# IntelliJ / Android Studio
+.idea/
+*.iml
+*.iws
+*.ipr
+local.properties
+captures/
+.navigation/
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# Logs
+*.log
+
+# Android
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+bin/
+gen/
+out/
+release/
+
+# Kotlin
+.kotlin/
+
+# SQLDelight generated
+**/sqldelight/databases/
+
+# Local secrets / signing
+*.keystore
+*.jks
+keystore.properties
+signing.properties
+
+# Test reports
+**/test-results/
+**/reports/

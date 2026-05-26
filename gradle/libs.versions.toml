@@ -1,0 +1,94 @@
+[versions]
+# Build tooling
+kotlin = "2.1.10"
+agp = "8.7.2"
+compose-multiplatform = "1.7.3"
+sqldelight = "2.0.2"
+ksp = "2.1.10-1.0.29"
+
+# Kotlinx
+kotlinx-coroutines = "1.9.0"
+kotlinx-datetime = "0.6.1"
+kotlinx-serialization = "1.7.3"
+
+# Android
+androidx-activity-compose = "1.9.3"
+androidx-lifecycle = "2.8.7"
+androidx-sqlite = "2.4.0"
+desugar-jdk-libs = "2.1.4"
+
+# Crypto / persistence
+sqlcipher-android = "4.6.1"
+
+# DI
+koin = "4.0.1"
+
+# UUID
+benasher44-uuid = "0.8.4"
+
+# Settings
+multiplatform-settings = "1.2.0"
+
+# Logging
+kermit = "2.0.5"
+
+# Tests
+kotest = "5.9.1"
+mockk = "1.13.13"
+turbine = "1.2.0"
+
+[libraries]
+# Kotlinx
+kotlinx-coroutines-core    = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+kotlinx-coroutines-test    = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
+kotlinx-datetime           = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+
+# SQLDelight
+sqldelight-runtime         = { module = "app.cash.sqldelight:runtime", version.ref = "sqldelight" }
+sqldelight-coroutines      = { module = "app.cash.sqldelight:coroutines-extensions", version.ref = "sqldelight" }
+sqldelight-driver-android  = { module = "app.cash.sqldelight:android-driver", version.ref = "sqldelight" }
+sqldelight-driver-sqlite   = { module = "app.cash.sqldelight:sqlite-driver", version.ref = "sqldelight" }
+sqldelight-primitive-adapters = { module = "app.cash.sqldelight:primitive-adapters", version.ref = "sqldelight" }
+
+# Crypto / persistence (Android)
+sqlcipher-android          = { module = "net.zetetic:sqlcipher-android", version.ref = "sqlcipher-android" }
+androidx-sqlite            = { module = "androidx.sqlite:sqlite", version.ref = "androidx-sqlite" }
+androidx-desugar-jdk-libs  = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugar-jdk-libs" }
+
+# DI
+koin-core                  = { module = "io.insert-koin:koin-core", version.ref = "koin" }
+koin-android               = { module = "io.insert-koin:koin-android", version.ref = "koin" }
+koin-compose               = { module = "io.insert-koin:koin-compose", version.ref = "koin" }
+koin-compose-viewmodel     = { module = "io.insert-koin:koin-compose-viewmodel", version.ref = "koin" }
+
+# Android UI
+androidx-activity-compose      = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity-compose" }
+androidx-lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "androidx-lifecycle" }
+androidx-lifecycle-viewmodel   = { module = "androidx.lifecycle:lifecycle-viewmodel-ktx", version.ref = "androidx-lifecycle" }
+
+# UUID
+benasher44-uuid            = { module = "com.benasher44:uuid", version.ref = "benasher44-uuid" }
+
+# Settings
+multiplatform-settings     = { module = "com.russhwolf:multiplatform-settings", version.ref = "multiplatform-settings" }
+
+# Logging
+kermit                     = { module = "co.touchlab:kermit", version.ref = "kermit" }
+
+# Tests
+kotest-assertions-core     = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
+kotest-framework-engine    = { module = "io.kotest:kotest-framework-engine", version.ref = "kotest" }
+mockk                      = { module = "io.mockk:mockk", version.ref = "mockk" }
+turbine                    = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
+
+[plugins]
+kotlin-multiplatform       = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlin-android             = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-serialization       = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+kotlin-compose             = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+android-application        = { id = "com.android.application", version.ref = "agp" }
+android-library            = { id = "com.android.library", version.ref = "agp" }
+jetbrains-compose          = { id = "org.jetbrains.compose", version.ref = "compose-multiplatform" }
+sqldelight                 = { id = "app.cash.sqldelight", version.ref = "sqldelight" }
+ksp                        = { id = "com.google.devtools.ksp", version.ref = "ksp" }

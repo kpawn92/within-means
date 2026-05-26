@@ -179,11 +179,21 @@ kotlin {
     }
 }
 
-// Bloque sqldelight presente en cada módulo de contexto y en :shared:
+// Bloque sqldelight: cada módulo declara SU PROPIA clase DB.
+// Comparten el mismo archivo físico SQLite (within_means.db) pero cada
+// contexto solo accede a sus tablas a través de su clase. Cross-context
+// se hace por buses (EventBus, QueryBus), nunca por SQL.
+//
+// Nombres por módulo:
+//   :shared        -> SharedDatabase        (Event Store + tablas comunes)
+//   :users         -> UsersDatabase
+//   :categories    -> CategoriesDatabase
+//   :transactions  -> TransactionsDatabase
+//   :analytics     -> AnalyticsDatabase
 sqldelight {
     databases {
-        create("WithinMeansDatabase") {
-            packageName.set("within.means.db")
+        create("<Context>Database") {                // p. ej. UsersDatabase
+            packageName.set("within.means.<context>.db")
             srcDirs.setFrom("src/commonMain/sqldelight")
             schemaOutputDirectory.set(file("src/commonMain/sqldelight/databases"))
             verifyMigrations.set(true)
@@ -191,6 +201,8 @@ sqldelight {
     }
 }
 ```
+
+**Por qué una DB por módulo y no una global:** SQLDelight no soporta fusionar schemas declarados en módulos Gradle separados. Si todos los `.sq` viven en un único módulo se pierde el encapsulamiento del contexto. La solución idiomática es **una clase DB por contexto** que apunta al **mismo archivo SQLite físico** desde el driver. Ver detalle en [`../persistence/overview.md`](../persistence/overview.md#una-db-por-contexto).
 
 ### `:apps:android`
 

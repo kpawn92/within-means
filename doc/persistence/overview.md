@@ -86,26 +86,60 @@ LIMIT ?;
 
 **Consecuencia importante:** un cambio de esquema en `accounts` no obliga a una migración acoplada en `transactions`. Cada contexto evoluciona su `.sq` por separado.
 
-## El esquema global de la base de datos
+## Una DB por contexto
 
-A pesar de tener un `.sq` por contexto, SQLDelight genera **una sola clase `WithinMeansDatabase`** que agrupa todas las queries por contexto:
+SQLDelight **no fusiona schemas** declarados en módulos Gradle separados. La solución idiomática es: **cada módulo declara su propia clase DB** apuntando al **mismo archivo físico SQLite**.
 
-```kotlin
-val db: WithinMeansDatabase = ...
-db.transactionsQueries.findById("uuid-...")
-db.accountsQueries.searchByFamily("family-uuid-...")
-db.usersQueries.findById("user-uuid-...")
+```
+:shared        -> SharedDatabase        (Event Store + tablas comunes)
+:users         -> UsersDatabase         (tablas de users)
+:categories    -> CategoriesDatabase    (tablas de categories)
+:transactions  -> TransactionsDatabase  (tablas de transactions)
+:analytics     -> AnalyticsDatabase     (read models de analytics)
 ```
 
-La generación se configura una vez en cada módulo Gradle. Cada contexto declara su paquete `.sq` dentro de `within.means.<context>.db`, y todos comparten un único archivo SQLite (`within_means.db`).
+Todas las clases DB se construyen con un driver que apunta al mismo archivo `within_means.db`. SQLite acepta múltiples handles sobre el mismo archivo; las transacciones individuales se aíslan a nivel de DB engine.
+
+```kotlin
+// apps/android/.../PersistenceModule.kt (conceptual)
+val factory = AndroidSqliteDriverFactory(context, passphrase)
+val sharedDriver       = factory.create("within_means.db", SharedDatabase.Schema)
+val usersDriver        = factory.create("within_means.db", UsersDatabase.Schema)
+val categoriesDriver   = factory.create("within_means.db", CategoriesDatabase.Schema)
+val transactionsDriver = factory.create("within_means.db", TransactionsDatabase.Schema)
+val analyticsDriver    = factory.create("within_means.db", AnalyticsDatabase.Schema)
+
+val sharedDb       = SharedDatabase(sharedDriver)
+val usersDb        = UsersDatabase(usersDriver)
+val categoriesDb   = CategoriesDatabase(categoriesDriver)
+val transactionsDb = TransactionsDatabase(transactionsDriver)
+val analyticsDb    = AnalyticsDatabase(analyticsDriver)
+```
+
+Cada repositorio recibe **únicamente la clase DB de su contexto** por inyección de Koin:
+
+```kotlin
+class SqlDelightTransactionRepository(
+    private val db: TransactionsDatabase,
+    private val ioDispatcher: CoroutineDispatcher,
+) : TransactionRepository { ... }
+```
+
+### Implicaciones para DDD estricto
+
+Esta decisión refuerza la regla "sin imports cross-context": **es físicamente imposible** que un repositorio de `transactions` consulte tablas de `accounts` directamente, porque su clase DB no las conoce. La comunicación entre contextos pasa por buses (`EventBus` para escritura derivada, `QueryBus` para lectura), como manda el DDD.
+
+### Migraciones por contexto
+
+Cada contexto versiona sus propias migraciones en `src/<ctx>/sqldelight/.../migrations/`. La migración de un contexto no afecta a otro. SQLDelight ejecuta las migraciones pendientes de cada DB de forma independiente al abrir el driver.
 
 ## Configuración Gradle por contexto
 
 ```kotlin
 sqldelight {
     databases {
-        create("WithinMeansDatabase") {
-            packageName.set("within.means.db")
+        create("<Context>Database") {           // p. ej. UsersDatabase
+            packageName.set("within.means.<context>.db")
             srcDirs.setFrom("src/commonMain/sqldelight")
             schemaOutputDirectory.set(file("src/commonMain/sqldelight/databases"))
             verifyMigrations.set(true)
@@ -113,8 +147,6 @@ sqldelight {
     }
 }
 ```
-
-Cada módulo de contexto contribuye con sus archivos `.sq` y `.sqm` al mismo nombre lógico de DB. SQLDelight los une en compilación.
 
 ## Cifrado: SQLCipher
 
@@ -137,11 +169,11 @@ class AndroidDatabaseFactory(
         val passphrase: ByteArray = passphraseProvider.get()
         val factory = SupportFactory(passphrase)
         return AndroidSqliteDriver(
-            schema = WithinMeansDatabase.Schema,
+            schema = TransactionsDatabase.Schema,         // o la DB del contexto que corresponda
             context = context,
             name = "within_means.db",
             factory = factory,
-            callback = object : AndroidSqliteDriver.Callback(WithinMeansDatabase.Schema) {
+            callback = object : AndroidSqliteDriver.Callback(TransactionsDatabase.Schema) {
                 override fun onConfigure(db: SupportSQLiteDatabase) {
                     db.setForeignKeyConstraintsEnabled(false) // no usamos FKs cross-context
                 }
@@ -179,11 +211,12 @@ Para datos no sensibles del cliente (tema, idioma, último filtro) usamos **Mult
 Los tests usan `JdbcSqliteDriver.IN_MEMORY` puro. El cifrado se valida con tests específicos en `apps/android` (instrumentation).
 
 ```kotlin
-fun testDatabase(): WithinMeansDatabase {
+fun testTransactionsDb(): TransactionsDatabase {
     val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
-    WithinMeansDatabase.Schema.create(driver)
-    return WithinMeansDatabase(driver)
+    TransactionsDatabase.Schema.create(driver)
+    return TransactionsDatabase(driver)
 }
+// Helper análogo por cada contexto: testSharedDb(), testUsersDb(), etc.
 ```
 
 ## UUID v4 en cliente
@@ -297,7 +330,7 @@ Es el mismo patrón que el esqueleto Java (`Course.create` vs reconstrucción de
 
 ```kotlin
 class SqlDelightTransactionRepository(
-    private val db: WithinMeansDatabase,
+    private val db: TransactionsDatabase,
     private val ioDispatcher: CoroutineDispatcher,
 ) : TransactionRepository {
 

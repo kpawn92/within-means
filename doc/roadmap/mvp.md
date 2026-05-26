@@ -34,7 +34,7 @@ Cada fase entrega un incremento verificable. Las fases posteriores al MVP están
 - [ ] `SqlCriteriaTranslator` en `shared/infrastructure/persistence/`.
 - [ ] `UuidGenerator` (interfaz) + `RealUuidGenerator` (impl con `benasher44/uuid`).
 - [ ] VOs compartidos: `Money`, `Currency`.
-- [ ] Configuración del plugin SQLDelight en cada módulo (`WithinMeansDatabase`, `verifyMigrations = true`).
+- [ ] Configuración del plugin SQLDelight en cada módulo: `SharedDatabase` en `:shared`, y una DB por contexto (`UsersDatabase`, `CategoriesDatabase`, `TransactionsDatabase`, `AnalyticsDatabase`) compartiendo el archivo físico `within_means.db`. `verifyMigrations = true` en todas.
 - [ ] Tests de buses, `Criteria`, `SqlCriteriaTranslator`, `UuidGenerator` y Event Store en `commonTest`.
 
 **Entrega:** kernel testeado; los buses dispatch/ask funcionan y los eventos se persisten en el Event Store.
