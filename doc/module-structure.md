@@ -127,6 +127,9 @@ Espeja el esqueleto Java (`tv.codely.shared.domain.bus.command`, `tv.codely.mooc
 ### `:shared` y contextos
 
 ```kotlin
+// Nota: cada módulo KMP que tenga androidTarget también declara un bloque
+// `android { ... }` con compileSdk = 35, minSdk = 21, source/targetCompatibility = 17.
+// El minSdk se valida coherentemente en toda la cadena de módulos.
 kotlin {
     androidTarget {
         compilations.all {
@@ -162,18 +165,57 @@ kotlin {
                 implementation(libs.sqldelight.driver.android)
             }
         }
-        val desktopMain by getting {
-            dependencies {
-                implementation(libs.sqldelight.driver.sqlite)
-            }
-        }
+        // val desktopMain by getting {              // <-- habilitar en la Fase 10
+        //     dependencies {
+        //         implementation(libs.sqldelight.driver.sqlite)
+        //     }
+        // }
     }
 }
 ```
 
 ### `:apps:android`
 
-Aplicación Android estándar con plugin `com.android.application` y Compose.
+Aplicación Android con plugin `com.android.application` y Compose Multiplatform.
+
+**Configuración de compatibilidad legacy:**
+
+```kotlin
+android {
+    namespace = "within.means.android"
+    compileSdk = 35
+
+    defaultConfig {
+        applicationId = "within.means.android"
+        minSdk = 21                       // Android 5.0 Lollipop — cubre ~99% de dispositivos
+        targetSdk = 35
+        versionCode = 1
+        versionName = "0.1.0"
+        multiDexEnabled = true            // No imprescindible con minSdk 21+ pero seguro tenerlo
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true   // java.time y APIs Java 8+ en pre-API 26
+    }
+
+    buildFeatures { compose = true }
+}
+
+dependencies {
+    coreLibraryDesugaring(libs.android.desugar.jdk.libs)
+}
+```
+
+**Implicaciones de `minSdk = 21`:**
+
+- Compose Multiplatform compatible (mínimo soportado).
+- AndroidX, Lifecycle, Navigation, Material 3: todos OK.
+- SQLDelight con `AndroidSqliteDriver`: OK.
+- `java.time.LocalDate` y similares funcionan vía **desugaring**.
+- Vector drawables, MultiDex automático.
+- No se puede asumir Java 8 nativo (API 26+): por eso `kotlinx-datetime` (multiplatform) en lugar de `java.time` directo en `commonMain`.
 
 ### `:apps:desktop`
 
@@ -208,6 +250,7 @@ sqldelight-runtime         = { module = "app.cash.sqldelight:runtime", version.r
 sqldelight-driver-android  = { module = "app.cash.sqldelight:android-driver", version.ref = "sqldelight" }
 sqldelight-driver-sqlite   = { module = "app.cash.sqldelight:sqlite-driver", version.ref = "sqldelight" }
 kermit                     = { module = "co.touchlab:kermit", version.ref = "kermit" }
+android-desugar-jdk-libs   = { module = "com.android.tools:desugar_jdk_libs", version = "2.0.4" }
 kotest-assertions          = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
 mockk-common               = { module = "io.mockk:mockk", version.ref = "mockk" }
 turbine                    = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
@@ -237,7 +280,7 @@ src/<context>/src/
 │       ├── domain/
 │       └── application/
 ├── androidMain/
-└── desktopMain/
+└── desktopMain/                              # se añade en la Fase 10
 ```
 
 Espeja la separación `main`/`test` del esqueleto Java (`src/mooc/main/...` y `src/mooc/test/...`), adaptada a las convenciones KMP (`commonMain`/`commonTest`).

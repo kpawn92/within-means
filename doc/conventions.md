@@ -116,6 +116,13 @@ data class Email(val value: String) : StringValueObject(value) {
 - Evitar `?` en el dominio. Si algo puede no existir, usar `Optional<T>` propio o devolver el agregado en estado terminal.
 - `search(id): Transaction?` está permitido en repositorios (espeja `Optional<Course>` del esqueleto).
 
+### Fechas y tipos Java 8+ (compatibilidad con `minSdk 21`)
+
+- En `commonMain`: usar **siempre** `kotlinx.datetime.LocalDate`, `Instant`, `LocalDateTime`. No importar `java.time.*` en código común.
+- En `androidMain`: si se necesita `java.time.*` (p. ej. para interoperar con APIs de Android antiguas), está permitido gracias al **core library desugaring** habilitado en `apps/android`.
+- Nunca usar `java.util.Date` ni `java.util.Calendar`.
+- Para formateo localizado, preferir `kotlinx-datetime` + helpers propios en `:shared`, no `SimpleDateFormat`.
+
 ### Errores
 
 - Excepciones de dominio: heredan de `DomainError` (sealed class en `:shared`).

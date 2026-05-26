@@ -76,8 +76,8 @@ Implementaciones concretas. Es donde varía entre plataformas en KMP.
 
 Adaptador de entrada. Equivalente a los controladores Spring del esqueleto Java.
 
-- `apps/android/` — `MainActivity`, `@Composable` screens.
-- `apps/desktop/` — `main()`, ventana Compose Desktop.
+- `apps/android/` — `MainActivity`, `@Composable` screens. Plataforma de arranque.
+- `apps/desktop/` — `main()`, ventana Compose Desktop. Se incorpora en la Fase 10 del roadmap.
 - Las pantallas reciben los buses por DI (Koin) y disparan `dispatch(Command)` o `ask(Query)`.
 
 ## Kernel compartido (`:shared`)

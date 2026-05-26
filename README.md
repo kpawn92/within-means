@@ -29,6 +29,9 @@ Fase de diseño y documentación. Sin código aún. Ver [doc/roadmap.md](doc/roa
 ## Plataformas objetivo
 
 - **Fase inicial:** Android (Compose Multiplatform).
+  - `minSdk = 21` (Android 5.0 Lollipop) — cobertura ~99% de dispositivos activos.
+  - `compileSdk = 35`, `targetSdk = 35`.
+  - **Core library desugaring** habilitado para usar `java.time` y APIs Java 8+ en dispositivos pre-API 26.
 - **Posterior:** Desktop JVM (Compose Desktop).
 - **Fuera del alcance:** iOS, Web y backend Ktor de sincronización (futuras consideraciones).
 
