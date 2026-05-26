@@ -8,7 +8,14 @@ Convenciones obligatorias del proyecto. Replican fielmente las del esqueleto Jav
 |---|---|---|
 | `domain` | Agregados, value objects, eventos, interfaces de repositorio, excepciones de dominio. | `kotlin.*`, `kotlinx-datetime`, `:shared` domain. |
 | `application` | Comandos, queries, handlers, application services, responses. | `:shared` domain/bus, propio `domain/`. |
-| `infrastructure` | Implementaciones de repositorios, adaptadores, serializadores. | Cualquiera; es el ÚNICO sitio que toca librerías externas (SQLDelight, drivers, etc.). |
+| `infrastructure` | Implementaciones de repositorios, mappers fila↔agregado, adaptadores, serializadores. | Cualquiera; es el ÚNICO sitio que toca SQLDelight, drivers, UUID lib, etc. |
+
+**Sobre los mappers de persistencia** (`<Aggregate>RowMapper.kt`):
+
+- Son funciones de extensión `internal` en `infrastructure/persistence/`.
+- `Row.toAggregate(): Aggregate` llama a `Aggregate.rehydrate(...)`.
+- `Aggregate.toRow(): Row` construye el tipo generado por SQLDelight.
+- Nunca exponer tipos `Row` fuera de `infrastructure/`.
 
 **Regla dura:** prohibido importar desde `infrastructure` o `application` hacia `domain`. Lint check obligatorio (Konsist o Detekt en futuro).
 
@@ -59,7 +66,12 @@ Espeja el esqueleto Java (`search_last`, `find`, `create`).
 
 ### Constructores y factorías
 
-Agregados: constructor primario `internal` o `private`, factoría pública `create`:
+Agregados: constructor primario `internal` o `private`, **dos factorías** públicas:
+
+- `register(...)` (o `create(...)`) — caso "agregado nuevo": valida invariantes y **emite** el evento de dominio correspondiente.
+- `rehydrate(...)` — caso "viene de la DB": construye el agregado sin emitir eventos. La usa **solo** el `RowMapper` de infraestructura.
+
+Sin esta separación, cada lectura del repositorio dispararía falsos `*Registered` events.
 
 ```kotlin
 class Transaction private constructor(
@@ -108,7 +120,8 @@ data class Email(val value: String) : StringValueObject(value) {
 ### Coroutines
 
 - Los handlers exponen `suspend fun handle(...)` siempre que toquen IO.
-- Persistencia con SQLDelight: usar `suspendingTransaction { }`.
+- Persistencia con SQLDelight: envolver llamadas en `withContext(ioDispatcher)`; los repositorios reciben el dispatcher por constructor (no usar `Dispatchers.IO` directo dentro del repo: inyectado para que los tests usen `Unconfined` o `StandardTestDispatcher`).
+- Observación reactiva: `Query.asFlow().mapToList(ioDispatcher)`.
 - UI con Compose: lanzar coroutines desde `LaunchedEffect` o `rememberCoroutineScope`.
 
 ### Nulabilidad

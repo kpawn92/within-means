@@ -20,7 +20,9 @@ Fase de diseño y documentación. Sin código aún. Ver [doc/roadmap.md](doc/roa
 | Build | Gradle Kotlin DSL + version catalog |
 | UI | Compose Multiplatform (target inicial: Android) |
 | DI | Koin Multiplatform |
-| Persistencia | SQLDelight (driver Android; JVM/SQLite cuando se añada Desktop) |
+| Persistencia | SQLDelight + SQLCipher (AES-256, driver Android; JVM/SQLite cuando se añada Desktop) |
+| IDs | UUID v4 generados en cliente (`com.benasher44:uuid`) |
+| Preferencias UI | Multiplatform Settings (no para datos de dominio) |
 | Serialización | kotlinx.serialization |
 | Fechas | kotlinx-datetime |
 | Logs | kermit |
@@ -64,6 +66,7 @@ Detalles: [doc/architecture.md](doc/architecture.md).
 - [doc/architecture.md](doc/architecture.md) — Arquitectura hexagonal, DDD, CQRS y mapeo desde el esqueleto Java.
 - [doc/bounded-contexts.md](doc/bounded-contexts.md) — Detalle de cada contexto acotado.
 - [doc/module-structure.md](doc/module-structure.md) — Estructura física de módulos Gradle.
+- [doc/persistence.md](doc/persistence.md) — SQLDelight, SQLCipher, UUID v4, mapping fila↔agregado, `Criteria` → SQL.
 - [doc/conventions.md](doc/conventions.md) — Convenciones de código, naming y testing.
 - [doc/roadmap.md](doc/roadmap.md) — Fases de trabajo.
 

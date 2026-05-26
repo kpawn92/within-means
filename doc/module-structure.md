@@ -43,12 +43,16 @@ within-means/
     ├── users/
     │   ├── build.gradle.kts
     │   └── src/
-    │       ├── commonMain/kotlin/within/means/users/
-    │       │   ├── domain/
-    │       │   ├── application/
-    │       │   └── infrastructure/
-    │       ├── androidMain/               (drivers SQLDelight Android)
-    │       ├── jvmMain/                   (drivers SQLDelight JVM)
+    │       ├── commonMain/
+    │       │   ├── kotlin/within/means/users/
+    │       │   │   ├── domain/
+    │       │   │   ├── application/
+    │       │   │   └── infrastructure/persistence/  (mappers, repos SQLDelight, InMemory)
+    │       │   └── sqldelight/within/means/users/db/
+    │       │       ├── users.sq
+    │       │       └── migrations/
+    │       ├── androidMain/               (vacío salvo necesidades específicas)
+    │       ├── desktopMain/               (Fase 10)
     │       └── commonTest/
     ├── accounts/                          (misma estructura)
     ├── transactions/
@@ -151,6 +155,8 @@ kotlin {
                 implementation(libs.kotlinx.serialization.json)
                 implementation(libs.koin.core)
                 implementation(libs.sqldelight.runtime)
+                implementation(libs.sqldelight.coroutines)
+                implementation(libs.benasher44.uuid)        // sólo en :shared en realidad
             }
         }
         val commonTest by getting {
@@ -170,6 +176,18 @@ kotlin {
         //         implementation(libs.sqldelight.driver.sqlite)
         //     }
         // }
+    }
+}
+
+// Bloque sqldelight presente en cada módulo de contexto y en :shared:
+sqldelight {
+    databases {
+        create("WithinMeansDatabase") {
+            packageName.set("within.means.db")
+            srcDirs.setFrom("src/commonMain/sqldelight")
+            schemaOutputDirectory.set(file("src/commonMain/sqldelight/databases"))
+            verifyMigrations.set(true)
+        }
     }
 }
 ```
@@ -205,6 +223,9 @@ android {
 
 dependencies {
     coreLibraryDesugaring(libs.android.desugar.jdk.libs)
+    implementation(libs.sqlcipher.android)              // cifrado at-rest
+    implementation(libs.androidx.sqlite)                 // SupportSQLiteOpenHelper
+    implementation(libs.sqldelight.driver.android)
 }
 ```
 
@@ -247,8 +268,13 @@ koin-core                  = { module = "io.insert-koin:koin-core", version.ref 
 koin-android               = { module = "io.insert-koin:koin-android", version.ref = "koin" }
 koin-compose               = { module = "io.insert-koin:koin-compose", version.ref = "koin" }
 sqldelight-runtime         = { module = "app.cash.sqldelight:runtime", version.ref = "sqldelight" }
+sqldelight-coroutines      = { module = "app.cash.sqldelight:coroutines-extensions", version.ref = "sqldelight" }
 sqldelight-driver-android  = { module = "app.cash.sqldelight:android-driver", version.ref = "sqldelight" }
 sqldelight-driver-sqlite   = { module = "app.cash.sqldelight:sqlite-driver", version.ref = "sqldelight" }
+sqlcipher-android          = { module = "net.zetetic:sqlcipher-android", version = "4.6.1" }
+androidx-sqlite            = { module = "androidx.sqlite:sqlite", version = "2.4.0" }
+benasher44-uuid            = { module = "com.benasher44:uuid", version = "0.8.4" }
+multiplatform-settings     = { module = "com.russhwolf:multiplatform-settings", version = "1.1.1" }
 kermit                     = { module = "co.touchlab:kermit", version.ref = "kermit" }
 android-desugar-jdk-libs   = { module = "com.android.tools:desugar_jdk_libs", version = "2.0.4" }
 kotest-assertions          = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }

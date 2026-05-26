@@ -68,8 +68,8 @@ application/create/
 
 Implementaciones concretas. Es donde varía entre plataformas en KMP.
 
-- **Persistencia.** `SqlDelight<Aggregate>Repository` implementa la interfaz del dominio. Para tests, `InMemory<Aggregate>Repository`.
-- **Source sets por plataforma.** La interfaz del repo en `commonMain`. La implementación con driver SQLDelight vive en `commonMain` (lógica) y los drivers concretos en `androidMain` y `jvmMain`.
+- **Persistencia.** `SqlDelight<Aggregate>Repository` implementa la interfaz del dominio. Para tests, `InMemory<Aggregate>Repository`. El detalle completo (SQLCipher, mapping fila↔agregado, `Criteria` → SQL) está en [persistence.md](persistence.md).
+- **Source sets por plataforma.** La interfaz del repo en `commonMain`. La implementación con driver SQLDelight vive en `commonMain` (lógica) y los drivers concretos en `androidMain` (y `desktopMain` en la Fase 10).
 - **Adaptadores externos.** Cliente HTTP, serializadores, etc.
 
 ### Capa `apps/`
@@ -187,7 +187,7 @@ Convención de naming: `<Class>Should.kt` (igual que el esqueleto: `CoursesCount
 | Java DDD example | within-means |
 |---|---|
 | Spring Boot | Compose Multiplatform + Koin |
-| Hibernate + MySQL | SQLDelight + SQLite |
+| Hibernate + MySQL | SQLDelight + SQLite + SQLCipher (cifrado at-rest) |
 | RabbitMQ event bus | InMemoryEventBus (sin distribución entre procesos) |
 | `ApiController` Spring | `@Composable` screens + Koin |
 | Reflection-based bus | Registro explícito de handlers |

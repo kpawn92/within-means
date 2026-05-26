@@ -26,8 +26,11 @@ Fases ordenadas de implementación. Cada fase entrega un incremento verificable 
 - [ ] Implementaciones in-memory:
   - `InMemoryCommandBus`, `InMemoryQueryBus`, `InMemoryEventBus`.
 - [ ] `Criteria`, `Filter`, `Filters`, `Order`, `FilterField`, `FilterOperator`, `FilterValue`.
+- [ ] `SqlCriteriaTranslator` en `shared/infrastructure/persistence/` (traduce Criteria → SQL parametrizado).
+- [ ] `UuidGenerator` (interfaz) + `RealUuidGenerator` (impl con `benasher44/uuid`).
 - [ ] VOs compartidos: `Money`, `Currency`.
-- [ ] Tests de buses y `Criteria` en `commonTest`.
+- [ ] Configuración del plugin SQLDelight en cada módulo (`WithinMeansDatabase`, `verifyMigrations = true`).
+- [ ] Tests de buses, `Criteria`, `SqlCriteriaTranslator` y `UuidGenerator` en `commonTest`.
 
 **Entrega:** kernel testeado; los buses dispatch/ask funcionan en aislamiento.
 
@@ -37,11 +40,16 @@ Primer contexto completo. Valida la arquitectura de extremo a extremo.
 
 - [ ] Domain: `User`, `UserId`, `Email`, `UserName`, `PasswordHash`, `Family`, `FamilyId`, `FamilyRole`.
 - [ ] Events: `UserRegistered`, `FamilyCreated`.
-- [ ] Repository: `UserRepository`, `FamilyRepository`.
+- [ ] Repository: `UserRepository`, `FamilyRepository` (interfaces en `domain/`).
 - [ ] Application: `RegisterUserCommand` + handler + `UserRegistrar`; `CreateFamilyCommand` + handler.
 - [ ] Application queries: `FindUserQuery` + handler.
-- [ ] Infrastructure: schemas SQLDelight `users.sq`, `family.sq`; `SqlDelightUserRepository`, `InMemoryUserRepository`.
-- [ ] Tests unitarios completos.
+- [ ] Infrastructure:
+  - Schemas SQLDelight `users.sq`, `family.sq` en `src/users/sqldelight/within/means/users/db/`.
+  - `UserRowMapper`, `FamilyRowMapper` (con `rehydrate` y `toRow`).
+  - `SqlDelightUserRepository`, `SqlDelightFamilyRepository`, `InMemoryUserRepository`, `InMemoryFamilyRepository`.
+- [ ] Factorías del agregado: `User.register` (emite `UserRegistered`) y `User.rehydrate` (silencioso).
+- [ ] Tests unitarios completos (handlers con `InMemoryUserRepository` + `FixedUuidGenerator`).
+- [ ] Tests de repo SQLDelight con `JdbcSqliteDriver.IN_MEMORY`.
 
 **Entrega:** registrar usuario y crear familia con un test de integración usando `InMemoryCommandBus` + `InMemoryUserRepository`.
 
@@ -51,12 +59,15 @@ Validación de la cadena UI → bus → handler → repo en la plataforma de arr
 
 - [ ] Configuración `com.android.application` con Compose Multiplatform.
 - [ ] `MainActivity` con `setContent { ... }` apuntando a pantalla "Register user".
-- [ ] Cableado Koin: módulo `SharedModule`, `UsersModule`, `BusModule`.
-- [ ] SQLDelight driver Android cableado (`AndroidSqliteDriver`).
+- [ ] Cableado Koin: módulos `SharedModule`, `UsersModule`, `BusModule`, `PersistenceModule`.
+- [ ] `AndroidDatabaseFactory` con `AndroidSqliteDriver` + `SupportFactory` de SQLCipher.
+- [ ] `KeystoreManager` (clave maestra en Android Keystore, no exportable).
+- [ ] `PassphraseProvider` (PIN inicial; biometría se añade más adelante).
+- [ ] Migración de DB plana ↔ cifrada para usuarios que actualizan (no aplica en la primera versión, pero documentar el path).
 - [ ] La pantalla dispara `RegisterUserCommand` por el `CommandBus`.
 - [ ] Configuración mínima de manifiesto, theming Material 3.
 
-**Entrega:** `./gradlew :apps:android:installDebug` instala la app en emulador/dispositivo; se puede registrar un usuario que persiste en SQLite local.
+**Entrega:** `./gradlew :apps:android:installDebug` instala la app en emulador/dispositivo; se puede registrar un usuario que persiste en una **base de datos SQLite cifrada con SQLCipher** y el archivo `within_means.db` no es legible sin passphrase.
 
 ## Fase 5 — Contexto `accounts`
 
