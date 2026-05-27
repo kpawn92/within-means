@@ -1,7 +1,9 @@
 package within.means.android
 
+import android.app.Activity
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -13,6 +15,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -68,8 +71,12 @@ private fun WithinMeansApp() {
 
     val resolved = startDestination ?: return
 
+    val activity = LocalContext.current as? Activity
+    val exitOnBack: @Composable () -> Unit = { BackHandler { activity?.finish() } }
+
     NavHost(navController = navController, startDestination = resolved) {
         composable(Routes.Onboarding) {
+            exitOnBack()
             OnboardingScreen(
                 onCompleted = {
                     navController.navigate(Routes.Home) {
@@ -79,6 +86,7 @@ private fun WithinMeansApp() {
             )
         }
         composable(Routes.Unlock) {
+            exitOnBack()
             UnlockScreen(
                 onUnlocked = {
                     navController.navigate(Routes.Home) {
@@ -88,6 +96,10 @@ private fun WithinMeansApp() {
             )
         }
         composable(Routes.Home) {
+            // Home is a root destination — back here must exit the app,
+            // otherwise popBackStack empties the NavHost and leaves a
+            // blank Surface on screen.
+            exitOnBack()
             HomePlaceholderScreen(
                 onOpenCategories = { navController.navigate(Routes.Categories) },
             )
