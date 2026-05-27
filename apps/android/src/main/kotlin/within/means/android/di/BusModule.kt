@@ -2,6 +2,10 @@ package within.means.android.di
 
 import kotlinx.serialization.KSerializer
 import org.koin.dsl.module
+import within.means.analytics.application.find_breakdown.FindCategoryBreakdownQueryHandler
+import within.means.analytics.application.find_evolution.FindMonthlyEvolutionQueryHandler
+import within.means.analytics.application.find_summary.FindCurrentMonthSummaryQueryHandler
+import within.means.analytics.application.find_summary.FindMonthlySummaryQueryHandler
 import within.means.categories.application.create.CreateCategoryCommandHandler
 import within.means.categories.application.delete.DeleteCategoryCommandHandler
 import within.means.categories.application.find.FindCategoryQueryHandler
@@ -30,6 +34,14 @@ import within.means.shared.infrastructure.bus.command.InMemoryCommandBus
 import within.means.shared.infrastructure.bus.event.EventStoreBackedEventBus
 import within.means.shared.infrastructure.bus.query.InMemoryQueryBus
 import within.means.shared.infrastructure.serialization.DomainEventJsonSerializer
+import within.means.transactions.application.delete.DeleteTransactionCommandHandler
+import within.means.transactions.application.edit.EditTransactionCommandHandler
+import within.means.transactions.application.find.FindTransactionQueryHandler
+import within.means.transactions.application.register.RegisterTransactionCommandHandler
+import within.means.transactions.application.search.SearchTransactionsQueryHandler
+import within.means.transactions.domain.TransactionDeleted
+import within.means.transactions.domain.TransactionEdited
+import within.means.transactions.domain.TransactionRegistered
 import within.means.users.application.ensure_default.EnsureDefaultUserCommandHandler
 import within.means.users.application.find.FindDefaultUserQueryHandler
 import within.means.users.application.update_preferences.UpdateUserPreferencesCommandHandler
@@ -52,6 +64,9 @@ val busModule = module {
             get<RestyleCategoryCommandHandler>(),
             get<ReclassifyCategoryCommandHandler>(),
             get<DeleteCategoryCommandHandler>(),
+            get<RegisterTransactionCommandHandler>(),
+            get<EditTransactionCommandHandler>(),
+            get<DeleteTransactionCommandHandler>(),
         )
         InMemoryCommandBus(handlers)
     }
@@ -62,6 +77,12 @@ val busModule = module {
             get<FindCategoryQueryHandler>(),
             get<SearchCategoriesQueryHandler>(),
             get<ListAllCategoriesQueryHandler>(),
+            get<FindTransactionQueryHandler>(),
+            get<SearchTransactionsQueryHandler>(),
+            get<FindMonthlySummaryQueryHandler>(),
+            get<FindCurrentMonthSummaryQueryHandler>(),
+            get<FindCategoryBreakdownQueryHandler>(),
+            get<FindMonthlyEvolutionQueryHandler>(),
         )
         InMemoryQueryBus(handlers)
     }
@@ -75,6 +96,9 @@ val busModule = module {
             CategoryRestyled.NAME to CategoryRestyled.serializer(),
             CategoryReclassified.NAME to CategoryReclassified.serializer(),
             CategoryDeleted.NAME to CategoryDeleted.serializer(),
+            TransactionRegistered.NAME to TransactionRegistered.serializer(),
+            TransactionEdited.NAME to TransactionEdited.serializer(),
+            TransactionDeleted.NAME to TransactionDeleted.serializer(),
         )
         DomainEventJsonSerializer(serializers = registry)
     }

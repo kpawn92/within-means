@@ -22,10 +22,13 @@ import androidx.navigation.compose.rememberNavController
 import org.koin.compose.koinInject
 import within.means.android.persistence.DatabaseUnlocker
 import within.means.android.persistence.OnboardingState
+import within.means.android.ui.analytics.StatsScreen
 import within.means.android.ui.categories.CategoriesListScreen
 import within.means.android.ui.categories.CategoryEditScreen
 import within.means.android.ui.home.HomePlaceholderScreen
 import within.means.android.ui.onboarding.OnboardingScreen
+import within.means.android.ui.transactions.TransactionEditScreen
+import within.means.android.ui.transactions.TransactionsListScreen
 import within.means.android.ui.unlock.UnlockScreen
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
@@ -49,8 +52,13 @@ private object Routes {
     const val Categories = "categories"
     const val CategoryNew = "categories/new"
     const val CategoryEdit = "categories/edit/{categoryId}"
+    const val Transactions = "transactions"
+    const val TransactionNew = "transactions/new"
+    const val TransactionEdit = "transactions/edit/{transactionId}"
+    const val Stats = "stats"
 
     fun categoryEdit(categoryId: String): String = "categories/edit/$categoryId"
+    fun transactionEdit(transactionId: String): String = "transactions/edit/$transactionId"
 }
 
 @Composable
@@ -102,6 +110,8 @@ private fun WithinMeansApp() {
             exitOnBack()
             HomePlaceholderScreen(
                 onOpenCategories = { navController.navigate(Routes.Categories) },
+                onOpenTransactions = { navController.navigate(Routes.Transactions) },
+                onOpenStats = { navController.navigate(Routes.Stats) },
             )
         }
         composable(Routes.Categories) {
@@ -127,6 +137,33 @@ private fun WithinMeansApp() {
                 onBack = { navController.popBackStack() },
                 onFinished = { navController.popBackStack() },
             )
+        }
+        composable(Routes.Transactions) {
+            TransactionsListScreen(
+                onBack = { navController.popBackStack() },
+                onCreate = { navController.navigate(Routes.TransactionNew) },
+                onEdit = { id -> navController.navigate(Routes.transactionEdit(id)) },
+            )
+        }
+        composable(Routes.TransactionNew) {
+            TransactionEditScreen(
+                transactionId = null,
+                onBack = { navController.popBackStack() },
+                onFinished = { navController.popBackStack() },
+            )
+        }
+        composable(
+            route = Routes.TransactionEdit,
+            arguments = listOf(navArgument("transactionId") { type = NavType.StringType }),
+        ) { entry ->
+            TransactionEditScreen(
+                transactionId = entry.arguments?.getString("transactionId"),
+                onBack = { navController.popBackStack() },
+                onFinished = { navController.popBackStack() },
+            )
+        }
+        composable(Routes.Stats) {
+            StatsScreen(onBack = { navController.popBackStack() })
         }
     }
 }

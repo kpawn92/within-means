@@ -9,6 +9,7 @@ import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 import within.means.categories.db.CategoriesDatabase
 import within.means.shared.db.SharedDatabase
+import within.means.transactions.db.TransactionsDatabase
 import within.means.users.db.UsersDatabase
 
 /**
@@ -47,6 +48,11 @@ class AndroidDatabaseFactory(private val context: Context) {
     fun buildCategories(passphrase: ByteArray): CategoriesDatabase {
         val driver = openDriver(CategoriesDatabase.Schema, sentinelTable = "category", passphrase = passphrase)
         return CategoriesDatabase(driver)
+    }
+
+    fun buildTransactions(passphrase: ByteArray): TransactionsDatabase {
+        val driver = openDriver(TransactionsDatabase.Schema, sentinelTable = "transaction_entry", passphrase = passphrase)
+        return TransactionsDatabase(driver)
     }
 
     @Suppress("UNCHECKED_CAST")

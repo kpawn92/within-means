@@ -11,6 +11,9 @@ import within.means.shared.domain.UuidGenerator
 import within.means.shared.domain.bus.event.DomainEventStore
 import within.means.shared.infrastructure.RealUuidGenerator
 import within.means.shared.infrastructure.persistence.SqlDelightDomainEventStore
+import within.means.transactions.db.TransactionsDatabase
+import within.means.transactions.domain.TransactionRepository
+import within.means.transactions.infrastructure.persistence.SqlDelightTransactionRepository
 import within.means.users.db.UsersDatabase
 import within.means.users.domain.UserProfileRepository
 import within.means.users.infrastructure.persistence.SqlDelightUserProfileRepository
@@ -24,6 +27,7 @@ val persistenceModule = module {
     single<SharedDatabase> { get<DatabaseUnlocker>().shared }
     single<UsersDatabase> { get<DatabaseUnlocker>().users }
     single<CategoriesDatabase> { get<DatabaseUnlocker>().categories }
+    single<TransactionsDatabase> { get<DatabaseUnlocker>().transactions }
 
     single<DomainEventStore> {
         SqlDelightDomainEventStore(get(), get(named("io")))
@@ -34,5 +38,8 @@ val persistenceModule = module {
     }
     single<CategoryRepository> {
         SqlDelightCategoryRepository(get(), get(named("io")))
+    }
+    single<TransactionRepository> {
+        SqlDelightTransactionRepository(get(), get(named("io")))
     }
 }

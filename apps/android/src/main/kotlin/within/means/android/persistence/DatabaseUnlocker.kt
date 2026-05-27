@@ -2,6 +2,7 @@ package within.means.android.persistence
 
 import within.means.categories.db.CategoriesDatabase
 import within.means.shared.db.SharedDatabase
+import within.means.transactions.db.TransactionsDatabase
 import within.means.users.db.UsersDatabase
 
 /**
@@ -23,14 +24,18 @@ class DatabaseUnlocker(
     @Volatile
     private var categoriesDb: CategoriesDatabase? = null
 
+    @Volatile
+    private var transactionsDb: TransactionsDatabase? = null
+
     val isUnlocked: Boolean
-        get() = sharedDb != null && usersDb != null && categoriesDb != null
+        get() = sharedDb != null && usersDb != null && categoriesDb != null && transactionsDb != null
 
     fun unlock(pin: String) {
         val passphrase = passphraseProvider.derive(pin)
         sharedDb = factory.buildShared(passphrase)
         usersDb = factory.buildUsers(passphrase)
         categoriesDb = factory.buildCategories(passphrase)
+        transactionsDb = factory.buildTransactions(passphrase)
     }
 
     val shared: SharedDatabase
@@ -41,4 +46,7 @@ class DatabaseUnlocker(
 
     val categories: CategoriesDatabase
         get() = categoriesDb ?: error("CategoriesDatabase requested before unlock()")
+
+    val transactions: TransactionsDatabase
+        get() = transactionsDb ?: error("TransactionsDatabase requested before unlock()")
 }

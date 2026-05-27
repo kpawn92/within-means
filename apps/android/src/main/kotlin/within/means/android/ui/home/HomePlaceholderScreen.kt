@@ -26,7 +26,11 @@ import within.means.users.application.OptionalUserResponse
 import within.means.users.application.find.FindDefaultUserQuery
 
 @Composable
-fun HomePlaceholderScreen(onOpenCategories: () -> Unit) {
+fun HomePlaceholderScreen(
+    onOpenCategories: () -> Unit,
+    onOpenTransactions: () -> Unit,
+    onOpenStats: () -> Unit,
+) {
     val queryBus: QueryBus = koinInject()
     var displayName by remember { mutableStateOf("...") }
     var baseCurrency by remember { mutableStateOf("...") }
@@ -50,8 +54,16 @@ fun HomePlaceholderScreen(onOpenCategories: () -> Unit) {
             Text("Moneda base: $baseCurrency", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(24.dp))
 
+            Button(onClick = onOpenTransactions, modifier = Modifier.fillMaxWidth()) {
+                Text("Transacciones")
+            }
+            Spacer(Modifier.height(12.dp))
+            Button(onClick = onOpenStats, modifier = Modifier.fillMaxWidth()) {
+                Text("Estadísticas")
+            }
+            Spacer(Modifier.height(12.dp))
             Button(onClick = onOpenCategories, modifier = Modifier.fillMaxWidth()) {
-                Text("Ver categorías")
+                Text("Categorías")
             }
         }
     }

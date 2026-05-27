@@ -1,0 +1,34 @@
+CREATE TABLE transaction_entry (
+    id              TEXT NOT NULL PRIMARY KEY,
+    type            TEXT NOT NULL,
+    amount_cents    INTEGER NOT NULL,
+    date            TEXT NOT NULL,
+    description     TEXT NOT NULL,
+    category_id     TEXT NOT NULL,
+    income_source   TEXT,
+    origin_ref      TEXT,
+    recurring_ref   TEXT,
+    created_at      TEXT NOT NULL
+);
+
+CREATE INDEX idx_transaction_date     ON transaction_entry(date);
+CREATE INDEX idx_transaction_type     ON transaction_entry(type);
+CREATE INDEX idx_transaction_category ON transaction_entry(category_id);
+
+upsert:
+INSERT OR REPLACE INTO transaction_entry(
+    id, type, amount_cents, date, description, category_id,
+    income_source, origin_ref, recurring_ref, created_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+findById:
+SELECT * FROM transaction_entry WHERE id = ?;
+
+findAll:
+SELECT * FROM transaction_entry ORDER BY date DESC, created_at DESC;
+
+countAll:
+SELECT COUNT(*) FROM transaction_entry;
+
+deleteById:
+DELETE FROM transaction_entry WHERE id = ?;

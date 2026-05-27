@@ -155,97 +155,132 @@ Primer vertical end-to-end. Introduce **el cableado completo de `apps/android`**
 
 ---
 
-## Fase 4 — `categories` + pantalla "Categorías"
+## Fase 4 — `categories` + pantalla "Categorías" ✅
 
 ### Dominio `categories`
 
-- [ ] `Category`, `CategoryId`, `CategoryName`, `CategoryColor`, `CategoryIcon`, `ParentCategoryId`.
-- [ ] VOs de clasificación: `CategoryKind`, `CategoryNature`, `CategoryEssentiality`, `CategoryProductive`, `EngelGroup`.
-- [ ] Events: `CategoryCreated`, `CategoryRenamed`, `CategoryReclassified`, `CategoryDeleted`.
-- [ ] Repository + impl SQLDelight + InMemory.
-- [ ] Application: comandos CRUD + `SearchCategoriesByCriteriaQuery`.
-- [ ] **Seed por defecto** suscrito a `UserDefaultCreated`: `DefaultCategoriesSeeder` siembra las ~13 categorías base con sus clasificadores.
-- [ ] Tests unitarios + tests de integración del seeder.
+- [x] `Category`, `CategoryId`, `CategoryName`, `CategoryColor`, `CategoryIcon`, `parentId: CategoryId?` (reusamos `CategoryId` para el padre en lugar de un VO `ParentCategoryId` separado — el constraint de jerarquía es el mismo).
+- [x] VOs de clasificación: `CategoryKind`, `CategoryNature`, `CategoryEssentiality`, `productive: Boolean` (campo de `CategoryClassifiers`, no VO independiente), `EngelGroup`.
+- [x] Events: `CategoryCreated`, `CategoryRenamed`, `CategoryReclassified`, `CategoryDeleted` + extra `CategoryRestyled` (recolor/reicono separado de la reclasificación semántica).
+- [x] Repository + impl SQLDelight + InMemory.
+- [x] Application: comandos `Create`/`Rename`/`Reclassify`/`Restyle`/`Delete` + queries `FindCategoryQuery`/`SearchCategoriesQuery`/`ListAllCategoriesQuery`.
+- [x] **Seed por defecto** suscrito a `UserDefaultCreated`: `DefaultCategoriesSeeder` siembra las 13 categorías base con sus clasificadores; subscriber `SeedDefaultCategoriesOnUserDefaultCreated` en `apps/android/.../subscribers/`.
+- [x] Tests unitarios (`CategoryTest`, `CategoryColorTest`, `CategoryCreatorTest`, `DefaultCategoriesSeederTest`) + tests de integración (`SqlDelightCategoryRepositoryTest`, `SeedDefaultCategoriesIntegrationTest`).
 
 ### Pantalla "Categorías" (`apps/android/.../ui/categories/`)
 
-- [ ] `CategoriesListScreen`: lista categorías agrupadas por kind (ingreso/gasto/transferencia), cada una con su color e icono. Filtro por kind.
-- [ ] `CategoryEditScreen`: formulario crear/editar con name, color (color picker básico), icono (seleccionable de un set Material Symbols), kind, nature, essentiality, productive, engelGroup. Botón guardar despacha `CreateCategoryCommand` o `ReclassifyCategoryCommand`.
-- [ ] `CategoryDeleteDialog` con confirmación.
-- [ ] `CategoriesViewModel` con `Flow<List<CategoryResponse>>` reactivo (`Query.asFlow()` de SQLDelight).
+- [x] `CategoriesListScreen`: tabs por kind (`Gastos` / `Ingresos` / `Transferencias`), cada tarjeta con color e icono.
+- [x] `CategoryEditScreen`: formulario crear/editar con name, color (paleta `CategoryColorPalette`), icono (`CategoryIcons` set de Material Symbols), kind, nature, essentiality, productive, engelGroup. Botón guardar despacha `CreateCategoryCommand` o `Rename`+`Restyle`+`Reclassify` en edición.
+- [x] Diálogo de borrado inline en `CategoriesListScreen` (no en archivo separado).
+- [x] `CategoriesListViewModel` con `CategoryRepository.observeAll()` → `Query.asFlow().mapToList(ioDispatcher)` (reactivo end-to-end).
 
 ### Cableado `apps/android`
 
-- [ ] Añadir `CategoriesModule` a Koin.
-- [ ] Añadir entrada de navegación: `home → categorias` (botón en la home placeholder).
+- [x] `CategoriesModule` añadido a Koin; eventos `CategoryCreated/Renamed/Restyled/Reclassified/Deleted` registrados en el `DomainEventJsonSerializer`.
+- [x] Navegación: `Home` → `Categories` (botón "Gestionar categorías"); rutas `categories`, `categories/new`, `categories/edit/{id}`.
 
-**Entrega:** flujo completo CRUD de categorías. Al pasar el onboarding, las categorías por defecto ya están creadas y se ven en la lista. Se pueden crear, editar y borrar nuevas.
+### Tests de ViewModel sin emulador
+
+- [x] `:apps:android` ahora tiene sourceSet JVM `src/test/kotlin/` (junit + kotlinx-coroutines-test + kotest + turbine).
+- [x] `MainDispatcherRule` para enchufar `StandardTestDispatcher` en `Dispatchers.Main`.
+- [x] `CategoriesTestFixture` réplica in-memory de `categoriesModule` + `busModule` (sin SQLDelight) y arranca Koin para que los `KoinComponent.get<>()` de los VM resuelvan.
+- [x] `CategoriesListViewModelTest` (6 casos: observe, tab, filter, delete reactivo, error UUID inválido, clearError).
+- [x] `CategoryEditViewModelTest` (6 casos: create, validación de nombre vacío, loadExisting via QueryBus, edición rename+restyle, kind switch limpia clasificadores, hex inválido propaga error).
+- [x] `./gradlew :apps:android:testDebugUnitTest` → 12/12 OK en ~2s incremental.
+
+**Entrega:** flujo completo CRUD de categorías. Al pasar el onboarding, las 13 categorías por defecto se siembran via subscriber. Lista reactiva via `Query.asFlow()`. Cambios verificables sin emulador gracias a los unit tests JVM.
 
 ---
 
-## Fase 5 — `transactions` + pantalla "Registrar / Listar"
+## Fase 5 — `transactions` + pantalla "Registrar / Listar" ✅
 
 ### Dominio `transactions`
 
-- [ ] `Transaction`, `TransactionId`, `TransactionType`, `TransactionDate`, `TransactionDescription`, `Amount`.
-- [ ] VOs adicionales: `IncomeSource`, `OriginRef`, `RecurringRef` (reservado, siempre null en MVP).
-- [ ] Events: `TransactionRegistered`, `TransactionEdited`, `TransactionDeleted`.
-- [ ] Repository + impl SQLDelight + InMemory.
-- [ ] Application:
+- [x] `Transaction`, `TransactionId`, `TransactionType` (`INCOME`/`EXPENSE` — sin `TRANSFER`, requiere `accounts` post-MVP), `TransactionDate`, `TransactionDescription` (max 140), `Amount` (cents > 0).
+- [x] VOs adicionales: `IncomeSource`, `OriginRef`, `RecurringRef` (nullable, reservados — siempre null en MVP).
+- [x] `CategoryRef` local en `:transactions` (Identifier UUID-validado) en lugar de depender de `:categories` por Gradle.
+- [x] Events `@Serializable`: `TransactionRegistered`, `TransactionEdited`, `TransactionDeleted`.
+- [x] Repository + `SqlDelightTransactionRepository` + `InMemoryTransactionRepository`.
+- [x] Application:
   - `RegisterTransactionCommand` + handler + `TransactionRegistrar`.
   - `EditTransactionCommand` + handler.
   - `DeleteTransactionCommand` + handler.
   - `FindTransactionQuery` + handler.
-  - `SearchTransactionsByCriteriaQuery` + handler (usa `SqlCriteriaTranslator`).
-- [ ] Invariantes: monto positivo, fecha ≤ hoy, coherencia `type`↔`incomeSource`.
-- [ ] Tests unitarios + repo tests con SQLite in-memory.
+  - `SearchTransactionsQuery` + handler (filtros type/categoryId/dateFrom/dateTo/amountMin/amountMax + limit/offset; orden default por fecha desc).
+- [x] Invariantes: `Amount` valida cents > 0 (estructural); `Transaction.register/edit` valida fecha ≤ hoy (con `Clock`+`TimeZone` inyectables) y "EXPENSE no admite `incomeSource`".
+- [x] Tests unitarios (`AmountTest`, `TransactionDescriptionTest`, `TransactionTest`, `TransactionRegistrarTest`, `SearchTransactionsQueryHandlerTest`, `InMemoryTransactionRepositoryTest`) + repo test con SQLite in-memory (`SqlDelightTransactionRepositoryTest`). **29/29 verdes**.
 
 ### Pantalla "Transacciones" (`apps/android/.../ui/transactions/`)
 
-- [ ] `TransactionsListScreen`: lista reverse-cronológica con filtros (rango fechas, categoría, tipo, monto min/max). FAB "+" para añadir.
-- [ ] `TransactionEditScreen`: formulario tipo (ingreso/gasto), monto, categoría (selector que hace `SearchCategoriesByCriteriaQuery`), fecha (DatePicker), descripción, opcional fuente (`originRef`). Botón guardar despacha `RegisterTransactionCommand` o `EditTransactionCommand`.
-- [ ] `TransactionDeleteDialog`.
-- [ ] `TransactionsViewModel` con paginación opcional (SQLDelight `mapToList`).
+- [x] `TransactionsListScreen`: lista reverse-cronológica con filtro por tipo (Todas / Ingresos / Gastos) vía `TabRow`. FAB "+" para añadir. Resuelve nombres de categoría via `ListAllCategoriesQuery` para mostrar nombres legibles en las filas.
+- [x] `TransactionEditScreen`: formulario con FilterChips de tipo (deshabilitado en edición), monto en formato decimal, fecha (texto YYYY-MM-DD — DatePicker queda para Fase 7), descripción, selector de categoría (FilterChips poblados por `SearchCategoriesQuery(kind=...)` y recargados al cambiar de tipo), fuente del ingreso (solo si type=INCOME).
+- [x] Diálogo de borrado inline.
+- [x] `TransactionsListViewModel` con `repository.observeAll()` → `Flow<List<Transaction>>` reactivo (mismo patrón que categorías). `TransactionEditViewModel` con validaciones de monto/categoría.
 
 ### Cableado `apps/android`
 
-- [ ] Añadir `TransactionsModule` a Koin.
-- [ ] Navegación: `home → transacciones → registrar/editar`.
-- [ ] La home placeholder ahora muestra "últimas 5 transacciones" como mejora iterativa.
+- [x] `TransactionsModule` añadido a Koin; eventos `TransactionRegistered/Edited/Deleted` registrados en el `DomainEventJsonSerializer`; comandos y queries añadidos a `busModule`.
+- [x] `AndroidDatabaseFactory.buildTransactions(passphrase)` + `DatabaseUnlocker.transactions` con tabla centinela `transaction_entry`; `PersistenceModule` expone `TransactionsDatabase` y `SqlDelightTransactionRepository`.
+- [x] Navegación: `Home` → `Transactions` → `new` / `edit/{id}`; `Home` añade botón "Transacciones".
+- [ ] **Pendiente Fase 7**: la home muestra "últimas 5 transacciones" como mejora iterativa (sigue siendo placeholder con dos botones de acceso rápido).
 
-**Entrega:** flujo completo de registrar, editar y borrar transacciones. La lista refleja cambios en tiempo real (Flow reactivo).
+### Tests JVM de ViewModel (sin emulador)
+
+- [x] `TransactionsTestFixture` réplica in-memory del cableado (transacciones + categorías + buses) compartiendo `MainDispatcherRule` con la Fase 4.
+- [x] `TransactionsListViewModelTest` (4 casos: observe + nombres de categoría, filtro por tipo, delete reactivo, error con UUID inválido).
+- [x] `TransactionEditViewModelTest` (7 casos: pre-carga EXPENSE, switch de tipo recarga categorías, save crea, monto ≤ 0 valida, categoría requerida, `loadExisting` poblando, fecha futura propaga error del agregado).
+- [x] `./gradlew :apps:android:testDebugUnitTest` → 25/25 verdes en ~3s incremental.
+
+**Entrega:** flujo completo de registrar, editar y borrar transacciones. La lista refleja cambios en tiempo real (Flow reactivo + `Query.asFlow().mapToList()`). Las dos pantallas y sus VMs están cubiertas por tests JVM que no necesitan emulador.
 
 ---
 
-## Fase 6 — `analytics` + pantalla "Estadísticas"
+## Fase 6 — `analytics` + pantalla "Estadísticas" ✅
 
-### Dominio `analytics`
+### Decisión arquitectónica
 
-- [ ] Read models: `MonthlySummary`, `CategoryBreakdown`, `MonthlyEvolution`.
-- [ ] Schemas SQLDelight: `monthly_summary.sq`, `category_breakdown.sq`, `monthly_evolution.sq`.
-- [ ] Subscribers a eventos de `transactions`:
-  - `UpdateMonthlySummaryOnTransactionRegistered` (+ edited, deleted).
-  - `UpdateCategoryBreakdownOnTransactionRegistered` (+ edited, deleted).
-  - `UpdateMonthlyEvolutionOnTransactionRegistered` (+ edited, deleted).
-- [ ] Queries: `FindCurrentMonthSummaryQuery`, `FindMonthlySummaryQuery`, `FindCategoryBreakdownQuery`, `FindMonthlyEvolutionQuery`.
-- [ ] Comando administrativo `RebuildProjectionsCommand` que reproduce eventos del Event Store y reconstruye los read models desde cero.
-- [ ] Tests: dado un set de transacciones, las proyecciones reflejan los totales correctos.
+**On-the-fly en lugar de proyecciones materializadas.** El roadmap original planteaba read models persistidos + subscribers + `RebuildProjectionsCommand`. En su lugar:
+
+- Las queries calculan al vuelo leyendo `TransactionRepository.all()` + `CategoryRepository.all()` y agregando en memoria.
+- La reactividad la da `transactions.observeAll()` del repo: el VM se suscribe y re-ejecuta las queries cuando hay cambios.
+- Sin tablas `monthly_summary.sq` etc., sin subscribers a eventos de transacciones, sin `RebuildProjectionsCommand`.
+
+**Por qué:** a escala MVP (cientos de transacciones) las queries on-the-fly son sub-milisegundo, evitan el riesgo de proyecciones desincronizadas tras un `CategoryReclassified`, y simplifican el modelo: una sola fuente de verdad (las tablas de transactions + categories). Cuando la escala lo justifique, se reintroducen proyecciones siguiendo el patrón ya construido en Fase 2 (Event Store + subscribers).
+
+### Dominio / Application `analytics`
+
+- [x] Response DTOs: `MonthlySummaryResponse` (totales income/expense/balance + splits fixed/variable/essential/discretionary), `CategoryBreakdownResponse` + `CategoryBreakdownItem` (con `share: Double`), `MonthlyEvolutionResponse` + `MonthlyEvolutionPoint`.
+- [x] Helper interno `YearMonth` (formato `YYYY-MM`, aritmética mes-a-mes con manejo de límite de año).
+- [x] Queries + handlers:
+  - `FindMonthlySummaryQuery(yearMonth)` / `FindCurrentMonthSummaryQuery` — resuelve fijo/variable/esencial/discrecional via lookup en `CategoryRepository`.
+  - `FindCategoryBreakdownQuery(yearMonth, type)` — agrupa por categoría con share.
+  - `FindMonthlyEvolutionQuery(monthsBack)` — serie contigua hasta el mes actual.
+- [x] **Sin proyecciones**: se eliminó el plugin SQLDelight de `:analytics/build.gradle.kts` y se removió `AnalyticsDatabase`; `:analytics` ahora depende de `:transactions` y `:categories` por Gradle.
+- [x] `jvm()` target añadido para tests JVM rápidos.
+- [x] Tests: 9 casos (`FindMonthlySummaryQueryHandlerTest` × 3, `FindCategoryBreakdownQueryHandlerTest` × 3, `FindMonthlyEvolutionQueryHandlerTest` × 3 incluyendo cruce de año y validación `monthsBack ∈ 1..36`). **9/9 verdes**.
 
 ### Pantalla "Estadísticas" (`apps/android/.../ui/analytics/`)
 
-- [ ] `StatsScreen` con `TabRow` de tres pestañas:
-  - **Resumen mensual:** totales ingreso/gasto/saldo + cards de fijo/variable/esencial/discrecional. Selector de mes.
-  - **Por categoría:** pie chart o bar chart por categoría (gastos por defecto, toggle a ingresos). Selector de periodo.
-  - **Evolución:** gráfica de líneas de ingresos y gastos por mes (últimos 6/12 meses).
-- [ ] Gráficas con Compose `Canvas` o librería ligera (decisión en la fase).
-- [ ] `AnalyticsViewModel` que llama a las queries vía `QueryBus`.
+- [x] `StatsScreen` con `TabRow` de tres pestañas:
+  - **Resumen**: cards de ingreso/gasto/saldo (saldo en rojo si negativo) + cards mini fijo/variable y esencial/discrecional.
+  - **Por categoría**: lista con color de la categoría, monto, barra proporcional dibujada con `Canvas`.
+  - **Evolución**: gráfica de líneas (Canvas) de ingresos y gastos en los últimos 6 meses + leyenda + ejes mínimos.
+- [x] Gráficas con Compose `Canvas` (sin librería externa).
+- [x] `StatsViewModel` con reactividad via `transactions.observeAll()` → re-ejecuta las 3 queries en cada emisión; permite cambiar `yearMonth` y `tab`.
 
 ### Cableado `apps/android`
 
-- [ ] Añadir `AnalyticsModule` a Koin.
-- [ ] Navegación: `home → estadísticas`.
+- [x] `analyticsModule` añadido a Koin (4 handlers); `busModule` extendido con las queries.
+- [x] Navegación: `Home` → `Stats`; nueva ruta `stats` en `MainActivity`.
+- [x] `Home` añade botón "Estadísticas".
 
-**Entrega:** se ven los gráficos respondiendo a las preguntas del MVP. Al editar o borrar una transacción, las estadísticas se actualizan automáticamente vía Event Store + subscribers.
+### Tests JVM de ViewModel (sin emulador)
+
+- [x] `StatsTestFixture` réplica in-memory que arranca Koin con `TransactionRepository` + `CategoryRepository` + los 4 handlers de analytics; reutiliza `MainDispatcherRule`.
+- [x] `StatsViewModelTest` (4 casos: carga inicial de summary+breakdown+evolution, cambio de yearMonth re-fetchea, transacción nueva propaga via flow, error en yearMonth inválido).
+- [x] `./gradlew :apps:android:testDebugUnitTest` → 29/29 verdes (incluye los 25 anteriores).
+
+**Entrega:** tres vistas estadísticas funcionales respondiendo a las preguntas del MVP ("de dónde viene mi dinero", "en qué se va"). Al registrar/editar/borrar una transacción, las estadísticas se recalculan automáticamente via el `observeAll()` reactivo del repositorio de transacciones — sin proyecciones intermedias.
 
 ---
 
