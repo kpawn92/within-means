@@ -1,0 +1,105 @@
+package within.means.android.ui.home
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.get
+import within.means.analytics.application.MonthlySummaryResponse
+import within.means.analytics.application.find_summary.FindCurrentMonthSummaryQuery
+import within.means.android.ui.error.ErrorContext
+import within.means.android.ui.error.toUserMessage
+import within.means.categories.application.CategoriesResponse
+import within.means.categories.application.search.ListAllCategoriesQuery
+import within.means.shared.domain.bus.query.QueryBus
+import within.means.transactions.application.TransactionResponse
+import within.means.transactions.application.TransactionsResponse
+import within.means.transactions.application.search.SearchTransactionsQuery
+import within.means.transactions.domain.TransactionRepository
+import within.means.users.application.OptionalUserResponse
+import within.means.users.application.find.FindDefaultUserQuery
+
+data class HomeUiState(
+    val displayName: String = "...",
+    val baseCurrency: String = "",
+    val summary: MonthlySummaryResponse? = null,
+    val recentTransactions: List<TransactionResponse> = emptyList(),
+    val categoryNames: Map<String, String> = emptyMap(),
+    val loading: Boolean = true,
+    val errorMessage: String? = null,
+)
+
+class HomeViewModel(
+    transactions: TransactionRepository,
+) : ViewModel(), KoinComponent {
+
+    private val _state = MutableStateFlow(HomeUiState())
+    val state: StateFlow<HomeUiState> = _state.asStateFlow()
+
+    init {
+        viewModelScope.launch { loadProfile() }
+        viewModelScope.launch { loadCategoryNames() }
+        // React to any transaction change: refresh summary + recent list.
+        viewModelScope.launch {
+            transactions.observeAll().collect { reloadTransactions() }
+        }
+    }
+
+    fun clearError() {
+        _state.update { it.copy(errorMessage = null) }
+    }
+
+    private suspend fun loadProfile() {
+        runCatching {
+            get<QueryBus>().ask<FindDefaultUserQuery, OptionalUserResponse>(FindDefaultUserQuery())
+        }.onSuccess { resp ->
+            resp.user?.let { user ->
+                _state.update {
+                    it.copy(
+                        displayName = user.displayName,
+                        baseCurrency = user.baseCurrency,
+                    )
+                }
+            }
+        }.onFailure { e ->
+            _state.update { it.copy(errorMessage = e.toUserMessage(ErrorContext.GENERIC)) }
+        }
+    }
+
+    private suspend fun loadCategoryNames() {
+        runCatching {
+            get<QueryBus>().ask<ListAllCategoriesQuery, CategoriesResponse>(ListAllCategoriesQuery())
+        }.onSuccess { resp ->
+            _state.update { it.copy(categoryNames = resp.items.associate { c -> c.id to c.name }) }
+        }
+    }
+
+    private suspend fun reloadTransactions() {
+        _state.update { it.copy(loading = true) }
+        runCatching {
+            val bus = get<QueryBus>()
+            val summary = bus.ask<FindCurrentMonthSummaryQuery, MonthlySummaryResponse>(
+                FindCurrentMonthSummaryQuery()
+            )
+            val recent = bus.ask<SearchTransactionsQuery, TransactionsResponse>(
+                SearchTransactionsQuery(limit = 5)
+            )
+            summary to recent
+        }.onSuccess { (summary, recent) ->
+            _state.update {
+                it.copy(
+                    summary = summary,
+                    recentTransactions = recent.items,
+                    loading = false,
+                )
+            }
+        }.onFailure { e ->
+            _state.update { it.copy(loading = false, errorMessage = e.toUserMessage(ErrorContext.GENERIC)) }
+        }
+    }
+}
+

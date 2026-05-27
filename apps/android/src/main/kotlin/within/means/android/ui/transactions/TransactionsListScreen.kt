@@ -9,7 +9,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -37,12 +36,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import org.koin.compose.viewmodel.koinViewModel
+import within.means.android.ui.format.formatMoney
 import within.means.transactions.application.TransactionResponse
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionsListScreen(
-    onBack: () -> Unit,
     onCreate: () -> Unit,
     onEdit: (transactionId: String) -> Unit,
 ) {
@@ -59,16 +58,7 @@ fun TransactionsListScreen(
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Transacciones") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Atrás")
-                    }
-                },
-            )
-        },
+        topBar = { TopAppBar(title = { Text("Transacciones") }) },
         floatingActionButton = {
             FloatingActionButton(onClick = onCreate) {
                 Icon(Icons.Filled.Add, contentDescription = "Registrar transacción")
@@ -141,7 +131,7 @@ private fun TransactionRow(
         modifier = Modifier.clickable(onClick = onClick),
         headlineContent = {
             val prefix = if (transaction.type == "EXPENSE") "−" else "+"
-            Text("$prefix ${formatAmount(transaction.amountCents)}")
+            Text("$prefix ${formatMoney(transaction.amountCents)}")
         },
         supportingContent = {
             val parts = buildList {
@@ -165,8 +155,3 @@ private fun filterLabel(filter: TransactionTypeFilter): String = when (filter) {
     TransactionTypeFilter.EXPENSE -> "Gastos"
 }
 
-private fun formatAmount(cents: Long): String {
-    val whole = cents / 100
-    val frac = (cents % 100).toInt().toString().padStart(2, '0')
-    return "$whole,$frac"
-}

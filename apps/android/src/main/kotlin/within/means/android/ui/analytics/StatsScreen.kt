@@ -14,13 +14,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -43,13 +39,14 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import org.koin.compose.viewmodel.koinViewModel
+import within.means.android.ui.format.formatMoney
 import within.means.analytics.application.CategoryBreakdownItem
 import within.means.analytics.application.MonthlyEvolutionResponse
 import within.means.analytics.application.MonthlySummaryResponse
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StatsScreen(onBack: () -> Unit) {
+fun StatsScreen() {
     val viewModel: StatsViewModel = koinViewModel()
     val state by viewModel.state.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -63,14 +60,7 @@ fun StatsScreen(onBack: () -> Unit) {
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Estadísticas · ${state.yearMonth}") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Atrás")
-                    }
-                },
-            )
+            TopAppBar(title = { Text("Estadísticas · ${state.yearMonth}") })
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
@@ -259,12 +249,6 @@ private fun tabLabel(tab: StatsTab): String = when (tab) {
     StatsTab.SUMMARY -> "Resumen"
     StatsTab.BREAKDOWN -> "Por categoría"
     StatsTab.EVOLUTION -> "Evolución"
-}
-
-private fun formatMoney(cents: Long): String {
-    val whole = cents / 100
-    val frac = (cents % 100).toInt().toString().padStart(2, '0')
-    return "$whole,$frac"
 }
 
 private fun parseHex(hex: String): Color {

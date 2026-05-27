@@ -284,27 +284,38 @@ Primer vertical end-to-end. Introduce **el cableado completo de `apps/android`**
 
 ---
 
-## Fase 7 — Pulido e integración
+## Fase 7 — Pulido e integración 🟡 (parcial)
 
 Cierre del MVP. Sin contextos nuevos: integra las pantallas existentes en una experiencia coherente.
 
-- [ ] **Pantalla Home definitiva:**
-  - Saludo con el `displayName` del usuario.
-  - Resumen del mes en curso (totales).
-  - "Últimos movimientos" (5 más recientes con scroll a la lista completa).
-  - Botón flotante "+" para registrar transacción rápida.
-  - Acceso rápido a las otras pantallas.
-- [ ] **Bottom navigation** o **Navigation Rail** con: Home, Transacciones, Estadísticas, Categorías, Ajustes.
-- [ ] **Pantalla "Ajustes":** editar perfil, cambiar PIN, cambiar idioma/moneda base (despacha `UpdateUserPreferencesCommand`).
-- [ ] **Theming Material 3 refinado:** paleta personalizada (no la system), tipografía, iconografía consistente.
-- [ ] **Estados vacíos** ilustrativos en cada pantalla (cuando no hay transacciones, no hay categorías, etc.).
-- [ ] **Estados de error** unificados con `Snackbar`.
-- [ ] **Loading skeletons** o indicadores en las queries pesadas.
-- [ ] **Accesibilidad:** content descriptions, contraste, tamaños tap mínimos.
-- [ ] **Validación del cifrado:** test instrumentado que verifica que `within_means.db` no es legible sin passphrase.
-- [ ] **Smoke tests manuales completos:** flujo completo desde primer arranque hasta dashboard funcional.
+### Hecho
 
-**Entrega:** APK MVP entregable. App usable y atractiva con flujo coherente.
+- [x] **Pantalla Home definitiva** ([apps/android/.../ui/home/](apps/android/src/main/kotlin/within/means/android/ui/home/)):
+  - Saludo con el `displayName` (resuelto via `FindDefaultUserQuery`).
+  - Resumen del mes en curso: ingresos / gastos / saldo (saldo en rojo si negativo) + nota de moneda base.
+  - "Últimos movimientos" (top 5 via `SearchTransactionsQuery(limit=5)`, con nombre de categoría resuelto) + link "Ver todo" hacia la pestaña de transacciones.
+  - FAB "+" que abre el formulario de nueva transacción.
+  - Reactividad: `HomeViewModel` se suscribe a `transactions.observeAll()` y re-ejecuta summary + recent en cada cambio.
+- [x] **Bottom navigation** ([MainActivity.kt](apps/android/src/main/kotlin/within/means/android/MainActivity.kt)) con 5 tabs (`Inicio`, `Movimientos`, `Estadísticas`, `Categorías`, `Ajustes`). Cada tab mantiene su back-stack via `saveState`/`restoreState`; el bar se oculta en `Onboarding`/`Unlock`. Los list-screens (categorías, transacciones, stats) ya no llevan back-arrow.
+- [x] **Pantalla "Ajustes"** ([apps/android/.../ui/settings/](apps/android/src/main/kotlin/within/means/android/ui/settings/)): edición de perfil (nombre, idioma `es/en`, moneda base `EUR/USD/CUP`) → despacha `UpdateUserPreferencesCommand`, confirma con snackbar "Preferencias guardadas". Validación de nombre no vacío.
+- [x] **Estados vacíos**: HomeScreen ("Aún no hay movimientos. Pulsa + para registrar el primero."), CategoriesListScreen, TransactionsListScreen, StatsScreen (sin datos para el mes seleccionado).
+- [x] **Estados de error unificados con Snackbar** — patrón consistente: `LaunchedEffect(state.errorMessage) → showSnackbar + clearError`. Mensajes user-friendly via `UserErrorMessages` (mapea SQLite/cipher a español).
+- [x] **Loading indicators**: `LinearProgressIndicator` en Home (mientras `summary == null && loading`) y Settings (durante la carga del perfil).
+- [x] **Tests JVM de ViewModel** para las nuevas pantallas:
+  - `HomeViewModelTest` (4 casos: carga inicial, cap a 5 recientes, propagación reactiva, mapa de category names).
+  - `SettingsViewModelTest` (4 casos: carga del perfil, save persiste, validación nombre vacío, edición limpia `savedAck`).
+  - **37/37 verdes en `:apps:android`** (incluye los 25 anteriores).
+
+### Pendiente (post-MVP o iteración posterior)
+
+- [ ] **Cambiar PIN** en Ajustes — requiere `PRAGMA rekey` sobre cada DB cifrada (Shared/Users/Categories/Transactions) y validación del PIN actual antes de derivar el nuevo. Bloqueado por SQLCipher; sub-feature suficientemente grande para ir aparte.
+- [ ] **DatePicker** en `TransactionEditScreen` — actualmente input de texto `YYYY-MM-DD`. Material 3 tiene `DatePicker` experimental.
+- [ ] **Theming refinado**: paleta personalizada completa (tipografía, iconografía, tonos custom). Ya tenemos green + dark scheme básico.
+- [ ] **Accesibilidad**: audit formal de content descriptions, contraste, tap targets.
+- [ ] **Validación del cifrado**: test instrumentado (requiere emulador) que `adb pull within_means.db` no abre con `sqlite3` sin passphrase.
+- [ ] **Smoke test manual completo**: instalar APK + 20 tx + tres tabs de estadísticas funcionando.
+
+**Entrega actual:** APK MVP usable con bottom nav, home definitiva, ajustes funcionales (excepto cambio de PIN). Compila + ensambla + 37 tests JVM verdes. Flujo coherente end-to-end desde onboarding hasta editar perfil.
 
 ---
 

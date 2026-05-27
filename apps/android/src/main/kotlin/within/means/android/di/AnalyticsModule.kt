@@ -9,7 +9,11 @@ import within.means.analytics.application.find_summary.FindMonthlySummaryQueryHa
 
 val analyticsModule = module {
     singleOf(::FindMonthlySummaryQueryHandler)
-    singleOf(::FindCurrentMonthSummaryQueryHandler)
     singleOf(::FindCategoryBreakdownQueryHandler)
-    singleOf(::FindMonthlyEvolutionQueryHandler)
+
+    // Handlers below take optional Clock+TimeZone with sane defaults; `singleOf`
+    // would try to resolve them through DI and fail. Explicit factories let
+    // Kotlin defaults apply (system clock + current zone).
+    single { FindCurrentMonthSummaryQueryHandler(get(), get()) }
+    single { FindMonthlyEvolutionQueryHandler(get()) }
 }
