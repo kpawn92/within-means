@@ -49,8 +49,8 @@ release/
 # Kotlin
 .kotlin/
 
-# SQLDelight: schema cache local (no se versiona; se regenera de los .sq)
-**/sqldelight/databases/
+# SQLDelight: los .db baseline en sqldelight/databases/ SÍ se versionan
+# (verifyMigrations = true los necesita como source-of-truth del schema).
 
 # Local secrets / signing
 *.keystore

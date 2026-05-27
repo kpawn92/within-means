@@ -305,11 +305,14 @@ Cierre del MVP. Sin contextos nuevos: integra las pantallas existentes en una ex
   - `HomeViewModelTest` (4 casos: carga inicial, cap a 5 recientes, propagación reactiva, mapa de category names).
   - `SettingsViewModelTest` (4 casos: carga del perfil, save persiste, validación nombre vacío, edición limpia `savedAck`).
   - **37/37 verdes en `:apps:android`** (incluye los 25 anteriores).
+- [x] **`./gradlew build` end-to-end verde** (criterio 1 de "MVP listo"):
+  - Schema baselines `1.db` generados y commiteados para `:shared`, `:users`, `:categories`, `:transactions` (necesarios con `verifyMigrations = true`). El `.gitignore` se ajustó para versionarlos.
+  - `minSdk` subido de 21 a 23 — `Android Keystore` con `KeyGenParameterSpec` + `KEY_ALGORITHM_HMAC_SHA256` requieren API 23. Antes el lint marcaba 4 errores que la app habría reproducido en runtime en cualquier dispositivo <Android 6.0.
 
 ### Pendiente (post-MVP o iteración posterior)
 
 - [ ] **Cambiar PIN** en Ajustes — requiere `PRAGMA rekey` sobre cada DB cifrada (Shared/Users/Categories/Transactions) y validación del PIN actual antes de derivar el nuevo. Bloqueado por SQLCipher; sub-feature suficientemente grande para ir aparte.
-- [ ] **DatePicker** en `TransactionEditScreen` — actualmente input de texto `YYYY-MM-DD`. Material 3 tiene `DatePicker` experimental.
+- [x] **DatePicker** en [TransactionEditScreen](apps/android/src/main/kotlin/within/means/android/ui/transactions/TransactionEditScreen.kt) — `DateField` interno con `OutlinedTextField` read-only que abre `DatePickerDialog` (Material 3). El estado del VM sigue siendo `String` ISO `YYYY-MM-DD`; las conversiones a/desde `epochMillis` UTC viven en el composable.
 - [ ] **Theming refinado**: paleta personalizada completa (tipografía, iconografía, tonos custom). Ya tenemos green + dark scheme básico.
 - [ ] **Accesibilidad**: audit formal de content descriptions, contraste, tap targets.
 - [ ] **Validación del cifrado**: test instrumentado (requiere emulador) que `adb pull within_means.db` no abre con `sqlite3` sin passphrase.
@@ -327,7 +330,7 @@ El MVP se da por entregado cuando se cumplen **todos**:
 2. **APK funcional.** `./gradlew :apps:android:installDebug` instala en emulador/dispositivo y la app arranca.
 3. **Datos cifrados.** El archivo `within_means.db` no es legible sin passphrase (verificado con `adb pull` + `sqlite3`).
 4. **Smoke test completo:** registrar 20 transacciones de ejemplo y ver los tres tipos de estadísticas funcionando.
-5. **Reconstrucción:** `RebuildProjectionsCommand` regenera los read models correctamente desde el Event Store.
+5. **Event Store íntegro:** los eventos de dominio (`UserDefaultCreated`, `CategoryCreated/Renamed/Restyled/Reclassified/Deleted`, `TransactionRegistered/Edited/Deleted`) se persisten en `domain_events` con su payload serializable. Nota: el plan original hablaba de `RebuildProjectionsCommand`, pero en Fase 6 se decidió no materializar proyecciones (las queries de `analytics` corren on-the-fly), así que este criterio se redujo a verificar el log de eventos.
 6. **Sin deuda crítica:** no hay TODOs sin fecha; no hay `expect/actual` sin implementar.
 7. **Doc actualizada:** cualquier desviación del plan está reflejada en los `.md` correspondientes.
 
