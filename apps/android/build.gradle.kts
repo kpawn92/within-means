@@ -39,6 +39,12 @@ android {
             isMinifyEnabled = false
         }
     }
+
+    sourceSets["test"].kotlin.srcDirs("src/test/kotlin")
+
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {
@@ -87,4 +93,11 @@ dependencies {
 
     // Desugaring
     coreLibraryDesugaring(libs.androidx.desugar.jdk.libs)
+
+    // Tests JVM (unit tests para ViewModels, sin emulador)
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.kotest.assertions.core)
+    testImplementation(libs.turbine)
+    testImplementation(libs.koin.core)
 }

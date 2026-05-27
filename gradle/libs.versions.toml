@@ -38,6 +38,7 @@ kermit = "2.0.5"
 kotest = "5.9.1"
 mockk = "1.13.13"
 turbine = "1.2.0"
+junit = "4.13.2"
 
 [libraries]
 # Kotlinx
@@ -86,6 +87,7 @@ kotest-assertions-core     = { module = "io.kotest:kotest-assertions-core", vers
 kotest-framework-engine    = { module = "io.kotest:kotest-framework-engine", version.ref = "kotest" }
 mockk                      = { module = "io.mockk:mockk", version.ref = "mockk" }
 turbine                    = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
+junit                      = { module = "junit:junit", version.ref = "junit" }
 
 [plugins]
 kotlin-multiplatform       = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
