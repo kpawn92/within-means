@@ -79,6 +79,8 @@ class OnboardingViewModel(
                     runCatching {
                         unlocker.unlock(s.pin)
                         // Resolve AFTER unlock so handlers bind to live DBs.
+                        // Default-category seeding fires from the
+                        // UserDefaultCreated subscriber wired in apps/android.
                         get<CommandBus>().dispatch(EnsureDefaultUserCommand())
                     }.onSuccess {
                         _state.update { it.copy(step = OnboardingStep.Preferences, isWorking = false) }

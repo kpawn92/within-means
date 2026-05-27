@@ -2,8 +2,12 @@ package within.means.android.ui.home
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -22,7 +26,7 @@ import within.means.users.application.OptionalUserResponse
 import within.means.users.application.find.FindDefaultUserQuery
 
 @Composable
-fun HomePlaceholderScreen() {
+fun HomePlaceholderScreen(onOpenCategories: () -> Unit) {
     val queryBus: QueryBus = koinInject()
     var displayName by remember { mutableStateOf("...") }
     var baseCurrency by remember { mutableStateOf("...") }
@@ -44,11 +48,11 @@ fun HomePlaceholderScreen() {
         ) {
             Text("Hola, $displayName", style = MaterialTheme.typography.headlineLarge)
             Text("Moneda base: $baseCurrency", style = MaterialTheme.typography.titleMedium)
-            Text(
-                "Fase 3 — onboarding completo",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Spacer(Modifier.height(24.dp))
+
+            Button(onClick = onOpenCategories, modifier = Modifier.fillMaxWidth()) {
+                Text("Ver categorías")
+            }
         }
     }
 }

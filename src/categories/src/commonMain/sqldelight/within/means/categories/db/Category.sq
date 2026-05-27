@@ -1,0 +1,33 @@
+CREATE TABLE category (
+    id              TEXT NOT NULL PRIMARY KEY,
+    kind            TEXT NOT NULL,
+    name            TEXT NOT NULL,
+    color           TEXT NOT NULL,
+    icon            TEXT NOT NULL,
+    nature          TEXT,
+    essentiality    TEXT,
+    productive      INTEGER NOT NULL DEFAULT 0,
+    engel_group     TEXT,
+    parent_id       TEXT,
+    created_at      TEXT NOT NULL
+);
+
+CREATE INDEX idx_category_kind ON category(kind);
+CREATE INDEX idx_category_parent ON category(parent_id);
+
+upsert:
+INSERT OR REPLACE INTO category(
+    id, kind, name, color, icon, nature, essentiality, productive, engel_group, parent_id, created_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+findById:
+SELECT * FROM category WHERE id = ?;
+
+findAll:
+SELECT * FROM category ORDER BY kind, name;
+
+countAll:
+SELECT COUNT(*) FROM category;
+
+deleteById:
+DELETE FROM category WHERE id = ?;

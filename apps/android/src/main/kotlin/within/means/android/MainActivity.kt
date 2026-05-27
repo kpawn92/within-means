@@ -19,9 +19,13 @@ import androidx.navigation.compose.rememberNavController
 import org.koin.compose.koinInject
 import within.means.android.persistence.DatabaseUnlocker
 import within.means.android.persistence.OnboardingState
+import within.means.android.ui.categories.CategoriesListScreen
+import within.means.android.ui.categories.CategoryEditScreen
 import within.means.android.ui.home.HomePlaceholderScreen
 import within.means.android.ui.onboarding.OnboardingScreen
 import within.means.android.ui.unlock.UnlockScreen
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 
 class MainActivity : ComponentActivity() {
 
@@ -39,6 +43,11 @@ private object Routes {
     const val Onboarding = "onboarding"
     const val Unlock = "unlock"
     const val Home = "home"
+    const val Categories = "categories"
+    const val CategoryNew = "categories/new"
+    const val CategoryEdit = "categories/edit/{categoryId}"
+
+    fun categoryEdit(categoryId: String): String = "categories/edit/$categoryId"
 }
 
 @Composable
@@ -79,7 +88,33 @@ private fun WithinMeansApp() {
             )
         }
         composable(Routes.Home) {
-            HomePlaceholderScreen()
+            HomePlaceholderScreen(
+                onOpenCategories = { navController.navigate(Routes.Categories) },
+            )
+        }
+        composable(Routes.Categories) {
+            CategoriesListScreen(
+                onBack = { navController.popBackStack() },
+                onCreate = { navController.navigate(Routes.CategoryNew) },
+                onEdit = { id -> navController.navigate(Routes.categoryEdit(id)) },
+            )
+        }
+        composable(Routes.CategoryNew) {
+            CategoryEditScreen(
+                categoryId = null,
+                onBack = { navController.popBackStack() },
+                onFinished = { navController.popBackStack() },
+            )
+        }
+        composable(
+            route = Routes.CategoryEdit,
+            arguments = listOf(navArgument("categoryId") { type = NavType.StringType }),
+        ) { entry ->
+            CategoryEditScreen(
+                categoryId = entry.arguments?.getString("categoryId"),
+                onBack = { navController.popBackStack() },
+                onFinished = { navController.popBackStack() },
+            )
         }
     }
 }

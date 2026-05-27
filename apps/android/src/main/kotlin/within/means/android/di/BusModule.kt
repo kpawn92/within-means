@@ -2,6 +2,20 @@ package within.means.android.di
 
 import kotlinx.serialization.KSerializer
 import org.koin.dsl.module
+import within.means.categories.application.create.CreateCategoryCommandHandler
+import within.means.categories.application.delete.DeleteCategoryCommandHandler
+import within.means.categories.application.find.FindCategoryQueryHandler
+import within.means.categories.application.reclassify.ReclassifyCategoryCommandHandler
+import within.means.categories.application.recolor.RestyleCategoryCommandHandler
+import within.means.categories.application.rename.RenameCategoryCommandHandler
+import within.means.android.subscribers.SeedDefaultCategoriesOnUserDefaultCreated
+import within.means.categories.application.search.ListAllCategoriesQueryHandler
+import within.means.categories.application.search.SearchCategoriesQueryHandler
+import within.means.categories.domain.CategoryCreated
+import within.means.categories.domain.CategoryDeleted
+import within.means.categories.domain.CategoryReclassified
+import within.means.categories.domain.CategoryRenamed
+import within.means.categories.domain.CategoryRestyled
 import within.means.shared.domain.bus.command.Command
 import within.means.shared.domain.bus.command.CommandBus
 import within.means.shared.domain.bus.command.CommandHandler
@@ -33,6 +47,11 @@ val busModule = module {
         val handlers: List<CommandHandler<out Command>> = listOf(
             get<EnsureDefaultUserCommandHandler>(),
             get<UpdateUserPreferencesCommandHandler>(),
+            get<CreateCategoryCommandHandler>(),
+            get<RenameCategoryCommandHandler>(),
+            get<RestyleCategoryCommandHandler>(),
+            get<ReclassifyCategoryCommandHandler>(),
+            get<DeleteCategoryCommandHandler>(),
         )
         InMemoryCommandBus(handlers)
     }
@@ -40,6 +59,9 @@ val busModule = module {
     single<QueryBus> {
         val handlers: List<QueryHandler<out Query, out Response>> = listOf(
             get<FindDefaultUserQueryHandler>(),
+            get<FindCategoryQueryHandler>(),
+            get<SearchCategoriesQueryHandler>(),
+            get<ListAllCategoriesQueryHandler>(),
         )
         InMemoryQueryBus(handlers)
     }
@@ -48,14 +70,19 @@ val busModule = module {
         val registry: Map<String, KSerializer<out DomainEvent>> = mapOf(
             UserDefaultCreated.NAME to UserDefaultCreated.serializer(),
             UserPreferencesUpdated.NAME to UserPreferencesUpdated.serializer(),
+            CategoryCreated.NAME to CategoryCreated.serializer(),
+            CategoryRenamed.NAME to CategoryRenamed.serializer(),
+            CategoryRestyled.NAME to CategoryRestyled.serializer(),
+            CategoryReclassified.NAME to CategoryReclassified.serializer(),
+            CategoryDeleted.NAME to CategoryDeleted.serializer(),
         )
         DomainEventJsonSerializer(serializers = registry)
     }
 
     single<EventBus> {
-        // No subscribers in Phase 3; future contexts (budgets, analytics)
-        // will add their subscribers here.
-        val subscribers = emptyList<DomainEventSubscriber<out DomainEvent>>()
+        val subscribers: List<DomainEventSubscriber<out DomainEvent>> = listOf(
+            get<SeedDefaultCategoriesOnUserDefaultCreated>(),
+        )
         EventStoreBackedEventBus(get(), get(), subscribers)
     }
 }
