@@ -308,6 +308,11 @@ Cierre del MVP. Sin contextos nuevos: integra las pantallas existentes en una ex
 - [x] **`./gradlew build` end-to-end verde** (criterio 1 de "MVP listo"):
   - Schema baselines `1.db` generados y commiteados para `:shared`, `:users`, `:categories`, `:transactions` (necesarios con `verifyMigrations = true`). El `.gitignore` se ajustó para versionarlos.
   - `minSdk` subido de 21 a 23 — `Android Keystore` con `KeyGenParameterSpec` + `KEY_ALGORITHM_HMAC_SHA256` requieren API 23. Antes el lint marcaba 4 errores que la app habría reproducido en runtime en cualquier dispositivo <Android 6.0.
+- [x] **Ingeniería de release** ([apps/android/build.gradle.kts](apps/android/build.gradle.kts)):
+  - **Firma de release**: `signingConfig` que lee de `keystore.properties` (gitignorado); si el archivo no existe, el build de release compila igual pero sin firmar (CI/clones). Plantilla + instrucciones `keytool` en [keystore.properties.example](keystore.properties.example).
+  - **R8 / minify**: `isMinifyEnabled` + `isShrinkResources` activos en release con [proguard-rules.pro](apps/android/proguard-rules.pro) (keeps para SQLCipher/net.zetetic, kotlinx.serialization + eventos `@Serializable`, Koin, Tink/`androidx.security.crypto`). APK release de ~35 MB → ~24.8 MB. **Pendiente de verificar en runtime** (un emulador) que las keep rules cubren toda la reflexión.
+  - **Icono de launcher**: icono adaptativo (`mipmap-anydpi-v26`) + fallback vectorial full-bleed para API 23-25, con la paleta verde de marca (`#2E7D32`) y barras ascendentes blancas. Declarado en el manifest (`android:icon` + `android:roundIcon`).
+- [x] **Bug de test dependiente de fecha corregido**: `StatsViewModel` calculaba el mes por defecto con `Clock.System` (reloj real), ignorando el reloj inyectable del resto de `analytics`. `StatsViewModelTest` hardcodeaba fechas de mayo 2026 y solo pasaba en mayo. Se inyectó `Clock`/`TimeZone` en el VM (con defaults a sistema; factoría explícita en `uiModule` espejando `analyticsModule`) y el test pasa `fixture.clock`.
 
 ### Pendiente (post-MVP o iteración posterior)
 

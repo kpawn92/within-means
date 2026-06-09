@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Barras ascendentes (finanzas / crecimiento) en blanco, dentro de la zona
+     segura 72x72 del icono adaptativo (viewport 108x108). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Barra baja -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M36.5,54 H45.5 V72 H36.5 Z" />
+    <!-- Barra media -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M49.5,44 H58.5 V72 H49.5 Z" />
+    <!-- Barra alta -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M62.5,34 H71.5 V72 H62.5 Z" />
+    <!-- Línea base -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M34,73.5 H74 V76.5 H34 Z" />
+</vector>

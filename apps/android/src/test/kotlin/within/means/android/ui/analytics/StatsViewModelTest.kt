@@ -1,5 +1,6 @@
 package within.means.android.ui.analytics
 
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotBeEmpty
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -14,8 +15,7 @@ import within.means.android.ui.categories.MainDispatcherRule
 @OptIn(ExperimentalCoroutinesApi::class)
 class StatsViewModelTest {
 
-    @get:Rule
-    val mainRule = MainDispatcherRule()
+    @get:Rule val mainRule = MainDispatcherRule()
 
     private lateinit var fixture: StatsTestFixture
 
@@ -37,7 +37,7 @@ class StatsViewModelTest {
         fixture.seedTransaction("EXPENSE", 80000L, "2026-05-01", rent)
         fixture.seedTransaction("EXPENSE", 15000L, "2026-05-10", food)
 
-        val vm = StatsViewModel(fixture.txRepository)
+        val vm = StatsViewModel(fixture.txRepository, fixture.clock, fixture.zone)
         advanceUntilIdle()
 
         val s = vm.state.value
@@ -54,7 +54,7 @@ class StatsViewModelTest {
         fixture.seedTransaction("EXPENSE", 100L, "2026-04-15", cat)
         fixture.seedTransaction("EXPENSE", 500L, "2026-05-15", cat)
 
-        val vm = StatsViewModel(fixture.txRepository)
+        val vm = StatsViewModel(fixture.txRepository, fixture.clock, fixture.zone)
         advanceUntilIdle()
         vm.state.value.summary?.totalExpenseCents shouldBe 500L
 
@@ -68,7 +68,7 @@ class StatsViewModelTest {
     @Test
     fun `adding a new transaction re-runs the queries automatically`() = runTest {
         val cat = fixture.seedCategory("Comida")
-        val vm = StatsViewModel(fixture.txRepository)
+        val vm = StatsViewModel(fixture.txRepository, fixture.clock, fixture.zone)
         advanceUntilIdle()
         vm.state.value.summary?.totalExpenseCents shouldBe 0L
 
@@ -80,12 +80,12 @@ class StatsViewModelTest {
 
     @Test
     fun `invalid yearMonth surfaces a user-friendly error`() = runTest {
-        val vm = StatsViewModel(fixture.txRepository)
+        val vm = StatsViewModel(fixture.txRepository, fixture.clock, fixture.zone)
         advanceUntilIdle()
 
         vm.selectYearMonth("bogus")
         advanceUntilIdle()
 
-        vm.state.value.errorMessage?.shouldNotBeEmpty()
+        vm.state.value.errorMessage.shouldNotBeNull().shouldNotBeEmpty()
     }
 }

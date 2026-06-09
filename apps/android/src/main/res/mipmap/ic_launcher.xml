@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fallback full-bleed para API 23-25 (sin AdaptiveIconDrawable). Verde de
+     marca con esquinas redondeadas + las barras blancas del foreground. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <path
+        android:fillColor="#2E7D32"
+        android:pathData="M18,0 H90 A18,18 0 0 1 108,18 V90 A18,18 0 0 1 90,108 H18 A18,18 0 0 1 0,90 V18 A18,18 0 0 1 18,0 Z" />
+
+    <path android:fillColor="#FFFFFF" android:pathData="M36.5,54 H45.5 V72 H36.5 Z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M49.5,44 H58.5 V72 H49.5 Z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M62.5,34 H71.5 V72 H62.5 Z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M34,73.5 H74 V76.5 H34 Z" />
+</vector>

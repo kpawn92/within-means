@@ -27,7 +27,7 @@ enum class StatsTab { SUMMARY, BREAKDOWN, EVOLUTION }
 
 data class StatsUiState(
     val tab: StatsTab = StatsTab.SUMMARY,
-    val yearMonth: String = currentYearMonth(),
+    val yearMonth: String = "",
     val summary: MonthlySummaryResponse? = null,
     val breakdown: CategoryBreakdownResponse? = null,
     val evolution: MonthlyEvolutionResponse? = null,
@@ -37,9 +37,11 @@ data class StatsUiState(
 
 class StatsViewModel(
     transactions: TransactionRepository,
+    clock: Clock = Clock.System,
+    zone: TimeZone = TimeZone.currentSystemDefault(),
 ) : ViewModel(), KoinComponent {
 
-    private val _state = MutableStateFlow(StatsUiState())
+    private val _state = MutableStateFlow(StatsUiState(yearMonth = currentYearMonth(clock, zone)))
     val state: StateFlow<StatsUiState> = _state.asStateFlow()
 
     init {
@@ -94,7 +96,7 @@ class StatsViewModel(
     }
 }
 
-private fun currentYearMonth(): String {
-    val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+private fun currentYearMonth(clock: Clock, zone: TimeZone): String {
+    val today = clock.now().toLocalDateTime(zone).date
     return "${today.year}-${today.monthNumber.toString().padStart(2, '0')}"
 }
