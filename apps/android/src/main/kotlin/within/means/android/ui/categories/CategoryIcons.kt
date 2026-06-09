@@ -39,9 +39,10 @@ val CategoryIconCatalog: Map<String, ImageVector> = mapOf(
 
 fun iconFor(name: String): ImageVector = CategoryIconCatalog[name] ?: Icons.Filled.Label
 
+/** Warm brand palette from the design (13 hex), shared by the list cards and editor. */
 val CategoryColorPalette: List<String> = listOf(
-    "#2E7D32", "#388E3C", "#1976D2", "#1565C0",
-    "#F9A825", "#F57C00", "#0288D1", "#0277BD",
-    "#C2185B", "#7B1FA2", "#5E35B1", "#D81B60",
-    "#616161", "#455A64", "#E64A19",
+    "#3F8F6B", "#C8783C", "#C0504D", "#5B7FB4",
+    "#8A6BB1", "#D4A12E", "#4FA3A3", "#B5556E",
+    "#6E8B3D", "#A36A4F", "#717A8C", "#C77FA6",
+    "#3E7A8C",
 )

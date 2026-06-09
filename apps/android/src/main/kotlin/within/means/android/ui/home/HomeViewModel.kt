@@ -10,7 +10,10 @@ import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import within.means.analytics.application.MonthlySummaryResponse
+import within.means.analytics.application.CategoryBreakdownResponse
+import within.means.analytics.application.find_breakdown.FindCategoryBreakdownQuery
 import within.means.analytics.application.find_summary.FindCurrentMonthSummaryQuery
+import within.means.android.ui.CategoryView
 import within.means.android.ui.error.ErrorContext
 import within.means.android.ui.error.toUserMessage
 import within.means.categories.application.CategoriesResponse
@@ -27,8 +30,10 @@ data class HomeUiState(
     val displayName: String = "...",
     val baseCurrency: String = "",
     val summary: MonthlySummaryResponse? = null,
+    val breakdown: CategoryBreakdownResponse? = null,
     val recentTransactions: List<TransactionResponse> = emptyList(),
     val categoryNames: Map<String, String> = emptyMap(),
+    val categories: Map<String, CategoryView> = emptyMap(),
     val loading: Boolean = true,
     val errorMessage: String? = null,
 )
@@ -74,7 +79,12 @@ class HomeViewModel(
         runCatching {
             get<QueryBus>().ask<ListAllCategoriesQuery, CategoriesResponse>(ListAllCategoriesQuery())
         }.onSuccess { resp ->
-            _state.update { it.copy(categoryNames = resp.items.associate { c -> c.id to c.name }) }
+            _state.update {
+                it.copy(
+                    categoryNames = resp.items.associate { c -> c.id to c.name },
+                    categories = resp.items.associate { c -> c.id to CategoryView(c.name, c.icon, c.color) },
+                )
+            }
         }
     }
 
@@ -85,14 +95,18 @@ class HomeViewModel(
             val summary = bus.ask<FindCurrentMonthSummaryQuery, MonthlySummaryResponse>(
                 FindCurrentMonthSummaryQuery()
             )
+            val breakdown = bus.ask<FindCategoryBreakdownQuery, CategoryBreakdownResponse>(
+                FindCategoryBreakdownQuery(yearMonth = summary.yearMonth)
+            )
             val recent = bus.ask<SearchTransactionsQuery, TransactionsResponse>(
                 SearchTransactionsQuery(limit = 5)
             )
-            summary to recent
-        }.onSuccess { (summary, recent) ->
+            Triple(summary, breakdown, recent)
+        }.onSuccess { (summary, breakdown, recent) ->
             _state.update {
                 it.copy(
                     summary = summary,
+                    breakdown = breakdown,
                     recentTransactions = recent.items,
                     loading = false,
                 )

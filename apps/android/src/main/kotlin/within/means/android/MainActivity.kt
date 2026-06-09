@@ -5,31 +5,46 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScaffoldDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
@@ -41,6 +56,7 @@ import androidx.navigation.navArgument
 import org.koin.compose.koinInject
 import within.means.android.persistence.DatabaseUnlocker
 import within.means.android.persistence.OnboardingState
+import within.means.android.ui.theme.WithinMeansTheme
 import within.means.android.ui.analytics.StatsScreen
 import within.means.android.ui.categories.CategoriesListScreen
 import within.means.android.ui.categories.CategoryEditScreen
@@ -80,6 +96,7 @@ private object Routes {
     fun transactionEdit(transactionId: String): String = "transactions/edit/$transactionId"
 }
 
+/** The four bottom-nav destinations (the center [+] is rendered separately). */
 private enum class BottomTab(
     val route: String,
     val icon: ImageVector,
@@ -87,12 +104,13 @@ private enum class BottomTab(
 ) {
     HOME(Routes.Home, Icons.Filled.Home, "Inicio"),
     TRANSACTIONS(Routes.Transactions, Icons.AutoMirrored.Filled.List, "Movimientos"),
-    STATS(Routes.Stats, Icons.Filled.BarChart, "Estadísticas"),
+    STATS(Routes.Stats, Icons.Filled.BarChart, "Análisis"),
     CATEGORIES(Routes.Categories, Icons.Filled.Category, "Categorías"),
-    SETTINGS(Routes.Settings, Icons.Filled.Settings, "Ajustes"),
 }
 
 private val authRoutes = setOf(Routes.Onboarding, Routes.Unlock)
+// Routes where the bottom nav + chrome are shown.
+private val chromeRoutes = BottomTab.entries.map { it.route }.toSet()
 
 @Composable
 private fun WithinMeansApp() {
@@ -116,109 +134,190 @@ private fun WithinMeansApp() {
 
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route
-    val showBottomBar = currentRoute != null && currentRoute !in authRoutes
+    val showChrome = currentRoute in chromeRoutes
 
     Scaffold(
+        // Let auth/editor screens draw edge-to-edge; only main tabs reserve the bar.
+        contentWindowInsets = if (showChrome) ScaffoldDefaults.contentWindowInsets
+            else androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
         bottomBar = {
-            if (showBottomBar) BottomNavBar(navController, currentRoute)
+            if (showChrome) {
+                WMBottomBar(
+                    currentRoute = currentRoute,
+                    onTab = { navController.navigateToTab(it) },
+                    onAdd = { navController.navigate(Routes.TransactionNew) },
+                )
+            }
         },
     ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = resolved,
-            modifier = Modifier.padding(innerPadding),
+        Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+            NavHost(navController = navController, startDestination = resolved) {
+                composable(Routes.Onboarding) {
+                    exitOnBack()
+                    OnboardingScreen(
+                        onCompleted = {
+                            navController.navigate(Routes.Home) {
+                                popUpTo(Routes.Onboarding) { inclusive = true }
+                            }
+                        }
+                    )
+                }
+                composable(Routes.Unlock) {
+                    exitOnBack()
+                    UnlockScreen(
+                        onUnlocked = {
+                            navController.navigate(Routes.Home) {
+                                popUpTo(Routes.Unlock) { inclusive = true }
+                            }
+                        }
+                    )
+                }
+                composable(Routes.Home) {
+                    exitOnBack()
+                    HomeScreen(
+                        onNewTransaction = { navController.navigate(Routes.TransactionNew) },
+                        onOpenAllTransactions = { navController.navigateToTab(Routes.Transactions) },
+                        onOpenTransaction = { id -> navController.navigate(Routes.transactionEdit(id)) },
+                    )
+                }
+                composable(Routes.Categories) {
+                    CategoriesListScreen(
+                        onCreate = { navController.navigate(Routes.CategoryNew) },
+                        onEdit = { id -> navController.navigate(Routes.categoryEdit(id)) },
+                    )
+                }
+                composable(Routes.CategoryNew) {
+                    CategoryEditScreen(
+                        categoryId = null,
+                        onBack = { navController.popBackStack() },
+                        onFinished = { navController.popBackStack() },
+                    )
+                }
+                composable(
+                    route = Routes.CategoryEdit,
+                    arguments = listOf(navArgument("categoryId") { type = NavType.StringType }),
+                ) { entry ->
+                    CategoryEditScreen(
+                        categoryId = entry.arguments?.getString("categoryId"),
+                        onBack = { navController.popBackStack() },
+                        onFinished = { navController.popBackStack() },
+                    )
+                }
+                composable(Routes.Transactions) {
+                    TransactionsListScreen(
+                        onCreate = { navController.navigate(Routes.TransactionNew) },
+                        onEdit = { id -> navController.navigate(Routes.transactionEdit(id)) },
+                    )
+                }
+                composable(Routes.TransactionNew) {
+                    TransactionEditScreen(
+                        transactionId = null,
+                        onBack = { navController.popBackStack() },
+                        onFinished = { navController.popBackStack() },
+                    )
+                }
+                composable(
+                    route = Routes.TransactionEdit,
+                    arguments = listOf(navArgument("transactionId") { type = NavType.StringType }),
+                ) { entry ->
+                    TransactionEditScreen(
+                        transactionId = entry.arguments?.getString("transactionId"),
+                        onBack = { navController.popBackStack() },
+                        onFinished = { navController.popBackStack() },
+                    )
+                }
+                composable(Routes.Stats) { StatsScreen() }
+                composable(Routes.Settings) { SettingsScreen() }
+            }
+
+            // Settings entry: floating top-right on the main tabs (the design puts it
+            // on the avatar/topbar; this keeps it reachable until Home is redesigned).
+            if (showChrome) {
+                IconButton(
+                    onClick = { navController.navigate(Routes.Settings) },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .statusBarsPadding()
+                        .padding(top = 6.dp, end = 8.dp),
+                ) {
+                    Icon(
+                        Icons.Filled.Settings,
+                        contentDescription = "Ajustes",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Bottom navigation matching the design: four destinations split around a
+ * prominent center [+] action. The [+] is the [FloatingActionButton] docked
+ * centered by the Scaffold; the bar itself leaves a gap for it.
+ */
+@Composable
+private fun WMBottomBar(
+    currentRoute: String?,
+    onTab: (String) -> Unit,
+    onAdd: () -> Unit,
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 3.dp,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 4.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
-            composable(Routes.Onboarding) {
-                exitOnBack()
-                OnboardingScreen(
-                    onCompleted = {
-                        navController.navigate(Routes.Home) {
-                            popUpTo(Routes.Onboarding) { inclusive = true }
-                        }
-                    }
-                )
+            NavBarItem(BottomTab.HOME, currentRoute, onTab)
+            NavBarItem(BottomTab.TRANSACTIONS, currentRoute, onTab)
+            // center [+]
+            FloatingActionButton(
+                onClick = onAdd,
+                shape = RoundedCornerShape(18.dp),
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.size(56.dp),
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = "Añadir", modifier = Modifier.size(28.dp))
             }
-            composable(Routes.Unlock) {
-                exitOnBack()
-                UnlockScreen(
-                    onUnlocked = {
-                        navController.navigate(Routes.Home) {
-                            popUpTo(Routes.Unlock) { inclusive = true }
-                        }
-                    }
-                )
-            }
-            composable(Routes.Home) {
-                exitOnBack()
-                HomeScreen(
-                    onNewTransaction = { navController.navigate(Routes.TransactionNew) },
-                    onOpenAllTransactions = { navController.navigateToTab(Routes.Transactions) },
-                    onOpenTransaction = { id -> navController.navigate(Routes.transactionEdit(id)) },
-                )
-            }
-            composable(Routes.Categories) {
-                CategoriesListScreen(
-                    onCreate = { navController.navigate(Routes.CategoryNew) },
-                    onEdit = { id -> navController.navigate(Routes.categoryEdit(id)) },
-                )
-            }
-            composable(Routes.CategoryNew) {
-                CategoryEditScreen(
-                    categoryId = null,
-                    onBack = { navController.popBackStack() },
-                    onFinished = { navController.popBackStack() },
-                )
-            }
-            composable(
-                route = Routes.CategoryEdit,
-                arguments = listOf(navArgument("categoryId") { type = NavType.StringType }),
-            ) { entry ->
-                CategoryEditScreen(
-                    categoryId = entry.arguments?.getString("categoryId"),
-                    onBack = { navController.popBackStack() },
-                    onFinished = { navController.popBackStack() },
-                )
-            }
-            composable(Routes.Transactions) {
-                TransactionsListScreen(
-                    onCreate = { navController.navigate(Routes.TransactionNew) },
-                    onEdit = { id -> navController.navigate(Routes.transactionEdit(id)) },
-                )
-            }
-            composable(Routes.TransactionNew) {
-                TransactionEditScreen(
-                    transactionId = null,
-                    onBack = { navController.popBackStack() },
-                    onFinished = { navController.popBackStack() },
-                )
-            }
-            composable(
-                route = Routes.TransactionEdit,
-                arguments = listOf(navArgument("transactionId") { type = NavType.StringType }),
-            ) { entry ->
-                TransactionEditScreen(
-                    transactionId = entry.arguments?.getString("transactionId"),
-                    onBack = { navController.popBackStack() },
-                    onFinished = { navController.popBackStack() },
-                )
-            }
-            composable(Routes.Stats) { StatsScreen() }
-            composable(Routes.Settings) { SettingsScreen() }
+            NavBarItem(BottomTab.STATS, currentRoute, onTab)
+            NavBarItem(BottomTab.CATEGORIES, currentRoute, onTab)
         }
     }
 }
 
 @Composable
-private fun BottomNavBar(navController: NavController, currentRoute: String?) {
-    NavigationBar {
-        BottomTab.entries.forEach { tab ->
-            NavigationBarItem(
-                selected = currentRoute == tab.route,
-                onClick = { navController.navigateToTab(tab.route) },
-                icon = { Icon(tab.icon, contentDescription = tab.label) },
-                label = { Text(tab.label) },
-            )
-        }
+private fun NavBarItem(
+    tab: BottomTab,
+    currentRoute: String?,
+    onTab: (String) -> Unit,
+) {
+    val selected = currentRoute == tab.route
+    val color = if (selected) MaterialTheme.colorScheme.primary
+        else MaterialTheme.colorScheme.onSurfaceVariant
+    Column(
+        modifier = Modifier
+            .clickable { onTab(tab.route) }
+            .padding(horizontal = 6.dp, vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        Icon(tab.icon, contentDescription = tab.label, tint = color, modifier = Modifier.size(23.dp))
+        Text(
+            tab.label,
+            color = color,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            softWrap = false,
+        )
     }
 }
 
@@ -233,25 +332,4 @@ private fun NavController.navigateToTab(route: String) {
         launchSingleTop = true
         restoreState = true
     }
-}
-
-@Composable
-private fun WithinMeansTheme(content: @Composable () -> Unit) {
-    val light = lightColorScheme(
-        primary = Color(0xFF2E7D32),
-        onPrimary = Color.White,
-        primaryContainer = Color(0xFFB6F0BB),
-        onPrimaryContainer = Color(0xFF002106),
-        secondary = Color(0xFF526350),
-        background = Color(0xFFFCFDF7),
-    )
-    val dark = darkColorScheme(
-        primary = Color(0xFF7BD389),
-        onPrimary = Color(0xFF003910),
-        primaryContainer = Color(0xFF005319),
-        onPrimaryContainer = Color(0xFFB6F0BB),
-        background = Color(0xFF101410),
-    )
-    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
-    MaterialTheme(colorScheme = if (isDark) dark else light, content = content)
 }

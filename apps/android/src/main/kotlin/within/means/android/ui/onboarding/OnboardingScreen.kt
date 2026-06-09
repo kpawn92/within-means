@@ -29,6 +29,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import org.koin.compose.viewmodel.koinViewModel
+import within.means.android.ui.components.WmPrimaryButton
 
 @Composable
 fun OnboardingScreen(onCompleted: () -> Unit) {
@@ -63,9 +64,7 @@ private fun WelcomeStep(onContinue: () -> Unit) {
             style = MaterialTheme.typography.bodyLarge,
         )
         Spacer(Modifier.height(32.dp))
-        Button(onClick = onContinue, modifier = Modifier.fillMaxWidth()) {
-            Text("Empezar")
-        }
+        WmPrimaryButton(text = "Empezar", onClick = onContinue, modifier = Modifier.fillMaxWidth())
     }
 }
 

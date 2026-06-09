@@ -1,21 +1,19 @@
 package within.means.android.ui.home
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.Card
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -23,7 +21,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -31,13 +28,36 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import org.koin.compose.viewmodel.koinViewModel
-import within.means.android.ui.format.formatMoney
+import within.means.android.ui.CategoryView
+import within.means.android.ui.components.CatIcon
+import within.means.android.ui.components.DonutSegment
+import within.means.android.ui.components.WmCard
+import within.means.android.ui.components.WmDonut
+import within.means.android.ui.components.WmEyebrow
+import within.means.android.ui.categories.iconFor
+import within.means.android.ui.format.currencySymbol
+import within.means.android.ui.format.formatAmount
+import within.means.android.ui.theme.WmTheme
+import within.means.android.ui.theme.categoryColor
 import within.means.transactions.application.TransactionResponse
 
-@OptIn(ExperimentalMaterial3Api::class)
+private val MONTHS_LONG = listOf(
+    "enero", "febrero", "marzo", "abril", "mayo", "junio",
+    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+)
+
+/** "2026-06" → "Junio". */
+private fun monthTitle(yearMonth: String?): String {
+    val m = yearMonth?.substringAfter('-')?.toIntOrNull() ?: return ""
+    return MONTHS_LONG.getOrNull(m - 1)?.replaceFirstChar { it.uppercase() } ?: ""
+}
+
 @Composable
 fun HomeScreen(
     onNewTransaction: () -> Unit,
@@ -55,56 +75,60 @@ fun HomeScreen(
         }
     }
 
-    Scaffold(
-        topBar = { TopAppBar(title = { Text("Hola, ${state.displayName}") }) },
-        floatingActionButton = {
-            FloatingActionButton(onClick = onNewTransaction) {
-                Icon(Icons.Filled.Add, contentDescription = "Registrar transacción")
-            }
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-    ) { padding ->
-        Column(
+    Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
+        LazyColumn(
             modifier = Modifier
                 .padding(padding)
-                .fillMaxSize()
-                .padding(16.dp),
+                .fillMaxSize(),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                start = 20.dp, end = 20.dp, top = 8.dp, bottom = 24.dp,
+            ),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            item { GreetingHeader(state.displayName, state.summary?.yearMonth) }
+
             if (state.loading && state.summary == null) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                item { LinearProgressIndicator(modifier = Modifier.fillMaxWidth()) }
             }
 
-            MonthlySummaryCard(state)
+            item { MonthHero(state) }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text("Últimos movimientos", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    "Ver todo",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.clickable(onClick = onOpenAllTransactions),
-                )
+            if ((state.breakdown?.items?.isNotEmpty() == true)) {
+                item { SpendingDonutCard(state) }
+            }
+
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Reciente", fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface)
+                    Text("Ver todo", fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.clickable(onClick = onOpenAllTransactions))
+                }
             }
 
             if (state.recentTransactions.isEmpty()) {
-                EmptyTransactionsHint()
+                item { EmptyTransactionsHint() }
             } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(0.dp),
-                ) {
-                    items(items = state.recentTransactions, key = { it.id }) { tx ->
-                        TransactionPreviewRow(
-                            transaction = tx,
-                            categoryName = state.categoryNames[tx.categoryId],
-                            onClick = { onOpenTransaction(tx.id) },
-                        )
-                        HorizontalDivider()
+                item {
+                    WmCard(contentPadding = 6.dp) {
+                        Column {
+                            state.recentTransactions.forEachIndexed { i, tx ->
+                                TransactionRow(
+                                    transaction = tx,
+                                    category = state.categories[tx.categoryId],
+                                    currency = state.baseCurrency,
+                                    onClick = { onOpenTransaction(tx.id) },
+                                )
+                                if (i < state.recentTransactions.lastIndex) {
+                                    Spacer(Modifier.height(2.dp))
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -113,94 +137,158 @@ fun HomeScreen(
 }
 
 @Composable
-private fun MonthlySummaryCard(state: HomeUiState) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Resumen del mes", style = MaterialTheme.typography.titleMedium)
-            val summary = state.summary
+private fun GreetingHeader(name: String, yearMonth: String?) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(end = 44.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            WmEyebrow(listOfNotNull(monthTitle(yearMonth).takeIf { it.isNotBlank() }, name).joinToString(" · "))
+            Text("Hola, $name 👋", fontSize = 24.sp, fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface)
+        }
+    }
+}
+
+@Composable
+private fun MonthHero(state: HomeUiState) {
+    val sym = currencySymbol(state.baseCurrency)
+    val summary = state.summary
+    WmCard(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.primaryContainer,
+        contentPadding = 22.dp,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            WmEyebrow("Balance del mes", color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f))
             if (summary == null) {
-                Text("Aún sin datos", style = MaterialTheme.typography.bodyMedium)
+                Text("Aún sin datos", color = MaterialTheme.colorScheme.onPrimaryContainer)
             } else {
+                Text(
+                    formatAmount(summary.balanceCents, sym, signed = true, decimals = false),
+                    fontSize = 34.sp, fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+                Spacer(Modifier.height(8.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(24.dp),
                 ) {
-                    SummaryAmount("Ingresos", summary.totalIncomeCents, MaterialTheme.colorScheme.primary)
-                    SummaryAmount("Gastos", summary.totalExpenseCents, MaterialTheme.colorScheme.error)
-                    SummaryAmount(
-                        label = "Saldo",
-                        cents = summary.balanceCents,
-                        color = if (summary.balanceCents >= 0)
-                            MaterialTheme.colorScheme.primary
-                        else
-                            MaterialTheme.colorScheme.error,
-                    )
+                    HeroStat("Ingresos", summary.totalIncomeCents, WmTheme.colors.pos, sym)
+                    HeroStat("Gastos", summary.totalExpenseCents, WmTheme.colors.neg, sym)
                 }
-                Text(
-                    "Moneda base: ${state.baseCurrency}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
         }
     }
 }
 
 @Composable
-private fun SummaryAmount(label: String, cents: Long, color: Color) {
+private fun HeroStat(label: String, cents: Long, color: Color, sym: String) {
     Column {
-        Text(label, style = MaterialTheme.typography.labelMedium)
-        Text(formatMoney(cents), style = MaterialTheme.typography.titleLarge, color = color)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(8.dp).clip(RoundedCornerShape(4.dp)).background(color))
+            Spacer(Modifier.size(6.dp))
+            Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
+        }
+        Text(formatAmount(cents, sym, decimals = false), fontSize = 16.sp, fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onPrimaryContainer)
     }
 }
 
 @Composable
-private fun TransactionPreviewRow(
+private fun SpendingDonutCard(state: HomeUiState) {
+    val breakdown = state.breakdown ?: return
+    val sym = currencySymbol(state.baseCurrency)
+    val top = breakdown.items.sortedByDescending { it.totalCents }
+    val segments = top.map { DonutSegment(it.totalCents.toFloat(), categoryColor(it.color)) }
+    WmCard(modifier = Modifier.fillMaxWidth(), contentPadding = 18.dp) {
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text("En qué va el mes", fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface)
+            Row(verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                WmDonut(
+                    segments = segments,
+                    size = 116.dp,
+                    thickness = 16.dp,
+                    trackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(formatAmount(breakdown.totalCents, sym, decimals = false),
+                            fontSize = 15.sp, fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface)
+                        Text("gastado", fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                    top.take(4).forEach { item ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(10.dp).clip(RoundedCornerShape(3.dp))
+                                .background(categoryColor(item.color)))
+                            Spacer(Modifier.size(8.dp))
+                            Text(item.categoryName, fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f), maxLines = 1)
+                            Text("${(item.share * 100).toInt()}%", fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TransactionRow(
     transaction: TransactionResponse,
-    categoryName: String?,
+    category: CategoryView?,
+    currency: String,
     onClick: () -> Unit,
 ) {
+    val income = transaction.type == "INCOME"
+    val sym = currencySymbol(currency)
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
+            .padding(horizontal = 12.dp, vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(categoryName ?: "(sin categoría)", style = MaterialTheme.typography.bodyLarge)
+        CatIcon(
+            icon = iconFor(category?.icon ?: ""),
+            color = categoryColor(category?.color),
+            boxSize = 38.dp, iconSize = 19.dp,
+        )
+        Spacer(Modifier.size(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(transaction.description.ifBlank { category?.name ?: "Movimiento" },
+                fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
             Text(
-                transaction.date,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+                listOfNotNull(category?.name, transaction.incomeSource).joinToString(" · "),
+                fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
         }
-        val prefix = if (transaction.type == "EXPENSE") "−" else "+"
         Text(
-            "$prefix ${formatMoney(transaction.amountCents)}",
-            style = MaterialTheme.typography.titleMedium,
-            color = if (transaction.type == "EXPENSE")
-                MaterialTheme.colorScheme.error
-            else
-                MaterialTheme.colorScheme.primary,
+            formatAmount(transaction.amountCents, sym,
+                signed = false).let { if (income) "+$it" else "−$it" },
+            fontSize = 15.sp, fontWeight = FontWeight.Bold,
+            color = if (income) WmTheme.colors.pos else MaterialTheme.colorScheme.onSurface,
         )
     }
 }
 
 @Composable
 private fun EmptyTransactionsHint() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 24.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            "Aún no hay movimientos. Pulsa + para registrar el primero.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+    WmCard(modifier = Modifier.fillMaxWidth(), contentPadding = 28.dp) {
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Text(
+                "Aún no hay movimientos. Pulsa + para registrar el primero.",
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
-

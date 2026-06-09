@@ -22,12 +22,15 @@ import within.means.android.ui.error.ErrorContext
 import within.means.android.ui.error.toUserMessage
 import within.means.shared.domain.bus.query.QueryBus
 import within.means.transactions.domain.TransactionRepository
+import within.means.users.application.OptionalUserResponse
+import within.means.users.application.find.FindDefaultUserQuery
 
 enum class StatsTab { SUMMARY, BREAKDOWN, EVOLUTION }
 
 data class StatsUiState(
     val tab: StatsTab = StatsTab.SUMMARY,
     val yearMonth: String = "",
+    val baseCurrency: String = "",
     val summary: MonthlySummaryResponse? = null,
     val breakdown: CategoryBreakdownResponse? = null,
     val evolution: MonthlyEvolutionResponse? = null,
@@ -49,6 +52,13 @@ class StatsViewModel(
         // the analytics view reactive without projection tables.
         viewModelScope.launch {
             transactions.observeAll().collect { reload() }
+        }
+        viewModelScope.launch {
+            runCatching {
+                get<QueryBus>().ask<FindDefaultUserQuery, OptionalUserResponse>(FindDefaultUserQuery())
+            }.onSuccess { resp ->
+                resp.user?.let { u -> _state.update { it.copy(baseCurrency = u.baseCurrency) } }
+            }
         }
     }
 

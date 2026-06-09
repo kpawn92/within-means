@@ -44,7 +44,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import org.koin.compose.viewmodel.koinViewModel
+import within.means.android.ui.components.CatIcon
+import within.means.android.ui.components.WmPrimaryButton
+import within.means.android.ui.theme.categoryColor
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -92,6 +97,18 @@ fun CategoryEditScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState()),
         ) {
+            // live preview
+            Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                CatIcon(iconFor(state.icon), categoryColor(state.color), boxSize = 72.dp, iconSize = 36.dp)
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    state.name.ifBlank { "Nueva categoría" },
+                    fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+            Spacer(Modifier.height(24.dp))
+
             OutlinedTextField(
                 value = state.name,
                 onValueChange = viewModel::onNameChanged,
@@ -171,21 +188,12 @@ fun CategoryEditScreen(
             }
 
             Spacer(Modifier.height(28.dp))
-            Button(
+            WmPrimaryButton(
+                text = if (viewModel.isEditMode) "Guardar cambios" else "Crear",
                 onClick = viewModel::save,
                 enabled = !state.saving,
                 modifier = Modifier.fillMaxWidth(),
-            ) {
-                if (state.saving) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.height(24.dp),
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        strokeWidth = 2.dp,
-                    )
-                } else {
-                    Text(if (viewModel.isEditMode) "Guardar cambios" else "Crear")
-                }
-            }
+            )
         }
     }
 }

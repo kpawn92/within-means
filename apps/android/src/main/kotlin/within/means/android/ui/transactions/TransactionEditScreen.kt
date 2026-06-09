@@ -46,6 +46,8 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.toLocalDateTime
 import org.koin.compose.viewmodel.koinViewModel
+import within.means.android.ui.components.WmChip
+import within.means.android.ui.components.WmPrimaryButton
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -97,11 +99,10 @@ fun TransactionEditScreen(
             Text("Tipo")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("EXPENSE", "INCOME").forEach { t ->
-                    FilterChip(
+                    WmChip(
+                        label = if (t == "EXPENSE") "Gasto" else "Ingreso",
                         selected = state.type == t,
                         onClick = { if (!viewModel.isEditMode) viewModel.onTypeChanged(t) },
-                        label = { Text(if (t == "EXPENSE") "Gasto" else "Ingreso") },
-                        enabled = !viewModel.isEditMode,
                     )
                 }
             }
@@ -147,29 +148,21 @@ fun TransactionEditScreen(
             } else {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     state.availableCategories.forEach { c ->
-                        FilterChip(
+                        WmChip(
+                            label = c.name,
                             selected = state.categoryId == c.id,
                             onClick = { viewModel.onCategoryChanged(c.id) },
-                            label = { Text(c.name) },
                         )
                     }
                 }
             }
 
-            Button(
+            WmPrimaryButton(
+                text = if (state.saving) "Guardando…" else "Guardar",
                 onClick = viewModel::save,
                 enabled = !state.saving,
                 modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(if (state.saving) "Guardando…" else "Guardar")
-            }
-
-            if (viewModel.isEditMode) {
-                AssistChip(
-                    onClick = { /* no-op informational */ },
-                    label = { Text("Tipo no editable") },
-                )
-            }
+            )
         }
     }
 }

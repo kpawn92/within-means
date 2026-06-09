@@ -1,55 +1,70 @@
 package within.means.android.ui.analytics
 
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.background
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import org.koin.compose.viewmodel.koinViewModel
-import within.means.android.ui.format.formatMoney
-import within.means.analytics.application.CategoryBreakdownItem
+import within.means.android.ui.components.DonutSegment
+import within.means.android.ui.components.WmBar
+import within.means.android.ui.components.WmCard
+import within.means.android.ui.components.WmDonut
+import within.means.android.ui.components.WmEyebrow
+import within.means.android.ui.components.WmSegmented
+import within.means.android.ui.format.currencySymbol
+import within.means.android.ui.format.formatAmount
+import within.means.android.ui.theme.WmTheme
+import within.means.android.ui.theme.categoryColor
 import within.means.analytics.application.MonthlyEvolutionResponse
 import within.means.analytics.application.MonthlySummaryResponse
 
-@OptIn(ExperimentalMaterial3Api::class)
+private val MONTHS_LONG = listOf(
+    "enero", "febrero", "marzo", "abril", "mayo", "junio",
+    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+)
+
+private fun monthTitle(yearMonth: String?): String {
+    val m = yearMonth?.substringAfter('-')?.toIntOrNull() ?: return ""
+    return MONTHS_LONG.getOrNull(m - 1)?.replaceFirstChar { it.uppercase() } ?: ""
+}
+
 @Composable
 fun StatsScreen() {
     val viewModel: StatsViewModel = koinViewModel()
     val state by viewModel.state.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    var lens by remember { mutableStateOf("categoria") }
+    val sym = currencySymbol(state.baseCurrency)
 
     LaunchedEffect(state.errorMessage) {
         state.errorMessage?.let {
@@ -58,200 +73,170 @@ fun StatsScreen() {
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(title = { Text("Estadísticas · ${state.yearMonth}") })
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-    ) { padding ->
-        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
-            TabRow(selectedTabIndex = state.tab.ordinal) {
-                StatsTab.entries.forEach { tab ->
-                    Tab(
-                        selected = state.tab == tab,
-                        onClick = { viewModel.selectTab(tab) },
-                        text = { Text(tabLabel(tab)) },
-                    )
-                }
-            }
-
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
-            ) {
-                when (state.tab) {
-                    StatsTab.SUMMARY -> SummaryPanel(state.summary)
-                    StatsTab.BREAKDOWN -> BreakdownPanel(state.breakdown?.items.orEmpty())
-                    StatsTab.EVOLUTION -> EvolutionPanel(state.evolution)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SummaryPanel(summary: MonthlySummaryResponse?) {
-    if (summary == null) {
-        Text("Sin datos para este mes")
-        return
-    }
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        TotalsCard("Ingresos", summary.totalIncomeCents, MaterialTheme.colorScheme.primary)
-        TotalsCard("Gastos", summary.totalExpenseCents, MaterialTheme.colorScheme.error)
-        TotalsCard(
-            label = "Saldo",
-            cents = summary.balanceCents,
-            color = if (summary.balanceCents >= 0)
-                MaterialTheme.colorScheme.primary
-            else
-                MaterialTheme.colorScheme.error,
-        )
-
-        HorizontalDivider()
-        Text("Gastos por naturaleza", style = MaterialTheme.typography.titleMedium)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            MiniCard("Fijos", summary.fixedExpenseCents, Modifier.weight(1f))
-            MiniCard("Variables", summary.variableExpenseCents, Modifier.weight(1f))
-        }
-        Text("Gastos por esencialidad", style = MaterialTheme.typography.titleMedium)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            MiniCard("Esenciales", summary.essentialExpenseCents, Modifier.weight(1f))
-            MiniCard("Discrecionales", summary.discretionaryExpenseCents, Modifier.weight(1f))
-        }
-    }
-}
-
-@Composable
-private fun TotalsCard(label: String, cents: Long, color: Color) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(label, style = MaterialTheme.typography.labelLarge)
-            Text(
-                formatMoney(cents),
-                style = MaterialTheme.typography.headlineMedium,
-                color = color,
-            )
-        }
-    }
-}
-
-@Composable
-private fun MiniCard(label: String, cents: Long, modifier: Modifier = Modifier) {
-    Card(modifier = modifier) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(label, style = MaterialTheme.typography.labelMedium)
-            Text(formatMoney(cents), style = MaterialTheme.typography.titleMedium)
-        }
-    }
-}
-
-@Composable
-private fun BreakdownPanel(items: List<CategoryBreakdownItem>) {
-    if (items.isEmpty()) {
-        Text("Sin gastos en el mes seleccionado")
-        return
-    }
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        items.forEach { item ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(14.dp)
-                        .background(parseHex(item.color), CircleShape),
-                )
-                Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        Text(item.categoryName, modifier = Modifier.weight(1f))
-                        Text(formatMoney(item.totalCents))
-                    }
-                    // Simple proportional bar.
-                    Canvas(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(6.dp),
-                    ) {
-                        val w = size.width * item.share.toFloat()
-                        drawRect(color = Color.LightGray, size = Size(size.width, size.height))
-                        drawRect(color = parseHex(item.color), size = Size(w, size.height))
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun EvolutionPanel(evolution: MonthlyEvolutionResponse?) {
-    val points = evolution?.points.orEmpty()
-    if (points.isEmpty()) {
-        Text("Sin datos suficientes para la evolución")
-        return
-    }
-
-    val maxValue = (points.maxOfOrNull {
-        maxOf(it.totalIncomeCents, it.totalExpenseCents)
-    } ?: 1L).coerceAtLeast(1L)
-
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Evolución de los últimos ${points.size} meses", style = MaterialTheme.typography.titleMedium)
-
-        Canvas(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(180.dp),
+    Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
+        LazyColumn(
+            modifier = Modifier.padding(padding).fillMaxSize(),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                start = 20.dp, end = 20.dp, top = 8.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            val w = size.width
-            val h = size.height
-            val stepX = w / (points.size - 1).coerceAtLeast(1).toFloat()
-
-            val incomePath = Path().apply {
-                points.forEachIndexed { i, p ->
-                    val x = i * stepX
-                    val y = h - (p.totalIncomeCents.toFloat() / maxValue * h)
-                    if (i == 0) moveTo(x, y) else lineTo(x, y)
-                }
-            }
-            val expensePath = Path().apply {
-                points.forEachIndexed { i, p ->
-                    val x = i * stepX
-                    val y = h - (p.totalExpenseCents.toFloat() / maxValue * h)
-                    if (i == 0) moveTo(x, y) else lineTo(x, y)
+            item {
+                Column(Modifier.padding(end = 44.dp)) {
+                    WmEyebrow(monthTitle(state.yearMonth))
+                    Text("Análisis", fontSize = 24.sp, fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface)
                 }
             }
 
-            drawPath(incomePath, color = Color(0xFF2E7D32), style = Stroke(width = 4f))
-            drawPath(expensePath, color = Color(0xFFC62828), style = Stroke(width = 4f))
-        }
-
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            LegendDot(Color(0xFF2E7D32), "Ingresos")
-            LegendDot(Color(0xFFC62828), "Gastos")
-        }
-
-        // X-axis labels.
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            points.forEach { Text(it.yearMonth.takeLast(2), style = MaterialTheme.typography.bodySmall) }
+            val summary = state.summary
+            if (summary == null) {
+                item { Text("Sin datos para este mes", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            } else {
+                item { SummaryTrio(summary, sym) }
+                item { SavingsRateCard(summary, sym) }
+                item { EvolutionCard(state.evolution, sym) }
+                item { BreakdownCard(state, lens, { lens = it }, sym) }
+            }
         }
     }
 }
 
 @Composable
-private fun LegendDot(color: Color, label: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(modifier = Modifier.size(10.dp).background(color, CircleShape))
-        Text(" $label", style = MaterialTheme.typography.bodySmall)
+private fun SummaryTrio(summary: MonthlySummaryResponse, sym: String) {
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        StatCell("Ingresos", summary.totalIncomeCents, WmTheme.colors.pos, sym, Modifier.weight(1f))
+        StatCell("Gastos", summary.totalExpenseCents, WmTheme.colors.neg, sym, Modifier.weight(1f))
+        StatCell("Ahorro", summary.balanceCents, WmTheme.colors.savings, sym, Modifier.weight(1f))
     }
 }
 
-private fun tabLabel(tab: StatsTab): String = when (tab) {
-    StatsTab.SUMMARY -> "Resumen"
-    StatsTab.BREAKDOWN -> "Por categoría"
-    StatsTab.EVOLUTION -> "Evolución"
+@Composable
+private fun StatCell(label: String, cents: Long, accent: Color, sym: String, modifier: Modifier = Modifier) {
+    WmCard(modifier = modifier, contentPadding = 14.dp) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Box(Modifier.size(10.dp).clip(RoundedCornerShape(3.dp)).background(accent))
+            Text(formatAmount(cents, sym, decimals = false), fontSize = 15.sp, fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
+            Text(label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
 }
 
-private fun parseHex(hex: String): Color {
-    val argb = "FF" + hex.removePrefix("#").uppercase()
-    return Color(argb.toLong(16))
+@Composable
+private fun SavingsRateCard(summary: MonthlySummaryResponse, sym: String) {
+    val income = summary.totalIncomeCents
+    val saved = summary.balanceCents
+    val pct = if (income > 0) (saved.toFloat() / income).coerceIn(0f, 1f) else 0f
+    val pctInt = (pct * 100).toInt()
+    WmCard(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.primaryContainer) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            WmDonut(
+                segments = listOf(
+                    DonutSegment(pct, MaterialTheme.colorScheme.primary),
+                    DonutSegment(1f - pct, MaterialTheme.colorScheme.surfaceContainerHigh),
+                ),
+                size = 68.dp, thickness = 10.dp, gapDegrees = 0f,
+            ) {
+                Text("$pctInt%", fontSize = 15.sp, fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer)
+            }
+            Column(Modifier.weight(1f)) {
+                Text(if (pctInt >= 0) "Tasa de ahorro" else "Mes en números rojos",
+                    fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer)
+                Text(
+                    if (saved >= 0) "Guardaste ${formatAmount(saved, sym, decimals = false)} de lo que entró este mes."
+                    else "Gastaste ${formatAmount(-saved, sym, decimals = false)} más de lo que entró.",
+                    fontSize = 12.sp, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EvolutionCard(evolution: MonthlyEvolutionResponse?, sym: String) {
+    val points = evolution?.points.orEmpty()
+    if (points.isEmpty()) return
+    val max = points.maxOf { it.totalExpenseCents }.coerceAtLeast(1L)
+    val avg = points.map { it.totalExpenseCents }.average().toLong()
+    WmCard(modifier = Modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically) {
+                Text("Evolución del gasto", fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface)
+                Text("media ${formatAmount(avg, sym, decimals = false)}", fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Row(modifier = Modifier.fillMaxWidth().height(130.dp),
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                points.forEachIndexed { i, p ->
+                    val frac = (p.totalExpenseCents.toFloat() / max).coerceIn(0.02f, 1f)
+                    val highlight = i == points.lastIndex
+                    Column(Modifier.weight(1f).fillMaxHeight(),
+                        verticalArrangement = Arrangement.Bottom,
+                        horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(
+                            Modifier
+                                .width(26.dp)
+                                .fillMaxHeight(frac)
+                                .clip(RoundedCornerShape(7.dp))
+                                .background(if (highlight) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.surfaceContainerHigh),
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(p.yearMonth.takeLast(2), fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
+    }
+}
+
+private data class BreakdownRow(val name: String, val cents: Long, val color: Color)
+
+@Composable
+private fun BreakdownCard(state: StatsUiState, lens: String, onLens: (String) -> Unit, sym: String) {
+    val summary = state.summary ?: return
+    val rows: List<BreakdownRow> = if (lens == "categoria") {
+        state.breakdown?.items.orEmpty()
+            .sortedByDescending { it.totalCents }
+            .map { BreakdownRow(it.categoryName, it.totalCents, categoryColor(it.color)) }
+    } else {
+        listOf(
+            BreakdownRow("Esencial", summary.essentialExpenseCents, WmTheme.colors.pos),
+            BreakdownRow("Discrecional", summary.discretionaryExpenseCents, WmTheme.colors.savings),
+        )
+    }
+    val max = (rows.maxOfOrNull { it.cents } ?: 1L).coerceAtLeast(1L)
+    WmCard(modifier = Modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text("Desglose", fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface)
+            WmSegmented(
+                options = listOf("categoria" to "Categoría", "tipo" to "Tipo"),
+                selected = lens, onSelect = onLens,
+            )
+            if (rows.isEmpty()) {
+                Text("Sin gastos en el mes", fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                rows.forEach { r ->
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(r.name, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(formatAmount(r.cents, sym, decimals = false), fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                        }
+                        WmBar(fraction = r.cents.toFloat() / max, color = r.color, height = 8.dp)
+                    }
+                }
+            }
+        }
+    }
 }

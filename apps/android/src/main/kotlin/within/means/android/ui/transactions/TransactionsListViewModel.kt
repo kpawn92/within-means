@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
+import within.means.android.ui.CategoryView
 import within.means.android.ui.error.ErrorContext
 import within.means.android.ui.error.toUserMessage
 import within.means.categories.application.CategoriesResponse
@@ -20,13 +21,18 @@ import within.means.transactions.application.TransactionResponse
 import within.means.transactions.application.delete.DeleteTransactionCommand
 import within.means.transactions.application.toResponse
 import within.means.transactions.domain.TransactionRepository
+import within.means.users.application.OptionalUserResponse
+import within.means.users.application.find.FindDefaultUserQuery
 
 enum class TransactionTypeFilter { ALL, INCOME, EXPENSE }
 
 data class TransactionsListUiState(
     val items: List<TransactionResponse> = emptyList(),
     val typeFilter: TransactionTypeFilter = TransactionTypeFilter.ALL,
+    val query: String = "",
+    val baseCurrency: String = "",
     val categoryNames: Map<String, String> = emptyMap(),
+    val categories: Map<String, CategoryView> = emptyMap(),
     val errorMessage: String? = null,
 )
 
@@ -47,15 +53,31 @@ class TransactionsListViewModel(
         }
         viewModelScope.launch {
             runCatching {
+                get<QueryBus>().ask<FindDefaultUserQuery, OptionalUserResponse>(FindDefaultUserQuery())
+            }.onSuccess { resp ->
+                resp.user?.let { u -> _state.update { it.copy(baseCurrency = u.baseCurrency) } }
+            }
+        }
+        viewModelScope.launch {
+            runCatching {
                 get<QueryBus>().ask<ListAllCategoriesQuery, CategoriesResponse>(ListAllCategoriesQuery())
             }.onSuccess { resp ->
-                _state.update { it.copy(categoryNames = resp.items.associate { c -> c.id to c.name }) }
+                _state.update {
+                    it.copy(
+                        categoryNames = resp.items.associate { c -> c.id to c.name },
+                        categories = resp.items.associate { c -> c.id to CategoryView(c.name, c.icon, c.color) },
+                    )
+                }
             }
         }
     }
 
     fun selectTypeFilter(filter: TransactionTypeFilter) {
         _state.update { it.copy(typeFilter = filter) }
+    }
+
+    fun setQuery(q: String) {
+        _state.update { it.copy(query = q) }
     }
 
     fun visibleItems(): List<TransactionResponse> {
@@ -65,7 +87,14 @@ class TransactionsListViewModel(
             TransactionTypeFilter.INCOME -> { it -> it.type == "INCOME" }
             TransactionTypeFilter.EXPENSE -> { it -> it.type == "EXPENSE" }
         }
-        return s.items.filter(typeMatches).sortedByDescending { it.date }
+        val q = s.query.trim().lowercase()
+        val queryMatches: (TransactionResponse) -> Boolean = { tx ->
+            q.isEmpty() ||
+                tx.description.lowercase().contains(q) ||
+                (s.categoryNames[tx.categoryId]?.lowercase()?.contains(q) == true) ||
+                (tx.incomeSource?.lowercase()?.contains(q) == true)
+        }
+        return s.items.filter(typeMatches).filter(queryMatches).sortedByDescending { it.date }
     }
 
     fun delete(transactionId: String) {
