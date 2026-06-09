@@ -62,6 +62,7 @@ import within.means.android.ui.categories.CategoriesListScreen
 import within.means.android.ui.categories.CategoryEditScreen
 import within.means.android.ui.home.HomeScreen
 import within.means.android.ui.onboarding.OnboardingScreen
+import within.means.android.ui.quickadd.QuickAddSheet
 import within.means.android.ui.settings.SettingsScreen
 import within.means.android.ui.transactions.TransactionEditScreen
 import within.means.android.ui.transactions.TransactionsListScreen
@@ -136,6 +137,9 @@ private fun WithinMeansApp() {
     val currentRoute = currentBackStackEntry?.destination?.route
     val showChrome = currentRoute in chromeRoutes
 
+    var showQuickAdd by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
     Scaffold(
         // Let auth/editor screens draw edge-to-edge; only main tabs reserve the bar.
         contentWindowInsets = if (showChrome) ScaffoldDefaults.contentWindowInsets
@@ -145,7 +149,7 @@ private fun WithinMeansApp() {
                 WMBottomBar(
                     currentRoute = currentRoute,
                     onTab = { navController.navigateToTab(it) },
-                    onAdd = { navController.navigate(Routes.TransactionNew) },
+                    onAdd = { showQuickAdd = true },
                 )
             }
         },
@@ -246,6 +250,13 @@ private fun WithinMeansApp() {
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+            }
+
+            if (showQuickAdd) {
+                QuickAddSheet(
+                    onDismiss = { showQuickAdd = false },
+                    onSaved = { android.widget.Toast.makeText(context, "Movimiento guardado", android.widget.Toast.LENGTH_SHORT).show() },
+                )
             }
         }
     }

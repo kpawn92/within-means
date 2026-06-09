@@ -342,8 +342,14 @@ de ser post-MVP).
   materialización (cadencia/catch-up/idempotencia/futuro). Iteración: create-only (sin
   desactivar/editar desde UI todavía; el agregado ya soporta `deactivate`).
 
+- **QuickAdd** (F4) — PR4. Bottom sheet sobre el FAB central: segmented
+  Gasto/Ingreso/Ahorro, importe gigante con color por tipo, chips de categoría filtrados,
+  nota + Hoy/Ayer, **teclado numérico propio** (≤2 decimales, ≤9 enteros) y CTA
+  "Guardar €X" (deshabilitado hasta importe>0 + categoría) con Toast. Reusa
+  `RegisterTransactionCommand`; el editor completo sigue para editar. Test de VM (keypad/
+  cents/canSave). Verificado en emulador (€25 Ocio → hero "€975 · €44/día" + donut).
+
 **Pendiente**
-- **QuickAdd** (F4) con teclado numérico grande sobre el FAB central.
 - **Periodos Semana/Año** en Análisis (hoy solo mes actual).
 - **PIN de 4 dígitos**: el keypad/puntos ya existen; falta cambiar la derivación de
   passphrase (hoy 6 dígitos) — afecta onboarding/unlock/`PassphraseProvider`. ⚠️ Cambiar la
