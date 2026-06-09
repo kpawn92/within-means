@@ -10,3 +10,10 @@ data class FindCategoryBreakdownQuery(
     val yearMonth: String,
     val type: String = "EXPENSE",
 ) : Query
+
+/** Per-category breakdown over an inclusive `[startDate, endDate]` range. */
+data class FindBreakdownInRangeQuery(
+    val startDate: String,
+    val endDate: String,
+    val type: String = "EXPENSE",
+) : Query

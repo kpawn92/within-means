@@ -349,8 +349,13 @@ de ser post-MVP).
   `RegisterTransactionCommand`; el editor completo sigue para editar. Test de VM (keypad/
   cents/canSave). Verificado en emulador (€25 Ocio → hero "€975 · €44/día" + donut).
 
+- **Periodos Semana/Año** en Análisis — PR5. Analítica generalizada a rango de fechas
+  (`FindSummaryInRangeQuery` / `FindBreakdownInRangeQuery`, reutilizando la lógica de mes);
+  segmented **Semana / Mes / Año** que recalcula trío, tasa de ahorro y desglose. Semana =
+  lunes–domingo de la semana actual; Año = 1 ene–31 dic. Tests de rango + label. Verificado
+  en emulador (eyebrow "Junio"↔"2026"). La evolución (barras 6 meses) se mantiene como tendencia.
+
 **Pendiente**
-- **Periodos Semana/Año** en Análisis (hoy solo mes actual).
 - **PIN de 4 dígitos**: el keypad/puntos ya existen; falta cambiar la derivación de
   passphrase (hoy 6 dígitos) — afecta onboarding/unlock/`PassphraseProvider`. ⚠️ Cambiar la
   derivación invalida DBs cifradas existentes (requiere reinstalar/borrar datos en dev).

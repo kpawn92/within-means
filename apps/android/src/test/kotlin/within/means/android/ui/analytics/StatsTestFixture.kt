@@ -6,10 +6,12 @@ import kotlinx.datetime.TimeZone
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
 import org.koin.dsl.module
+import within.means.analytics.application.find_breakdown.FindBreakdownInRangeQueryHandler
 import within.means.analytics.application.find_breakdown.FindCategoryBreakdownQueryHandler
 import within.means.analytics.application.find_evolution.FindMonthlyEvolutionQueryHandler
 import within.means.analytics.application.find_summary.FindCurrentMonthSummaryQueryHandler
 import within.means.analytics.application.find_summary.FindMonthlySummaryQueryHandler
+import within.means.analytics.application.find_summary.FindSummaryInRangeQueryHandler
 import within.means.android.ui.categories.SequentialUuidGenerator
 import within.means.categories.application.create.CategoryCreator
 import within.means.categories.application.create.CreateCategoryCommand
@@ -55,10 +57,14 @@ class StatsTestFixture(
 
     private val findMonthlySummaryHandler =
         FindMonthlySummaryQueryHandler(txRepository, categoryRepository)
+    private val findSummaryInRangeHandler =
+        FindSummaryInRangeQueryHandler(txRepository, categoryRepository)
     private val findCurrentMonthSummaryHandler =
         FindCurrentMonthSummaryQueryHandler(txRepository, categoryRepository, clock, zone)
     private val findBreakdownHandler =
         FindCategoryBreakdownQueryHandler(txRepository, categoryRepository)
+    private val findBreakdownInRangeHandler =
+        FindBreakdownInRangeQueryHandler(txRepository, categoryRepository)
     private val findEvolutionHandler =
         FindMonthlyEvolutionQueryHandler(txRepository, clock, zone)
 
@@ -68,8 +74,10 @@ class StatsTestFixture(
     )
     private val queryHandlers: List<QueryHandler<out Query, out Response>> = listOf(
         findMonthlySummaryHandler,
+        findSummaryInRangeHandler,
         findCurrentMonthSummaryHandler,
         findBreakdownHandler,
+        findBreakdownInRangeHandler,
         findEvolutionHandler,
     )
 

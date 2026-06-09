@@ -2,10 +2,12 @@ package within.means.android.di
 
 import kotlinx.serialization.KSerializer
 import org.koin.dsl.module
+import within.means.analytics.application.find_breakdown.FindBreakdownInRangeQueryHandler
 import within.means.analytics.application.find_breakdown.FindCategoryBreakdownQueryHandler
 import within.means.analytics.application.find_evolution.FindMonthlyEvolutionQueryHandler
 import within.means.analytics.application.find_summary.FindCurrentMonthSummaryQueryHandler
 import within.means.analytics.application.find_summary.FindMonthlySummaryQueryHandler
+import within.means.analytics.application.find_summary.FindSummaryInRangeQueryHandler
 import within.means.categories.application.create.CreateCategoryCommandHandler
 import within.means.categories.application.delete.DeleteCategoryCommandHandler
 import within.means.categories.application.find.FindCategoryQueryHandler
@@ -87,7 +89,9 @@ val busModule = module {
             get<ListActiveRecurringRulesQueryHandler>(),
             get<FindMonthlySummaryQueryHandler>(),
             get<FindCurrentMonthSummaryQueryHandler>(),
+            get<FindSummaryInRangeQueryHandler>(),
             get<FindCategoryBreakdownQueryHandler>(),
+            get<FindBreakdownInRangeQueryHandler>(),
             get<FindMonthlyEvolutionQueryHandler>(),
         )
         InMemoryQueryBus(handlers)

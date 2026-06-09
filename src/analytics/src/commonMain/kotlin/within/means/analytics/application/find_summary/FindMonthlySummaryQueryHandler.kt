@@ -1,6 +1,7 @@
 package within.means.analytics.application.find_summary
 
 import kotlinx.datetime.Clock
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import within.means.analytics.application.MonthlySummaryResponse
@@ -43,12 +44,45 @@ class FindCurrentMonthSummaryQueryHandler(
     }
 }
 
+class FindSummaryInRangeQueryHandler(
+    private val transactions: TransactionRepository,
+    private val categories: CategoryRepository,
+) : QueryHandler<FindSummaryInRangeQuery, MonthlySummaryResponse> {
+
+    override val queryType: KClass<FindSummaryInRangeQuery> = FindSummaryInRangeQuery::class
+
+    override suspend fun handle(query: FindSummaryInRangeQuery): MonthlySummaryResponse {
+        val start = LocalDate.parse(query.startDate)
+        val end = LocalDate.parse(query.endDate)
+        return summarizeRange(start, end, label = query.startDate, transactions, categories)
+    }
+}
+
 internal suspend fun summarize(
     ym: YearMonth,
     transactions: TransactionRepository,
     categories: CategoryRepository,
 ): MonthlySummaryResponse {
-    val txs = transactions.all().filter { YearMonth.of(it.date.value) == ym }
+    val all = transactions.all().filter { YearMonth.of(it.date.value) == ym }
+    return aggregate(all, label = ym.text, categories)
+}
+
+internal suspend fun summarizeRange(
+    start: LocalDate,
+    end: LocalDate,
+    label: String,
+    transactions: TransactionRepository,
+    categories: CategoryRepository,
+): MonthlySummaryResponse {
+    val all = transactions.all().filter { it.date.value in start..end }
+    return aggregate(all, label, categories)
+}
+
+private suspend fun aggregate(
+    txs: List<Transaction>,
+    label: String,
+    categories: CategoryRepository,
+): MonthlySummaryResponse {
     val categoriesById = categories.all().associateBy { it.id.value }
 
     var income = 0L
@@ -81,7 +115,7 @@ internal suspend fun summarize(
     }
 
     return MonthlySummaryResponse(
-        yearMonth = ym.text,
+        yearMonth = label,
         totalIncomeCents = income,
         totalExpenseCents = expense,
         balanceCents = income - expense,

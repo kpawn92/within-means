@@ -49,20 +49,36 @@ class StatsViewModelTest {
     }
 
     @Test
-    fun `selecting another month re-fetches with that yearMonth`() = runTest {
+    fun `selecting the week period narrows the range to the current week`() = runTest {
+        // Clock is fixed at 2026-05-27 (Wed); week = 2026-05-25..05-31.
         val cat = fixture.seedCategory("Comida")
-        fixture.seedTransaction("EXPENSE", 100L, "2026-04-15", cat)
+        fixture.seedTransaction("EXPENSE", 100L, "2026-05-15", cat) // month, not week
+        fixture.seedTransaction("EXPENSE", 500L, "2026-05-27", cat) // week + month
+
+        val vm = StatsViewModel(fixture.txRepository, fixture.clock, fixture.zone)
+        advanceUntilIdle()
+        vm.state.value.summary?.totalExpenseCents shouldBe 600L // default: month
+
+        vm.selectPeriod(StatsPeriod.WEEK)
+        advanceUntilIdle()
+
+        vm.state.value.period shouldBe StatsPeriod.WEEK
+        vm.state.value.summary?.totalExpenseCents shouldBe 500L
+    }
+
+    @Test
+    fun `selecting the year period spans the whole year`() = runTest {
+        val cat = fixture.seedCategory("Comida")
+        fixture.seedTransaction("EXPENSE", 100L, "2026-01-15", cat)
         fixture.seedTransaction("EXPENSE", 500L, "2026-05-15", cat)
 
         val vm = StatsViewModel(fixture.txRepository, fixture.clock, fixture.zone)
         advanceUntilIdle()
-        vm.state.value.summary?.totalExpenseCents shouldBe 500L
 
-        vm.selectYearMonth("2026-04")
+        vm.selectPeriod(StatsPeriod.YEAR)
         advanceUntilIdle()
 
-        vm.state.value.yearMonth shouldBe "2026-04"
-        vm.state.value.summary?.totalExpenseCents shouldBe 100L
+        vm.state.value.summary?.totalExpenseCents shouldBe 600L
     }
 
     @Test
@@ -79,13 +95,17 @@ class StatsViewModelTest {
     }
 
     @Test
-    fun `invalid yearMonth surfaces a user-friendly error`() = runTest {
+    fun `period label reflects the selected period`() = runTest {
         val vm = StatsViewModel(fixture.txRepository, fixture.clock, fixture.zone)
         advanceUntilIdle()
+        vm.state.value.periodLabel shouldBe "Mayo"
 
-        vm.selectYearMonth("bogus")
+        vm.selectPeriod(StatsPeriod.WEEK)
         advanceUntilIdle()
+        vm.state.value.periodLabel shouldBe "Esta semana"
 
-        vm.state.value.errorMessage.shouldNotBeNull().shouldNotBeEmpty()
+        vm.selectPeriod(StatsPeriod.YEAR)
+        advanceUntilIdle()
+        vm.state.value.periodLabel shouldBe "2026"
     }
 }
