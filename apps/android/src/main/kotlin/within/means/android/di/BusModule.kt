@@ -37,8 +37,12 @@ import within.means.shared.infrastructure.serialization.DomainEventJsonSerialize
 import within.means.transactions.application.delete.DeleteTransactionCommandHandler
 import within.means.transactions.application.edit.EditTransactionCommandHandler
 import within.means.transactions.application.find.FindTransactionQueryHandler
+import within.means.transactions.application.recurring.CreateRecurringRuleCommandHandler
+import within.means.transactions.application.recurring.ListActiveRecurringRulesQueryHandler
 import within.means.transactions.application.register.RegisterTransactionCommandHandler
 import within.means.transactions.application.search.SearchTransactionsQueryHandler
+import within.means.transactions.domain.RecurringRuleCreated
+import within.means.transactions.domain.RecurringRuleDeactivated
 import within.means.transactions.domain.TransactionDeleted
 import within.means.transactions.domain.TransactionEdited
 import within.means.transactions.domain.TransactionRegistered
@@ -67,6 +71,7 @@ val busModule = module {
             get<RegisterTransactionCommandHandler>(),
             get<EditTransactionCommandHandler>(),
             get<DeleteTransactionCommandHandler>(),
+            get<CreateRecurringRuleCommandHandler>(),
         )
         InMemoryCommandBus(handlers)
     }
@@ -79,6 +84,7 @@ val busModule = module {
             get<ListAllCategoriesQueryHandler>(),
             get<FindTransactionQueryHandler>(),
             get<SearchTransactionsQueryHandler>(),
+            get<ListActiveRecurringRulesQueryHandler>(),
             get<FindMonthlySummaryQueryHandler>(),
             get<FindCurrentMonthSummaryQueryHandler>(),
             get<FindCategoryBreakdownQueryHandler>(),
@@ -99,6 +105,8 @@ val busModule = module {
             TransactionRegistered.NAME to TransactionRegistered.serializer(),
             TransactionEdited.NAME to TransactionEdited.serializer(),
             TransactionDeleted.NAME to TransactionDeleted.serializer(),
+            RecurringRuleCreated.NAME to RecurringRuleCreated.serializer(),
+            RecurringRuleDeactivated.NAME to RecurringRuleDeactivated.serializer(),
         )
         DomainEventJsonSerializer(serializers = registry)
     }

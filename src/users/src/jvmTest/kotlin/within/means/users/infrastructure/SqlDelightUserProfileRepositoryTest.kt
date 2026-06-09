@@ -72,6 +72,8 @@ class SqlDelightUserProfileRepositoryTest {
             displayName = DisplayName("Alejandro"),
             locale = Locale.EN,
             baseCurrency = Currency.USD,
+            monthlyBudgetCents = 200000L,
+            spendingAlertsEnabled = false,
             uuids = uuids,
         )
         repo.save(profile)
@@ -80,5 +82,7 @@ class SqlDelightUserProfileRepositoryTest {
         loaded.displayName.value shouldBe "Alejandro"
         loaded.locale shouldBe Locale.EN
         loaded.baseCurrency shouldBe Currency.USD
+        loaded.monthlyBudgetCents shouldBe 200000L
+        loaded.spendingAlertsEnabled shouldBe false
     }
 }

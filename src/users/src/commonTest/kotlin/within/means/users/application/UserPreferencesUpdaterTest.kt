@@ -42,12 +42,16 @@ class UserPreferencesUpdaterTest {
             displayName = DisplayName("Alejandro"),
             locale = Locale.EN,
             baseCurrency = Currency.USD,
+            monthlyBudgetCents = 120000L,
+            spendingAlertsEnabled = false,
         )
 
         val updated = repo.search(userId)!!
         updated.displayName.value shouldBe "Alejandro"
         updated.locale shouldBe Locale.EN
         updated.baseCurrency shouldBe Currency.USD
+        updated.monthlyBudgetCents shouldBe 120000L
+        updated.spendingAlertsEnabled shouldBe false
 
         bus.published shouldHaveSize 1
         bus.published.first().shouldBeInstanceOf<UserPreferencesUpdated>()
@@ -66,6 +70,8 @@ class UserPreferencesUpdaterTest {
                 displayName = DisplayName("X"),
                 locale = Locale.EN,
                 baseCurrency = Currency.USD,
+                monthlyBudgetCents = 0L,
+                spendingAlertsEnabled = true,
             )
         }
     }

@@ -21,6 +21,8 @@ class SqlDelightUserProfileRepository(
             base_currency = row.baseCurrency,
             created_at = row.createdAt,
             is_default = row.isDefault,
+            monthly_budget_cents = row.monthlyBudgetCents,
+            spending_alerts_enabled = row.spendingAlertsEnabled,
         )
     }
 

@@ -21,11 +21,13 @@ class FindMonthlySummaryQueryHandlerTest {
         val food = env.expenseCategory("Comida", CategoryNature.VARIABLE, CategoryEssentiality.ESSENTIAL)
         val fun_ = env.expenseCategory("Ocio", CategoryNature.VARIABLE, CategoryEssentiality.DISCRETIONARY)
         val salary = env.incomeCategory("Nómina")
+        val savings = env.transferCategory("Ahorro")
 
         env.income(200000L, LocalDate(2026, 5, 1), salary)
         env.expense(80000L, LocalDate(2026, 5, 1), rent)
         env.expense(15000L, LocalDate(2026, 5, 10), food)
         env.expense(5000L, LocalDate(2026, 5, 20), fun_)
+        env.transfer(30000L, LocalDate(2026, 5, 5), savings)
         // Out-of-range — must be ignored.
         env.expense(99999L, LocalDate(2026, 4, 30), rent)
 
@@ -41,6 +43,8 @@ class FindMonthlySummaryQueryHandlerTest {
         r.variableExpenseCents shouldBe 20000L
         r.essentialExpenseCents shouldBe 95000L
         r.discretionaryExpenseCents shouldBe 5000L
+        // A transfer is tracked apart and does not move income / expense / balance.
+        r.totalTransferCents shouldBe 30000L
     }
 
     @Test

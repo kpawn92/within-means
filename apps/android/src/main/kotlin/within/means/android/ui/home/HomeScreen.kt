@@ -37,6 +37,7 @@ import org.koin.compose.viewmodel.koinViewModel
 import within.means.android.ui.CategoryView
 import within.means.android.ui.components.CatIcon
 import within.means.android.ui.components.DonutSegment
+import within.means.android.ui.components.WmBar
 import within.means.android.ui.components.WmCard
 import within.means.android.ui.components.WmDonut
 import within.means.android.ui.components.WmEyebrow
@@ -152,6 +153,76 @@ private fun GreetingHeader(name: String, yearMonth: String?) {
 
 @Composable
 private fun MonthHero(state: HomeUiState) {
+    val budget = state.budget
+    if (budget != null) {
+        BudgetHero(budget, currencySymbol(state.baseCurrency))
+    } else {
+        BalanceHero(state)
+    }
+}
+
+@Composable
+private fun BudgetHero(budget: BudgetView, sym: String) {
+    val onBrand = MaterialTheme.colorScheme.onPrimaryContainer
+    val fraction = if (budget.planCents > 0) budget.spentCents.toFloat() / budget.planCents else 0f
+    WmCard(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.primaryContainer,
+        contentPadding = 22.dp,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                WmEyebrow("Disponible", color = onBrand.copy(alpha = 0.7f))
+                BudgetBadge(budget.withinPlan)
+            }
+            Text(
+                formatAmount(budget.availableCents, sym, signed = false, decimals = false),
+                fontSize = 34.sp, fontWeight = FontWeight.Bold, color = onBrand,
+            )
+            WmBar(
+                fraction = fraction,
+                color = if (budget.withinPlan) WmTheme.colors.pos else WmTheme.colors.neg,
+                track = onBrand.copy(alpha = 0.18f),
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text("Gastado ${formatAmount(budget.spentCents, sym, decimals = false)}",
+                    fontSize = 12.sp, color = onBrand.copy(alpha = 0.8f))
+                Text("Plan ${formatAmount(budget.planCents, sym, decimals = false)}",
+                    fontSize = 12.sp, color = onBrand.copy(alpha = 0.8f))
+            }
+            if (budget.withinPlan && budget.perDayCents > 0) {
+                Text(
+                    "${formatAmount(budget.perDayCents, sym, decimals = false)}/día · " +
+                        "${budget.daysRemaining} días restantes",
+                    fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = onBrand,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun BudgetBadge(withinPlan: Boolean) {
+    val bg = if (withinPlan) WmTheme.colors.posSoft else WmTheme.colors.negSoft
+    val fg = if (withinPlan) WmTheme.colors.pos else WmTheme.colors.neg
+    Box(
+        modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(bg)
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+    ) {
+        Text(if (withinPlan) "Dentro del plan" else "Atención", fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold, color = fg)
+    }
+}
+
+@Composable
+private fun BalanceHero(state: HomeUiState) {
     val sym = currencySymbol(state.baseCurrency)
     val summary = state.summary
     WmCard(
@@ -249,6 +320,7 @@ private fun TransactionRow(
     onClick: () -> Unit,
 ) {
     val income = transaction.type == "INCOME"
+    val transfer = transaction.type == "TRANSFER"
     val sym = currencySymbol(currency)
     Row(
         modifier = Modifier
@@ -271,11 +343,19 @@ private fun TransactionRow(
                 listOfNotNull(category?.name, transaction.incomeSource).joinToString(" · "),
                 fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
         }
+        val amount = formatAmount(transaction.amountCents, sym, signed = false)
         Text(
-            formatAmount(transaction.amountCents, sym,
-                signed = false).let { if (income) "+$it" else "−$it" },
+            when {
+                income -> "+$amount"
+                transfer -> "→$amount"
+                else -> "−$amount"
+            },
             fontSize = 15.sp, fontWeight = FontWeight.Bold,
-            color = if (income) WmTheme.colors.pos else MaterialTheme.colorScheme.onSurface,
+            color = when {
+                income -> WmTheme.colors.pos
+                transfer -> WmTheme.colors.savings
+                else -> MaterialTheme.colorScheme.onSurface
+            },
         )
     }
 }

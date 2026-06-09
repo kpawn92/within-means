@@ -24,6 +24,8 @@ class UserProfileTest {
         event.aggregateId shouldBe profile.id.value
         event.locale shouldBe "es"
         event.baseCurrency shouldBe "EUR"
+        profile.monthlyBudgetCents shouldBe 0L
+        profile.spendingAlertsEnabled shouldBe true
     }
 
     @Test
@@ -36,12 +38,16 @@ class UserProfileTest {
             displayName = DisplayName("Alejandro"),
             locale = Locale.EN,
             baseCurrency = Currency.USD,
+            monthlyBudgetCents = 150000L,
+            spendingAlertsEnabled = false,
             uuids = uuids,
         )
 
         profile.displayName.value shouldBe "Alejandro"
         profile.locale shouldBe Locale.EN
         profile.baseCurrency shouldBe Currency.USD
+        profile.monthlyBudgetCents shouldBe 150000L
+        profile.spendingAlertsEnabled shouldBe false
 
         val events = profile.pullDomainEvents()
         events shouldHaveSize 1
@@ -55,6 +61,8 @@ class UserProfileTest {
             displayName = DisplayName("Ada"),
             locale = Locale.EN,
             baseCurrency = Currency.USD,
+            monthlyBudgetCents = 0L,
+            spendingAlertsEnabled = true,
             createdAt = kotlinx.datetime.Instant.fromEpochSeconds(0),
         )
         profile.pullDomainEvents() shouldHaveSize 0

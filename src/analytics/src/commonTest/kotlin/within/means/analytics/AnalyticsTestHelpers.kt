@@ -124,4 +124,41 @@ class AnalyticsTestEnv(
             )
         )
     }
+
+    suspend fun transferCategory(name: String): String {
+        val id = CategoryId(uuids.next())
+        val cat = Category.rehydrate(
+            id = id,
+            kind = CategoryKind.TRANSFER,
+            name = CategoryName(name),
+            color = CategoryColor("#0000FF"),
+            icon = CategoryIcon("label"),
+            classifiers = CategoryClassifiers(
+                nature = null,
+                essentiality = null,
+                productive = false,
+                engelGroup = null,
+            ),
+            parentId = null,
+            createdAt = clockMoment,
+        )
+        categories.save(cat)
+        return id.value
+    }
+
+    suspend fun transfer(cents: Long, on: LocalDate, categoryId: String) {
+        transactions.save(
+            Transaction.register(
+                id = TransactionId(uuids.next()),
+                type = TransactionType.TRANSFER,
+                amount = Amount(cents),
+                date = TransactionDate(on),
+                description = TransactionDescription.EMPTY,
+                categoryRef = CategoryRef(categoryId),
+                uuids = uuids,
+                clock = clock,
+                timeZone = zone,
+            )
+        )
+    }
 }

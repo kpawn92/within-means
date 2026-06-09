@@ -16,7 +16,9 @@ import within.means.android.ui.unlock.UnlockViewModel
 val uiModule = module {
     viewModelOf(::OnboardingViewModel)
     viewModelOf(::UnlockViewModel)
-    viewModelOf(::HomeViewModel)
+    // HomeViewModel takes optional Clock+TimeZone with defaults (budget pace).
+    // Explicit factory lets Kotlin defaults apply, like StatsViewModel below.
+    viewModel { HomeViewModel(get()) }
     viewModelOf(::CategoriesListViewModel)
     viewModelOf(::CategoryEditViewModel)
     viewModelOf(::TransactionsListViewModel)

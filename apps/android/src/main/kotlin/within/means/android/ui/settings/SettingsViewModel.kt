@@ -22,6 +22,9 @@ data class SettingsUiState(
     val displayName: String = "",
     val locale: String = "es",
     val baseCurrency: String = "EUR",
+    /** Monthly plan as a free-text amount (major units, e.g. "1200.50"); blank = no plan. */
+    val monthlyBudgetText: String = "",
+    val spendingAlertsEnabled: Boolean = true,
     val loading: Boolean = true,
     val saving: Boolean = false,
     val savedAck: Boolean = false,
@@ -40,6 +43,8 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     fun onDisplayNameChanged(value: String) { _state.update { it.copy(displayName = value, savedAck = false) } }
     fun onLocaleChanged(value: String) { _state.update { it.copy(locale = value, savedAck = false) } }
     fun onBaseCurrencyChanged(value: String) { _state.update { it.copy(baseCurrency = value, savedAck = false) } }
+    fun onMonthlyBudgetChanged(value: String) { _state.update { it.copy(monthlyBudgetText = value, savedAck = false) } }
+    fun onSpendingAlertsChanged(value: Boolean) { _state.update { it.copy(spendingAlertsEnabled = value, savedAck = false) } }
 
     fun clearError() {
         _state.update { it.copy(errorMessage = null) }
@@ -56,6 +61,11 @@ class SettingsViewModel : ViewModel(), KoinComponent {
             _state.update { it.copy(errorMessage = "El nombre no puede estar vacío") }
             return
         }
+        val budgetCents = parseBudgetCents(s.monthlyBudgetText)
+        if (budgetCents == null) {
+            _state.update { it.copy(errorMessage = "El plan mensual no es un importe válido") }
+            return
+        }
         viewModelScope.launch {
             _state.update { it.copy(saving = true) }
             runCatching {
@@ -65,6 +75,8 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                         displayName = s.displayName.trim(),
                         locale = s.locale,
                         baseCurrency = s.baseCurrency,
+                        monthlyBudgetCents = budgetCents,
+                        spendingAlertsEnabled = s.spendingAlertsEnabled,
                     )
                 )
             }.onSuccess {
@@ -87,11 +99,32 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                         displayName = user.displayName,
                         locale = user.locale,
                         baseCurrency = user.baseCurrency,
+                        monthlyBudgetText = if (user.monthlyBudgetCents > 0L) {
+                            formatBudget(user.monthlyBudgetCents)
+                        } else {
+                            ""
+                        },
+                        spendingAlertsEnabled = user.spendingAlertsEnabled,
                     )
                 }
             } ?: _state.update { it.copy(loading = false) }
         }.onFailure { e ->
             _state.update { it.copy(loading = false, errorMessage = e.toUserMessage(ErrorContext.GENERIC)) }
         }
+    }
+
+    /** Blank → 0 (no plan). Returns null when the text isn't a valid non-negative amount. */
+    private fun parseBudgetCents(input: String): Long? {
+        val normalized = input.replace(',', '.').trim()
+        if (normalized.isEmpty()) return 0L
+        val asDouble = normalized.toDoubleOrNull() ?: return null
+        if (asDouble < 0.0) return null
+        return (asDouble * 100).toLong()
+    }
+
+    private fun formatBudget(cents: Long): String {
+        val major = cents / 100
+        val minor = (cents % 100).toInt()
+        return if (minor == 0) major.toString() else "$major.${minor.toString().padStart(2, '0')}"
     }
 }

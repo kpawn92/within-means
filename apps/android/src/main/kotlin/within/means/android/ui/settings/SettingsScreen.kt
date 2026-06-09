@@ -36,6 +36,8 @@ import within.means.android.ui.components.WmCard
 import within.means.android.ui.components.WmChip
 import within.means.android.ui.components.WmEyebrow
 import within.means.android.ui.components.WmPrimaryButton
+import within.means.android.ui.components.WmToggle
+import within.means.android.ui.format.currencySymbol
 
 @Composable
 fun SettingsScreen() {
@@ -128,6 +130,34 @@ fun SettingsScreen() {
                         enabled = !state.saving && state.userId != null,
                         modifier = Modifier.fillMaxWidth(),
                     )
+                }
+            }
+
+            // budget
+            WmCard(modifier = Modifier.fillMaxWidth()) {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    WmEyebrow("Presupuesto")
+                    OutlinedTextField(
+                        value = state.monthlyBudgetText,
+                        onValueChange = viewModel::onMonthlyBudgetChanged,
+                        label = { Text("Plan mensual (${currencySymbol(state.baseCurrency)})") },
+                        placeholder = { Text("Sin plan") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Alertas de gasto", fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface)
+                            Text("Avisa cuando superes el plan", fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        WmToggle(state.spendingAlertsEnabled, viewModel::onSpendingAlertsChanged)
+                    }
                 }
             }
 

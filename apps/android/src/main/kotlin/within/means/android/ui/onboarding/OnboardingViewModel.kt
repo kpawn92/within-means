@@ -132,6 +132,8 @@ class OnboardingViewModel(
                         displayName = s.displayName,
                         locale = s.locale,
                         baseCurrency = s.baseCurrency,
+                        monthlyBudgetCents = current.monthlyBudgetCents,
+                        spendingAlertsEnabled = current.spendingAlertsEnabled,
                     )
                 )
                 onboardingState.isCompleted = true

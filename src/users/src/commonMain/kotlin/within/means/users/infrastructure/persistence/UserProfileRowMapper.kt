@@ -13,6 +13,8 @@ internal fun User_profile.toAggregate(): UserProfile = UserProfile.rehydrate(
     displayName = DisplayName(display_name),
     locale = Locale.ofCode(locale),
     baseCurrency = Currency.ofCode(base_currency),
+    monthlyBudgetCents = monthly_budget_cents,
+    spendingAlertsEnabled = spending_alerts_enabled == 1L,
     createdAt = Instant.parse(created_at),
 )
 
@@ -21,6 +23,8 @@ internal data class UserProfileRow(
     val displayName: String,
     val locale: String,
     val baseCurrency: String,
+    val monthlyBudgetCents: Long,
+    val spendingAlertsEnabled: Long,
     val createdAt: String,
     val isDefault: Long,
 )
@@ -30,6 +34,8 @@ internal fun UserProfile.toRow(isDefault: Boolean): UserProfileRow = UserProfile
     displayName = displayName.value,
     locale = locale.code,
     baseCurrency = baseCurrency.code,
+    monthlyBudgetCents = monthlyBudgetCents,
+    spendingAlertsEnabled = if (spendingAlertsEnabled) 1L else 0L,
     createdAt = createdAt.toString(),
     isDefault = if (isDefault) 1L else 0L,
 )

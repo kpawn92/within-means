@@ -53,6 +53,7 @@ internal suspend fun summarize(
 
     var income = 0L
     var expense = 0L
+    var transfer = 0L
     var fixed = 0L
     var variable = 0L
     var essential = 0L
@@ -61,6 +62,7 @@ internal suspend fun summarize(
     for (tx: Transaction in txs) {
         when (tx.type) {
             TransactionType.INCOME -> income += tx.amount.cents
+            TransactionType.TRANSFER -> transfer += tx.amount.cents
             TransactionType.EXPENSE -> {
                 expense += tx.amount.cents
                 val classifiers = categoriesById[tx.categoryRef.value]?.classifiers
@@ -87,5 +89,6 @@ internal suspend fun summarize(
         variableExpenseCents = variable,
         essentialExpenseCents = essential,
         discretionaryExpenseCents = discretionary,
+        totalTransferCents = transfer,
     )
 }

@@ -78,6 +78,34 @@ class HomeViewModelTest {
     }
 
     @Test
+    fun `budget hero derives available and daily pace from plan minus expenses`() = runTest {
+        // Plan 1000.00, spent 300.00 → available 700.00. Clock fixed at 2026-05-27,
+        // so 5 days remain (27..31) → pace 140.00/day.
+        fixture.seedUser(monthlyBudgetCents = 100000L)
+        val cat = fixture.seedCategory("Comida")
+        fixture.seedTransaction("EXPENSE", 30000L, "2026-05-20", cat)
+
+        val vm = HomeViewModel(fixture.txRepository, fixture.clock, fixture.zone)
+        advanceUntilIdle()
+
+        val b = vm.state.value.budget!!
+        b.planCents shouldBe 100000L
+        b.spentCents shouldBe 30000L
+        b.availableCents shouldBe 70000L
+        b.daysRemaining shouldBe 5
+        b.perDayCents shouldBe 14000L
+        b.withinPlan shouldBe true
+    }
+
+    @Test
+    fun `no budget hero when the user has not set a plan`() = runTest {
+        fixture.seedUser(monthlyBudgetCents = 0L)
+        val vm = HomeViewModel(fixture.txRepository, fixture.clock, fixture.zone)
+        advanceUntilIdle()
+        vm.state.value.budget shouldBe null
+    }
+
+    @Test
     fun `category names map is populated for the recent-transactions list`() = runTest {
         fixture.seedUser()
         val cat = fixture.seedCategory("Comida")

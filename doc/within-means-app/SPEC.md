@@ -319,12 +319,40 @@ de ser post-MVP).
 - Símbolo de moneda unificado: Movimientos y Análisis ahora cargan la **moneda base**
   del usuario (antes mostraban `$` fijo; Home ya usaba la real).
 
-### 10.2 Diferido (requiere dominio/persistencia — F2/F4/F5)
-- **Hero "Disponible" + ritmo/día** (presupuesto mensual): necesita el contexto de presupuesto.
-- **Tipo Ahorro/transferencia** (`TransactionType.TRANSFER`): chip "Ahorro" en filtros/editor.
-- **Recurrentes**: toggle "Recurrente" en el editor.
-- **PIN de 4 dígitos**: el keypad/puntos ya existen; falta cambiar la derivación de
-  passphrase (hoy 6 dígitos) — afecta onboarding/unlock/`PassphraseProvider`.
+### 10.2 Diferido — progreso (Ruta C: F2/F4/F5 en orden §8)
+
+**Hecho ✅**
+- **Tipo Ahorro/transferencia** (`TransactionType.TRANSFER`) — PR1. Enum + invariante
+  (`incomeSource` solo en `INCOME`); analítica suma transferencias en `totalTransferCents`
+  aparte (no afectan income/expense/balance); chip "Ahorro" en editor y filtros de
+  Movimientos; filas/totales con color `savings` y prefijo `→` (neutro en el neto del día).
+  Las categorías ya tenían `CategoryKind.TRANSFER`. Tests por capa.
+- **Presupuesto mensual + hero "Disponible" + ritmo/día** — PR2. Extensión de `:users`
+  (`monthly_budget_cents` + `spending_alerts_enabled`, migración de baseline regenerada y
+  verificada). Hero "Disponible = plan − gastado" con badge Dentro del plan/Atención, barra
+  gastado/plan y "X/día · N días restantes" (calculado en `HomeViewModel` con Clock+TZ
+  inyectables — sin acoplar `:analytics` con `:users`). Card "Presupuesto" en Ajustes (plan
+  + toggle de alertas). Tests por capa.
+
+- **Recurrentes** — PR3. Agregado real `RecurringRule` en `:transactions` (cadencia
+  WEEKLY/MONTHLY, `nextOccurrence` como cursor idempotente) + tabla `recurring_rule`
+  (baseline regenerado y verificado). `RecurringTransactionsMaterializer` materializa las
+  ocurrencias vencidas al entrar en Home (catch-up acotado, idempotente). Editor: toggle
+  "Recurrente" + chips de frecuencia (solo en creación) + "N activos". Tests de
+  materialización (cadencia/catch-up/idempotencia/futuro). Iteración: create-only (sin
+  desactivar/editar desde UI todavía; el agregado ya soporta `deactivate`).
+
+**Pendiente**
 - **QuickAdd** (F4) con teclado numérico grande sobre el FAB central.
 - **Periodos Semana/Año** en Análisis (hoy solo mes actual).
+- **PIN de 4 dígitos**: el keypad/puntos ya existen; falta cambiar la derivación de
+  passphrase (hoy 6 dígitos) — afecta onboarding/unlock/`PassphraseProvider`. ⚠️ Cambiar la
+  derivación invalida DBs cifradas existentes (requiere reinstalar/borrar datos en dev).
 - **F5** motion: entradas escalonadas, count-up, transiciones, reduced-motion.
+
+> ✅ Verificado en emulador Pixel_9 (API 36): hero "Disponible €1.000 · €45/día · 22 días"
+> + badge "Dentro del plan"; chip Ahorro filtra categoría "Transferencia"; toggle
+> Recurrente + Mensual/Semanal; al guardar un Ahorro recurrente el materializador crea la
+> transacción real ("Transferencia → €50,00") sin contar como gasto.
+> ⚠️ Sin `.sqm`, los cambios de esquema (PR2/PR3) requieren **borrar datos / reinstalar**
+> en instalaciones existentes (bootstrap por *sentinel table*; no hay migración in-place).

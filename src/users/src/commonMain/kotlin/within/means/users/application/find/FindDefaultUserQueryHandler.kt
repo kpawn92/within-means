@@ -23,6 +23,8 @@ class FindDefaultUserQueryHandler(
         displayName = displayName.value,
         locale = locale.code,
         baseCurrency = baseCurrency.code,
+        monthlyBudgetCents = monthlyBudgetCents,
+        spendingAlertsEnabled = spendingAlertsEnabled,
         createdAt = createdAt.toString(),
     )
 }

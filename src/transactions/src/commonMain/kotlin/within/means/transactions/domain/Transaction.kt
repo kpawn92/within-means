@@ -171,9 +171,9 @@ class Transaction private constructor(
             type: TransactionType,
             incomeSource: IncomeSource?,
         ) {
-            if (type == TransactionType.EXPENSE) {
+            if (type != TransactionType.INCOME) {
                 require(incomeSource == null) {
-                    "EXPENSE transactions cannot declare an incomeSource"
+                    "$type transactions cannot declare an incomeSource"
                 }
             }
         }
