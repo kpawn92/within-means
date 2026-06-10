@@ -19,8 +19,10 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -94,12 +96,18 @@ fun TransactionsListScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(modifier = Modifier.fillMaxWidth().padding(end = 44.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Bottom) {
+                    verticalAlignment = Alignment.CenterVertically) {
                     Text("Movimientos", fontSize = 24.sp, fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface)
-                    Text(formatAmount(monthExpense, sym, decimals = false),
-                        fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(formatAmount(monthExpense, sym, decimals = false),
+                            fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        IconButton(onClick = onCreate) {
+                            Icon(Icons.Filled.Add, contentDescription = "Nuevo movimiento",
+                                tint = MaterialTheme.colorScheme.primary)
+                        }
+                    }
                 }
                 SearchField(state.query, viewModel::setQuery)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
