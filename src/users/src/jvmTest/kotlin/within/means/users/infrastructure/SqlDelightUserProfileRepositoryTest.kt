@@ -74,6 +74,8 @@ class SqlDelightUserProfileRepositoryTest {
             baseCurrency = Currency.USD,
             monthlyBudgetCents = 200000L,
             spendingAlertsEnabled = false,
+            monthStartDay = 5,
+            hideAmounts = true,
             uuids = uuids,
         )
         repo.save(profile)
@@ -84,5 +86,7 @@ class SqlDelightUserProfileRepositoryTest {
         loaded.baseCurrency shouldBe Currency.USD
         loaded.monthlyBudgetCents shouldBe 200000L
         loaded.spendingAlertsEnabled shouldBe false
+        loaded.monthStartDay shouldBe 5
+        loaded.hideAmounts shouldBe true
     }
 }

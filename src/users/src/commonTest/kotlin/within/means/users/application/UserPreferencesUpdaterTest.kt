@@ -44,6 +44,8 @@ class UserPreferencesUpdaterTest {
             baseCurrency = Currency.USD,
             monthlyBudgetCents = 120000L,
             spendingAlertsEnabled = false,
+            monthStartDay = 10,
+            hideAmounts = true,
         )
 
         val updated = repo.search(userId)!!
@@ -52,6 +54,8 @@ class UserPreferencesUpdaterTest {
         updated.baseCurrency shouldBe Currency.USD
         updated.monthlyBudgetCents shouldBe 120000L
         updated.spendingAlertsEnabled shouldBe false
+        updated.monthStartDay shouldBe 10
+        updated.hideAmounts shouldBe true
 
         bus.published shouldHaveSize 1
         bus.published.first().shouldBeInstanceOf<UserPreferencesUpdated>()
@@ -72,6 +76,8 @@ class UserPreferencesUpdaterTest {
                 baseCurrency = Currency.USD,
                 monthlyBudgetCents = 0L,
                 spendingAlertsEnabled = true,
+                monthStartDay = 1,
+                hideAmounts = false,
             )
         }
     }

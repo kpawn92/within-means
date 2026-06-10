@@ -13,6 +13,8 @@ class UserProfile private constructor(
     baseCurrency: Currency,
     monthlyBudgetCents: Long,
     spendingAlertsEnabled: Boolean,
+    monthStartDay: Int,
+    hideAmounts: Boolean,
     val createdAt: Instant,
 ) : AggregateRoot() {
 
@@ -32,21 +34,38 @@ class UserProfile private constructor(
     var spendingAlertsEnabled: Boolean = spendingAlertsEnabled
         private set
 
+    /**
+     * Day of month the budget cycle resets on (1..28; capped at 28 so every
+     * month has the day). The "month" used for pace/available spans from this
+     * day to the day before it next month.
+     */
+    var monthStartDay: Int = monthStartDay
+        private set
+
+    /** When true, the UI masks amounts until the user reveals them. */
+    var hideAmounts: Boolean = hideAmounts
+        private set
+
     fun updatePreferences(
         displayName: DisplayName,
         locale: Locale,
         baseCurrency: Currency,
         monthlyBudgetCents: Long,
         spendingAlertsEnabled: Boolean,
+        monthStartDay: Int,
+        hideAmounts: Boolean,
         uuids: UuidGenerator,
         clock: Clock = Clock.System,
     ) {
         require(monthlyBudgetCents >= 0L) { "monthlyBudgetCents cannot be negative" }
+        require(monthStartDay in MONTH_START_RANGE) { "monthStartDay must be in $MONTH_START_RANGE" }
         this.displayName = displayName
         this.locale = locale
         this.baseCurrency = baseCurrency
         this.monthlyBudgetCents = monthlyBudgetCents
         this.spendingAlertsEnabled = spendingAlertsEnabled
+        this.monthStartDay = monthStartDay
+        this.hideAmounts = hideAmounts
         record(
             UserPreferencesUpdated(
                 eventId = uuids.next(),
@@ -57,6 +76,8 @@ class UserProfile private constructor(
                 baseCurrency = baseCurrency.code,
                 monthlyBudgetCents = monthlyBudgetCents,
                 spendingAlertsEnabled = spendingAlertsEnabled,
+                monthStartDay = monthStartDay,
+                hideAmounts = hideAmounts,
             )
         )
     }
@@ -79,6 +100,8 @@ class UserProfile private constructor(
                 baseCurrency = baseCurrency,
                 monthlyBudgetCents = 0L,
                 spendingAlertsEnabled = true,
+                monthStartDay = DEFAULT_MONTH_START_DAY,
+                hideAmounts = false,
                 createdAt = now,
             ).apply {
                 record(
@@ -101,6 +124,8 @@ class UserProfile private constructor(
             baseCurrency: Currency,
             monthlyBudgetCents: Long,
             spendingAlertsEnabled: Boolean,
+            monthStartDay: Int,
+            hideAmounts: Boolean,
             createdAt: Instant,
         ): UserProfile = UserProfile(
             id = id,
@@ -109,9 +134,17 @@ class UserProfile private constructor(
             baseCurrency = baseCurrency,
             monthlyBudgetCents = monthlyBudgetCents,
             spendingAlertsEnabled = spendingAlertsEnabled,
+            monthStartDay = monthStartDay,
+            hideAmounts = hideAmounts,
             createdAt = createdAt,
         )
 
         private const val DEFAULT_NAME = "Yo"
+
+        /** Budget cycle reset day; 1 = calendar month. */
+        const val DEFAULT_MONTH_START_DAY = 1
+
+        /** Capped at 28 so the chosen day exists in every month. */
+        val MONTH_START_RANGE = 1..28
     }
 }

@@ -1,0 +1,6 @@
+-- Migration v1 -> v2: budget cycle start day + hide-amounts security toggle.
+-- v1 baseline (databases/1.db) already carries monthly_budget_cents +
+-- spending_alerts_enabled (shipped in the budget PR); these two columns are
+-- the only additions, applied in-place so existing installs keep their data.
+ALTER TABLE user_profile ADD COLUMN month_start_day INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE user_profile ADD COLUMN hide_amounts INTEGER NOT NULL DEFAULT 0;

@@ -9,4 +9,6 @@ data class UpdateUserPreferencesCommand(
     val baseCurrency: String,
     val monthlyBudgetCents: Long,
     val spendingAlertsEnabled: Boolean,
+    val monthStartDay: Int = 1,
+    val hideAmounts: Boolean = false,
 ) : Command

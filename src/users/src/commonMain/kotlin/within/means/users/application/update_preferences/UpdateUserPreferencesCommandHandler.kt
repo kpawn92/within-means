@@ -21,6 +21,8 @@ class UpdateUserPreferencesCommandHandler(
             baseCurrency = Currency.ofCode(command.baseCurrency),
             monthlyBudgetCents = command.monthlyBudgetCents,
             spendingAlertsEnabled = command.spendingAlertsEnabled,
+            monthStartDay = command.monthStartDay,
+            hideAmounts = command.hideAmounts,
         )
     }
 }

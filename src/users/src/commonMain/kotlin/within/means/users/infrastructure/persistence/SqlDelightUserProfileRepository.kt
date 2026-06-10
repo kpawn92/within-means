@@ -23,6 +23,8 @@ class SqlDelightUserProfileRepository(
             is_default = row.isDefault,
             monthly_budget_cents = row.monthlyBudgetCents,
             spending_alerts_enabled = row.spendingAlertsEnabled,
+            month_start_day = row.monthStartDay,
+            hide_amounts = row.hideAmounts,
         )
     }
 

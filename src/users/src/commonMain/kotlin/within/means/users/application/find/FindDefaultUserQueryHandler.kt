@@ -25,6 +25,8 @@ class FindDefaultUserQueryHandler(
         baseCurrency = baseCurrency.code,
         monthlyBudgetCents = monthlyBudgetCents,
         spendingAlertsEnabled = spendingAlertsEnabled,
+        monthStartDay = monthStartDay,
+        hideAmounts = hideAmounts,
         createdAt = createdAt.toString(),
     )
 }

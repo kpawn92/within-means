@@ -20,6 +20,8 @@ class UserPreferencesUpdater(
         baseCurrency: Currency,
         monthlyBudgetCents: Long,
         spendingAlertsEnabled: Boolean,
+        monthStartDay: Int,
+        hideAmounts: Boolean,
     ) {
         val profile = repository.search(userId)
             ?: error("UserProfile not found: ${userId.value}")
@@ -30,6 +32,8 @@ class UserPreferencesUpdater(
             baseCurrency = baseCurrency,
             monthlyBudgetCents = monthlyBudgetCents,
             spendingAlertsEnabled = spendingAlertsEnabled,
+            monthStartDay = monthStartDay,
+            hideAmounts = hideAmounts,
             uuids = uuids,
         )
         repository.save(profile)

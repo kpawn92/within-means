@@ -16,6 +16,8 @@ data class UserPreferencesUpdated(
     val baseCurrency: String,
     val monthlyBudgetCents: Long = 0L,
     val spendingAlertsEnabled: Boolean = true,
+    val monthStartDay: Int = 1,
+    val hideAmounts: Boolean = false,
 ) : DomainEvent {
     override val eventName: String = NAME
 
