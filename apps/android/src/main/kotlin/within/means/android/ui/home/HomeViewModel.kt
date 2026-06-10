@@ -8,7 +8,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
+import kotlinx.datetime.DatePeriod
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.minus
+import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
@@ -16,6 +20,7 @@ import within.means.analytics.application.MonthlySummaryResponse
 import within.means.analytics.application.CategoryBreakdownResponse
 import within.means.analytics.application.find_breakdown.FindCategoryBreakdownQuery
 import within.means.analytics.application.find_summary.FindCurrentMonthSummaryQuery
+import within.means.analytics.application.find_summary.FindSummaryInRangeQuery
 import within.means.android.ui.CategoryView
 import within.means.android.ui.error.ErrorContext
 import within.means.android.ui.error.toUserMessage
@@ -52,6 +57,8 @@ data class HomeUiState(
     val categoryNames: Map<String, String> = emptyMap(),
     val categories: Map<String, CategoryView> = emptyMap(),
     val monthlyBudgetCents: Long = 0L,
+    val monthStartDay: Int = 1,
+    val hideAmounts: Boolean = false,
     val budget: BudgetView? = null,
     val loading: Boolean = true,
     val errorMessage: String? = null,
@@ -94,6 +101,8 @@ class HomeViewModel(
                         displayName = user.displayName,
                         baseCurrency = user.baseCurrency,
                         monthlyBudgetCents = user.monthlyBudgetCents,
+                        monthStartDay = user.monthStartDay,
+                        hideAmounts = user.hideAmounts,
                     )
                 }
                 recomputeBudget()
@@ -146,44 +155,65 @@ class HomeViewModel(
     }
 
     /**
-     * Derives the "Disponible" hero from the user's plan and the month's
-     * expenses: available = plan − spent, daily pace = available ÷ days left.
-     * Pure presentation arithmetic — keeps :analytics free of a :users dep.
+     * Derives the "Disponible" hero from the user's plan and the budget
+     * cycle's expenses: available = plan − spent, daily pace = available ÷
+     * days left in the cycle. The cycle runs from [HomeUiState.monthStartDay]
+     * to the day before the next occurrence of that day. When the start day is
+     * 1 the cycle is the calendar month and we reuse the month summary;
+     * otherwise we query the exact cycle range. Pure presentation arithmetic —
+     * keeps :analytics free of a :users dep.
      */
-    private fun recomputeBudget() {
-        _state.update { s ->
-            val plan = s.monthlyBudgetCents
-            val spent = s.summary?.totalExpenseCents ?: 0L
-            if (plan <= 0L) return@update s.copy(budget = null)
+    private suspend fun recomputeBudget() {
+        val s = _state.value
+        val plan = s.monthlyBudgetCents
+        if (plan <= 0L) {
+            _state.update { it.copy(budget = null) }
+            return
+        }
+        val today = clock.now().toLocalDateTime(zone).date
+        val (cycleStart, cycleEnd) = budgetCycle(today, s.monthStartDay)
 
-            val available = plan - spent
-            val days = daysRemainingInMonth()
-            val perDay = if (available > 0L && days > 0) available / days else 0L
-            s.copy(
+        val spent = if (s.monthStartDay == 1) {
+            s.summary?.totalExpenseCents ?: 0L
+        } else {
+            runCatching {
+                get<QueryBus>().ask<FindSummaryInRangeQuery, MonthlySummaryResponse>(
+                    FindSummaryInRangeQuery(cycleStart.toString(), cycleEnd.toString())
+                ).totalExpenseCents
+            }.getOrDefault(s.summary?.totalExpenseCents ?: 0L)
+        }
+
+        val available = plan - spent
+        val days = cycleEnd.toEpochDays() - today.toEpochDays() + 1
+        val perDay = if (available > 0L && days > 0) available / days else 0L
+        _state.update {
+            it.copy(
                 budget = BudgetView(
                     planCents = plan,
                     spentCents = spent,
                     availableCents = available,
                     perDayCents = perDay,
-                    daysRemaining = days,
+                    daysRemaining = days.toInt(),
                     withinPlan = available >= 0L,
                 ),
             )
         }
     }
 
-    /** Days left in the current month, today inclusive (always ≥ 1). */
-    private fun daysRemainingInMonth(): Int {
-        val today = clock.now().toLocalDateTime(zone).date
-        val daysInMonth = when (today.monthNumber) {
-            1, 3, 5, 7, 8, 10, 12 -> 31
-            4, 6, 9, 11 -> 30
-            else -> if (isLeapYear(today.year)) 29 else 28
+    /**
+     * The [start, end] inclusive dates of the budget cycle containing [today]
+     * for a cycle that resets on [startDay] (1..28). For startDay 1 this is
+     * the calendar month.
+     */
+    private fun budgetCycle(today: LocalDate, startDay: Int): Pair<LocalDate, LocalDate> {
+        val day = startDay.coerceIn(1, 28)
+        val cycleStart = if (today.dayOfMonth >= day) {
+            LocalDate(today.year, today.monthNumber, day)
+        } else {
+            LocalDate(today.year, today.monthNumber, day).minus(DatePeriod(months = 1))
         }
-        return daysInMonth - today.dayOfMonth + 1
+        val cycleEnd = cycleStart.plus(DatePeriod(months = 1)).minus(DatePeriod(days = 1))
+        return cycleStart to cycleEnd
     }
-
-    private fun isLeapYear(year: Int): Boolean =
-        (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
 }
 

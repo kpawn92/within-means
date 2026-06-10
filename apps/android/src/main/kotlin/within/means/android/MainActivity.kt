@@ -61,8 +61,10 @@ import within.means.android.ui.analytics.StatsScreen
 import within.means.android.ui.categories.CategoriesListScreen
 import within.means.android.ui.categories.CategoryEditScreen
 import within.means.android.ui.home.HomeScreen
+import within.means.android.ui.onboarding.IntroCarousel
 import within.means.android.ui.onboarding.OnboardingScreen
 import within.means.android.ui.quickadd.QuickAddSheet
+import within.means.android.ui.recurring.RecurringRulesScreen
 import within.means.android.ui.settings.SettingsScreen
 import within.means.android.ui.transactions.TransactionEditScreen
 import within.means.android.ui.transactions.TransactionsListScreen
@@ -92,6 +94,8 @@ private object Routes {
     const val TransactionEdit = "transactions/edit/{transactionId}"
     const val Stats = "stats"
     const val Settings = "settings"
+    const val Recurring = "recurring"
+    const val Intro = "intro"
 
     fun categoryEdit(categoryId: String): String = "categories/edit/$categoryId"
     fun transactionEdit(transactionId: String): String = "transactions/edit/$transactionId"
@@ -231,7 +235,24 @@ private fun WithinMeansApp() {
                     )
                 }
                 composable(Routes.Stats) { StatsScreen() }
-                composable(Routes.Settings) { SettingsScreen() }
+                composable(Routes.Settings) {
+                    SettingsScreen(
+                        onManageRecurring = { navController.navigate(Routes.Recurring) },
+                        onLockNow = {
+                            unlocker.lock()
+                            navController.navigate(Routes.Unlock) {
+                                popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
+                            }
+                        },
+                        onReplayIntro = { navController.navigate(Routes.Intro) },
+                    )
+                }
+                composable(Routes.Recurring) {
+                    RecurringRulesScreen(onBack = { navController.popBackStack() })
+                }
+                composable(Routes.Intro) {
+                    IntroCarousel(onDone = { navController.popBackStack() })
+                }
             }
 
             // Settings entry: floating top-right on the main tabs (the design puts it

@@ -40,6 +40,8 @@ class UserProfileTest {
             baseCurrency = Currency.USD,
             monthlyBudgetCents = 150000L,
             spendingAlertsEnabled = false,
+            monthStartDay = 15,
+            hideAmounts = true,
             uuids = uuids,
         )
 
@@ -48,6 +50,8 @@ class UserProfileTest {
         profile.baseCurrency shouldBe Currency.USD
         profile.monthlyBudgetCents shouldBe 150000L
         profile.spendingAlertsEnabled shouldBe false
+        profile.monthStartDay shouldBe 15
+        profile.hideAmounts shouldBe true
 
         val events = profile.pullDomainEvents()
         events shouldHaveSize 1
@@ -63,6 +67,8 @@ class UserProfileTest {
             baseCurrency = Currency.USD,
             monthlyBudgetCents = 0L,
             spendingAlertsEnabled = true,
+            monthStartDay = 1,
+            hideAmounts = false,
             createdAt = kotlinx.datetime.Instant.fromEpochSeconds(0),
         )
         profile.pullDomainEvents() shouldHaveSize 0

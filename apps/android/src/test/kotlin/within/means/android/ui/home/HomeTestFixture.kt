@@ -105,6 +105,8 @@ class HomeTestFixture(
         currency: String = "EUR",
         monthlyBudgetCents: Long = 0L,
         spendingAlertsEnabled: Boolean = true,
+        monthStartDay: Int = 1,
+        hideAmounts: Boolean = false,
     ): String {
         val id = UserId(uuids.next())
         userRepository.save(
@@ -115,6 +117,8 @@ class HomeTestFixture(
                 baseCurrency = Currency.valueOf(currency),
                 monthlyBudgetCents = monthlyBudgetCents,
                 spendingAlertsEnabled = spendingAlertsEnabled,
+                monthStartDay = monthStartDay,
+                hideAmounts = hideAmounts,
                 createdAt = clock.now(),
             )
         )

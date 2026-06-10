@@ -29,7 +29,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import org.koin.compose.viewmodel.koinViewModel
-import within.means.android.ui.components.WmPrimaryButton
 
 @Composable
 fun OnboardingScreen(onCompleted: () -> Unit) {
@@ -38,7 +37,7 @@ fun OnboardingScreen(onCompleted: () -> Unit) {
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         when (state.step) {
-            OnboardingStep.Welcome -> WelcomeStep(onContinue = viewModel::goToPin)
+            OnboardingStep.Welcome -> IntroCarousel(onDone = viewModel::goToPin)
             OnboardingStep.Pin -> PinStep(state = state, viewModel = viewModel)
             OnboardingStep.Preferences -> PreferencesStep(
                 state = state,
@@ -47,24 +46,6 @@ fun OnboardingScreen(onCompleted: () -> Unit) {
             )
             OnboardingStep.Done -> CenteredText("¡Listo!")
         }
-    }
-}
-
-@Composable
-private fun WelcomeStep(onContinue: () -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(32.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text("within means", style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(16.dp))
-        Text(
-            "Lleva tus ingresos y gastos diarios para entender de dónde viene y en qué se va tu dinero.",
-            style = MaterialTheme.typography.bodyLarge,
-        )
-        Spacer(Modifier.height(32.dp))
-        WmPrimaryButton(text = "Empezar", onClick = onContinue, modifier = Modifier.fillMaxWidth())
     }
 }
 

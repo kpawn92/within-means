@@ -14,7 +14,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -25,7 +29,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -62,6 +68,17 @@ private fun monthTitle(yearMonth: String?): String {
     return MONTHS_LONG.getOrNull(m - 1)?.replaceFirstChar { it.uppercase() } ?: ""
 }
 
+private const val MASK = "••••"
+
+/** Formats an amount, or masks it with dots when [masked] (hide-amounts pref). */
+private fun money(
+    cents: Long,
+    sym: String,
+    masked: Boolean,
+    signed: Boolean = false,
+    decimals: Boolean = false,
+): String = if (masked) MASK else formatAmount(cents, sym, signed = signed, decimals = decimals)
+
 @Composable
 fun HomeScreen(
     onNewTransaction: () -> Unit,
@@ -72,6 +89,8 @@ fun HomeScreen(
     val state by viewModel.state.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val reduced = rememberReducedMotion()
+    var revealed by remember { mutableStateOf(false) }
+    val masked = state.hideAmounts && !revealed
 
     LaunchedEffect(state.errorMessage) {
         state.errorMessage?.let {
@@ -100,10 +119,21 @@ fun HomeScreen(
                 item { LinearProgressIndicator(modifier = Modifier.fillMaxWidth()) }
             }
 
-            item { Box(Modifier.enterUp(1, reduced)) { MonthHero(state, reduced) } }
+            item {
+                Box(Modifier.enterUp(1, reduced)) {
+                    MonthHero(
+                        state = state,
+                        reduced = reduced,
+                        masked = masked,
+                        canReveal = state.hideAmounts,
+                        revealed = revealed,
+                        onToggleReveal = { revealed = !revealed },
+                    )
+                }
+            }
 
             if ((state.breakdown?.items?.isNotEmpty() == true)) {
-                item { Box(Modifier.enterUp(2, reduced)) { SpendingDonutCard(state) } }
+                item { Box(Modifier.enterUp(2, reduced)) { SpendingDonutCard(state, masked) } }
             }
 
             item {
@@ -131,6 +161,7 @@ fun HomeScreen(
                                     transaction = tx,
                                     category = state.categories[tx.categoryId],
                                     currency = state.baseCurrency,
+                                    masked = masked,
                                     onClick = { onOpenTransaction(tx.id) },
                                 )
                                 if (i < state.recentTransactions.lastIndex) {
@@ -160,17 +191,44 @@ private fun GreetingHeader(name: String, yearMonth: String?) {
 }
 
 @Composable
-private fun MonthHero(state: HomeUiState, reduced: Boolean) {
+private fun MonthHero(
+    state: HomeUiState,
+    reduced: Boolean,
+    masked: Boolean,
+    canReveal: Boolean,
+    revealed: Boolean,
+    onToggleReveal: () -> Unit,
+) {
     val budget = state.budget
     if (budget != null) {
-        BudgetHero(budget, currencySymbol(state.baseCurrency), reduced)
+        BudgetHero(budget, currencySymbol(state.baseCurrency), reduced, masked, canReveal, revealed, onToggleReveal)
     } else {
-        BalanceHero(state, reduced)
+        BalanceHero(state, reduced, masked, canReveal, revealed, onToggleReveal)
     }
 }
 
 @Composable
-private fun BudgetHero(budget: BudgetView, sym: String, reduced: Boolean) {
+private fun RevealToggle(revealed: Boolean, tint: Color, onToggle: () -> Unit) {
+    IconButton(onClick = onToggle, modifier = Modifier.size(28.dp)) {
+        Icon(
+            if (revealed) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+            contentDescription = if (revealed) "Ocultar importes" else "Mostrar importes",
+            tint = tint,
+            modifier = Modifier.size(18.dp),
+        )
+    }
+}
+
+@Composable
+private fun BudgetHero(
+    budget: BudgetView,
+    sym: String,
+    reduced: Boolean,
+    masked: Boolean,
+    canReveal: Boolean,
+    revealed: Boolean,
+    onToggleReveal: () -> Unit,
+) {
     val onBrand = MaterialTheme.colorScheme.onPrimaryContainer
     val fraction = if (budget.planCents > 0) budget.spentCents.toFloat() / budget.planCents else 0f
     val available = countUpCents(budget.availableCents, reduced)
@@ -186,10 +244,16 @@ private fun BudgetHero(budget: BudgetView, sym: String, reduced: Boolean) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 WmEyebrow("Disponible", color = onBrand.copy(alpha = 0.7f))
-                BudgetBadge(budget.withinPlan)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    BudgetBadge(budget.withinPlan)
+                    if (canReveal) {
+                        Spacer(Modifier.size(4.dp))
+                        RevealToggle(revealed, onBrand.copy(alpha = 0.8f), onToggleReveal)
+                    }
+                }
             }
             Text(
-                formatAmount(available, sym, signed = false, decimals = false),
+                money(available, sym, masked, signed = false, decimals = false),
                 fontSize = 34.sp, fontWeight = FontWeight.Bold, color = onBrand,
             )
             WmBar(
@@ -201,14 +265,14 @@ private fun BudgetHero(budget: BudgetView, sym: String, reduced: Boolean) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Text("Gastado ${formatAmount(budget.spentCents, sym, decimals = false)}",
+                Text("Gastado ${money(budget.spentCents, sym, masked, decimals = false)}",
                     fontSize = 12.sp, color = onBrand.copy(alpha = 0.8f))
-                Text("Plan ${formatAmount(budget.planCents, sym, decimals = false)}",
+                Text("Plan ${money(budget.planCents, sym, masked, decimals = false)}",
                     fontSize = 12.sp, color = onBrand.copy(alpha = 0.8f))
             }
             if (budget.withinPlan && budget.perDayCents > 0) {
                 Text(
-                    "${formatAmount(budget.perDayCents, sym, decimals = false)}/día · " +
+                    "${money(budget.perDayCents, sym, masked, decimals = false)}/día · " +
                         "${budget.daysRemaining} días restantes",
                     fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = onBrand,
                 )
@@ -231,32 +295,47 @@ private fun BudgetBadge(withinPlan: Boolean) {
 }
 
 @Composable
-private fun BalanceHero(state: HomeUiState, reduced: Boolean) {
+private fun BalanceHero(
+    state: HomeUiState,
+    reduced: Boolean,
+    masked: Boolean,
+    canReveal: Boolean,
+    revealed: Boolean,
+    onToggleReveal: () -> Unit,
+) {
     val sym = currencySymbol(state.baseCurrency)
     val summary = state.summary
     val balance = countUpCents(summary?.balanceCents ?: 0L, reduced)
+    val onBrand = MaterialTheme.colorScheme.onPrimaryContainer
     WmCard(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.primaryContainer,
         contentPadding = 22.dp,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            WmEyebrow("Balance del mes", color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                WmEyebrow("Balance del mes", color = onBrand.copy(alpha = 0.7f))
+                if (canReveal) RevealToggle(revealed, onBrand.copy(alpha = 0.8f), onToggleReveal)
+            }
             if (summary == null) {
-                Text("Aún sin datos", color = MaterialTheme.colorScheme.onPrimaryContainer)
+                Text("Aún sin datos", color = onBrand)
             } else {
                 Text(
-                    formatAmount(balance, sym, signed = true, decimals = false),
+                    money(balance, sym, masked, signed = true, decimals = false),
                     fontSize = 34.sp, fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    color = onBrand,
                 )
                 Spacer(Modifier.height(8.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(24.dp),
                 ) {
-                    HeroStat("Ingresos", summary.totalIncomeCents, WmTheme.colors.pos, sym)
-                    HeroStat("Gastos", summary.totalExpenseCents, WmTheme.colors.neg, sym)
+                    HeroStat("Ingresos", summary.totalIncomeCents, WmTheme.colors.pos, sym, masked)
+                    HeroStat("Gastos", summary.totalExpenseCents, WmTheme.colors.neg, sym, masked)
                 }
             }
         }
@@ -264,20 +343,20 @@ private fun BalanceHero(state: HomeUiState, reduced: Boolean) {
 }
 
 @Composable
-private fun HeroStat(label: String, cents: Long, color: Color, sym: String) {
+private fun HeroStat(label: String, cents: Long, color: Color, sym: String, masked: Boolean) {
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(8.dp).clip(RoundedCornerShape(4.dp)).background(color))
             Spacer(Modifier.size(6.dp))
             Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
         }
-        Text(formatAmount(cents, sym, decimals = false), fontSize = 16.sp, fontWeight = FontWeight.Bold,
+        Text(money(cents, sym, masked, decimals = false), fontSize = 16.sp, fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onPrimaryContainer)
     }
 }
 
 @Composable
-private fun SpendingDonutCard(state: HomeUiState) {
+private fun SpendingDonutCard(state: HomeUiState, masked: Boolean) {
     val breakdown = state.breakdown ?: return
     val sym = currencySymbol(state.baseCurrency)
     val top = breakdown.items.sortedByDescending { it.totalCents }
@@ -295,7 +374,7 @@ private fun SpendingDonutCard(state: HomeUiState) {
                     trackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(formatAmount(breakdown.totalCents, sym, decimals = false),
+                        Text(money(breakdown.totalCents, sym, masked, decimals = false),
                             fontSize = 15.sp, fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface)
                         Text("gastado", fontSize = 10.sp,
@@ -327,6 +406,7 @@ private fun TransactionRow(
     transaction: TransactionResponse,
     category: CategoryView?,
     currency: String,
+    masked: Boolean,
     onClick: () -> Unit,
 ) {
     val income = transaction.type == "INCOME"
@@ -353,7 +433,7 @@ private fun TransactionRow(
                 listOfNotNull(category?.name, transaction.incomeSource).joinToString(" · "),
                 fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
         }
-        val amount = formatAmount(transaction.amountCents, sym, signed = false)
+        val amount = money(transaction.amountCents, sym, masked, signed = false, decimals = true)
         Text(
             when {
                 income -> "+$amount"

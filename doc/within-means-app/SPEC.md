@@ -374,3 +374,43 @@ de ser post-MVP).
 > transacción real ("Transferencia → €50,00") sin contar como gasto.
 > ⚠️ Sin `.sqm`, los cambios de esquema (PR2/PR3) requieren **borrar datos / reinstalar**
 > en instalaciones existentes (bootstrap por *sentinel table*; no hay migración in-place).
+
+### 10.3 Iteración — colas del Diferido (gestión, migraciones, ajustes, intro)
+
+Resuelve los `[mock]`/"create-only" que dejó el Diferido. Todo verificado en Pixel_9
+(onboarding → crear → bloquear → desbloquear → home, sin crash).
+
+- **Gestión de recurrentes**. `DeactivateRecurringRuleCommand` + handler (desactivación
+  suave vía el agregado, emite `RecurringRuleDeactivated`, no-op si falta/ya inactiva).
+  Nueva `RecurringRulesScreen` (lista: nombre, cadencia, categoría, próxima fecha, importe
+  coloreado por tipo + "Desactivar"; estado vacío), accesible desde Ajustes → Presupuesto →
+  «Recurrentes». Tests del handler.
+
+- **Migración in-place (corrige el ⚠️ de §10.2)**. Se intentó `.sqm` + bump de versión,
+  pero rompió el unlock: SQLCipher lee el `PRAGMA user_version` **global** del fichero
+  compartido, así que subir la versión de un esquema dispara `onUpgrade` en **todos** y
+  ejecuta un `ALTER` sobre tablas que otro esquema aún no creó. Solución: versión de esquema
+  fija en 1 (sin `.sqm`) y migración aditiva como `ALTER TABLE ADD COLUMN` **idempotente y
+  guardado** en `AndroidDatabaseFactory.ensureColumn()`. Instalación nueva → columnas vía
+  `Schema.create`; instalación existente → columnas añadidas en sitio. **Sin borrar datos.**
+
+- **Inicio del mes configurable** (`[mock]` → real). Columna `month_start_day` (1..28). El
+  ciclo de presupuesto reinicia ese día; `HomeViewModel` calcula la ventana del ciclo y, si
+  no es día 1, consulta el gasto del rango exacto (`FindSummaryInRange`); ritmo = disponible
+  ÷ días restantes del ciclo. Stepper en Ajustes. Verificado (Día 3, guardado).
+
+- **Ocultar importes al abrir** (`[mock]` → real). Columna `hide_amounts`. Home enmascara
+  héroe, stats, gastado/plan, ritmo, total del donut y filas con un toggle de revelar (ojo).
+  Switch en Ajustes → Seguridad.
+
+- **Bloquear ahora / Ver introducción**. `DatabaseUnlocker.lock()` suelta los handles en
+  memoria (fichero intacto) → Ajustes «Bloquear ahora» bloquea y va a Unlock limpiando el
+  back-stack (verificado: Unlock con 4 puntos + keypad → re-desbloqueo OK). «Ver
+  introducción» abre el carrusel vía ruta `Intro`.
+
+- **Onboarding restyle (§4.8)**. `IntroCarousel`: 3 slides ilustrados (balance/keypad/barras),
+  título a 2 líneas, dots animados, Saltar + Siguiente/Empezar; reutilizado en primer arranque
+  y en «Ver introducción». Verificado en emulador.
+
+> Pendiente menor de verificación visual: lista de recurrentes **poblada** + desactivar, y el
+> toggle de revelar importes (requieren datos sembrados); la lógica está cubierta por tests.

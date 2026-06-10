@@ -27,6 +27,17 @@ import within.means.users.db.UsersDatabase
  * `sqlite_master`. If it does, the schema is installed; if it doesn't,
  * run `Schema.create(driver)`. This is fully idempotent and immune to
  * stale `_schema_installed` markers.
+ *
+ * In-place migrations: we keep the SQLDelight schema version pinned at 1 and
+ * do NOT use `.sqm` files. The reason is structural — `PRAGMA user_version`
+ * is global to the shared file, so bumping one schema's version makes
+ * SQLCipher's open helper fire `onUpgrade` for *every* schema (the global
+ * version now trails), running a migration whose `ALTER TABLE` may target a
+ * table that another schema hasn't created yet. Instead, additive migrations
+ * (the only kind we need so far) are applied as idempotent, guarded
+ * `ALTER TABLE ... ADD COLUMN` statements via [ensureColumn]: a fresh install
+ * gets the columns from `Schema.create`, an existing install gets them added
+ * in place. Existing data is preserved — no reinstall needed.
  */
 class AndroidDatabaseFactory(private val context: Context) {
 
@@ -42,6 +53,11 @@ class AndroidDatabaseFactory(private val context: Context) {
 
     fun buildUsers(passphrase: ByteArray): UsersDatabase {
         val driver = openDriver(UsersDatabase.Schema, sentinelTable = "user_profile", passphrase = passphrase)
+        // Additive migration for installs created before these columns existed.
+        // Fresh installs already have them via Schema.create; the guard makes
+        // this a no-op there.
+        ensureColumn(driver, "user_profile", "month_start_day", "INTEGER NOT NULL DEFAULT 1")
+        ensureColumn(driver, "user_profile", "hide_amounts", "INTEGER NOT NULL DEFAULT 0")
         return UsersDatabase(driver)
     }
 
@@ -73,6 +89,32 @@ class AndroidDatabaseFactory(private val context: Context) {
         }
         return driver
     }
+
+    /** Adds [column] to [table] if it isn't already present. Idempotent. */
+    private fun ensureColumn(driver: SqlDriver, table: String, column: String, definition: String) {
+        if (!columnExists(driver, table, column)) {
+            driver.execute(
+                identifier = null,
+                sql = "ALTER TABLE $table ADD COLUMN $column $definition",
+                parameters = 0,
+            )
+        }
+    }
+
+    private fun columnExists(driver: SqlDriver, table: String, column: String): Boolean =
+        driver.executeQuery(
+            identifier = null,
+            sql = "SELECT COUNT(*) FROM pragma_table_info(?) WHERE name = ?",
+            parameters = 2,
+            binders = {
+                bindString(0, table)
+                bindString(1, column)
+            },
+            mapper = { cursor: SqlCursor ->
+                cursor.next()
+                QueryResult.Value((cursor.getLong(0) ?: 0L) > 0L)
+            },
+        ).value
 
     private fun tableExists(driver: SqlDriver, name: String): Boolean =
         driver.executeQuery(

@@ -9,6 +9,8 @@ data class UserResponse(
     val baseCurrency: String,
     val monthlyBudgetCents: Long,
     val spendingAlertsEnabled: Boolean,
+    val monthStartDay: Int,
+    val hideAmounts: Boolean,
     val createdAt: String,
 ) : Response
 
