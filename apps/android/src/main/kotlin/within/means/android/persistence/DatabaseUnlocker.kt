@@ -38,6 +38,18 @@ class DatabaseUnlocker(
         transactionsDb = factory.buildTransactions(passphrase)
     }
 
+    /**
+     * Drops the in-memory database handles so the app falls back to the PIN
+     * unlock screen. The encrypted file on disk is untouched; the next
+     * [unlock] re-derives the passphrase and reopens it.
+     */
+    fun lock() {
+        sharedDb = null
+        usersDb = null
+        categoriesDb = null
+        transactionsDb = null
+    }
+
     val shared: SharedDatabase
         get() = sharedDb ?: error("SharedDatabase requested before unlock()")
 

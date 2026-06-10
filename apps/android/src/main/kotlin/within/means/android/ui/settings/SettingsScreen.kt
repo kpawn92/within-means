@@ -39,12 +39,17 @@ import org.koin.compose.viewmodel.koinViewModel
 import within.means.android.ui.components.WmCard
 import within.means.android.ui.components.WmChip
 import within.means.android.ui.components.WmEyebrow
+import within.means.android.ui.components.WmGhostButton
 import within.means.android.ui.components.WmPrimaryButton
 import within.means.android.ui.components.WmToggle
 import within.means.android.ui.format.currencySymbol
 
 @Composable
-fun SettingsScreen(onManageRecurring: () -> Unit = {}) {
+fun SettingsScreen(
+    onManageRecurring: () -> Unit = {},
+    onLockNow: () -> Unit = {},
+    onReplayIntro: () -> Unit = {},
+) {
     val viewModel: SettingsViewModel = koinViewModel()
     val state by viewModel.state.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -233,6 +238,23 @@ fun SettingsScreen(onManageRecurring: () -> Unit = {}) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
+            }
+
+            // actions
+            WmPrimaryButton(
+                text = "Bloquear ahora",
+                onClick = onLockNow,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            WmGhostButton(
+                text = "Ver introducción",
+                onClick = onReplayIntro,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Text("Within Means · cuenta local cifrada", fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
             Spacer(Modifier.size(8.dp))
