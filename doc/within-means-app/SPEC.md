@@ -499,3 +499,7 @@ resultado>0 + categoría. Así el flujo rápido permite cálculos sin dejar de s
   operador líder ignorado, reemplazo de operador, semilla, y **reemplazo del valor sembrado** al teclear
   dígito/punto vs continuar con operador / editar con `⌫`) + QuickAdd (aritmética con precedencia,
   además de los renombrados a `expression`). 406 tests verdes.
+
+> **Release 0.2.0** (`versionCode=2`/`versionName=0.2.0`): build R8 firmado (APK 24 MB + AAB 15 MB),
+> `apksigner verify` OK. Empaqueta el editor §4.5 completo + la calculadora de importe. Ver
+> `RELEASE-0.2.0.md`. ⚠️ Smoke test R8 en device pendiente de confirmación (requiere reinstalar).
