@@ -128,6 +128,29 @@ fun SettingsScreen(onManageRecurring: () -> Unit = {}) {
                             }
                         }
                     }
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Inicio del mes", fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                if (state.monthStartDay == 1) "Día 1 (mes natural)" else "Día ${state.monthStartDay}",
+                                fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Row(verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                StepButton("−", enabled = state.monthStartDay > 1) {
+                                    viewModel.onMonthStartDayChanged(state.monthStartDay - 1)
+                                }
+                                StepButton("+", enabled = state.monthStartDay < 28) {
+                                    viewModel.onMonthStartDayChanged(state.monthStartDay + 1)
+                                }
+                            }
+                        }
+                    }
                     WmPrimaryButton(
                         text = if (state.saving) "Guardando…" else "Guardar",
                         onClick = viewModel::save,
@@ -186,18 +209,49 @@ fun SettingsScreen(onManageRecurring: () -> Unit = {}) {
                 }
             }
 
-            // security (placeholder)
+            // security
             WmCard(modifier = Modifier.fillMaxWidth()) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     WmEyebrow("Seguridad")
-                    Text("Bloqueo con PIN", fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface)
-                    Text("Cambiar PIN — próximamente", fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Ocultar importes al abrir", fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface)
+                            Text("Enmascara las cifras hasta que pulses el ojo", fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        WmToggle(state.hideAmounts, viewModel::onHideAmountsChanged)
+                    }
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("Bloqueo con PIN", fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface)
+                        Text("Cambiar PIN — próximamente", fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             }
 
             Spacer(Modifier.size(8.dp))
         }
+    }
+}
+
+@Composable
+private fun StepButton(label: String, enabled: Boolean, onClick: () -> Unit) {
+    val fg = if (enabled) MaterialTheme.colorScheme.onSurface
+        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+    Box(
+        modifier = Modifier
+            .size(36.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = fg)
     }
 }

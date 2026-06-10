@@ -25,6 +25,8 @@ data class SettingsUiState(
     /** Monthly plan as a free-text amount (major units, e.g. "1200.50"); blank = no plan. */
     val monthlyBudgetText: String = "",
     val spendingAlertsEnabled: Boolean = true,
+    val monthStartDay: Int = 1,
+    val hideAmounts: Boolean = false,
     val loading: Boolean = true,
     val saving: Boolean = false,
     val savedAck: Boolean = false,
@@ -45,6 +47,8 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     fun onBaseCurrencyChanged(value: String) { _state.update { it.copy(baseCurrency = value, savedAck = false) } }
     fun onMonthlyBudgetChanged(value: String) { _state.update { it.copy(monthlyBudgetText = value, savedAck = false) } }
     fun onSpendingAlertsChanged(value: Boolean) { _state.update { it.copy(spendingAlertsEnabled = value, savedAck = false) } }
+    fun onMonthStartDayChanged(value: Int) { _state.update { it.copy(monthStartDay = value.coerceIn(1, 28), savedAck = false) } }
+    fun onHideAmountsChanged(value: Boolean) { _state.update { it.copy(hideAmounts = value, savedAck = false) } }
 
     fun clearError() {
         _state.update { it.copy(errorMessage = null) }
@@ -77,6 +81,8 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                         baseCurrency = s.baseCurrency,
                         monthlyBudgetCents = budgetCents,
                         spendingAlertsEnabled = s.spendingAlertsEnabled,
+                        monthStartDay = s.monthStartDay,
+                        hideAmounts = s.hideAmounts,
                     )
                 )
             }.onSuccess {
@@ -105,6 +111,8 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                             ""
                         },
                         spendingAlertsEnabled = user.spendingAlertsEnabled,
+                        monthStartDay = user.monthStartDay,
+                        hideAmounts = user.hideAmounts,
                     )
                 }
             } ?: _state.update { it.copy(loading = false) }
