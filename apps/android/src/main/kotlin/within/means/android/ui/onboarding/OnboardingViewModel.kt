@@ -11,6 +11,7 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import within.means.android.persistence.DatabaseUnlocker
 import within.means.android.persistence.OnboardingState
+import within.means.android.persistence.PinPolicy
 import within.means.android.ui.error.ErrorContext
 import within.means.android.ui.error.toUserMessage
 import within.means.shared.domain.bus.command.CommandBus
@@ -152,6 +153,6 @@ class OnboardingViewModel(
     }
 
     companion object {
-        const val PIN_LENGTH = 6
+        const val PIN_LENGTH = PinPolicy.LENGTH
     }
 }

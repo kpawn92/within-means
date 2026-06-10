@@ -355,10 +355,13 @@ de ser post-MVP).
   lunes–domingo de la semana actual; Año = 1 ene–31 dic. Tests de rango + label. Verificado
   en emulador (eyebrow "Junio"↔"2026"). La evolución (barras 6 meses) se mantiene como tendencia.
 
+- **PIN de 4 dígitos** — PR6. La derivación HMAC es agnóstica a la longitud; el cambio es
+  de UI/validación. Se introdujo `PinPolicy.LENGTH = 4` como **única fuente de verdad** que
+  comparten onboarding y unlock (una divergencia derivaría otra passphrase → bloqueo). Los
+  keypad/puntos ya existían. Verificado en emulador (setup "PIN (4 dígitos)" acepta 4 dots).
+  ⚠️ Cambiar la longitud invalida la passphrase de DBs creadas con 6 dígitos → reinstalar.
+
 **Pendiente**
-- **PIN de 4 dígitos**: el keypad/puntos ya existen; falta cambiar la derivación de
-  passphrase (hoy 6 dígitos) — afecta onboarding/unlock/`PassphraseProvider`. ⚠️ Cambiar la
-  derivación invalida DBs cifradas existentes (requiere reinstalar/borrar datos en dev).
 - **F5** motion: entradas escalonadas, count-up, transiciones, reduced-motion.
 
 > ✅ Verificado en emulador Pixel_9 (API 36): hero "Disponible €1.000 · €45/día · 22 días"
