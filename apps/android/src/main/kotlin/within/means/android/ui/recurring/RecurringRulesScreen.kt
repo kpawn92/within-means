@@ -38,7 +38,7 @@ import within.means.android.ui.format.formatAmount
 import within.means.android.ui.theme.WmTheme
 
 @Composable
-fun RecurringRulesScreen(onBack: () -> Unit) {
+fun RecurringRulesScreen(onBack: () -> Unit, onEdit: (id: String) -> Unit = {}) {
     val viewModel: RecurringRulesViewModel = koinViewModel()
     val state by viewModel.state.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -85,7 +85,11 @@ fun RecurringRulesScreen(onBack: () -> Unit) {
 
             val symbol = currencySymbol(state.baseCurrency)
             state.rules.forEach { rule ->
-                RecurringRuleCard(rule, symbol, onDeactivate = { viewModel.deactivate(rule.id) })
+                RecurringRuleCard(
+                    rule, symbol,
+                    onEdit = { onEdit(rule.id) },
+                    onDeactivate = { viewModel.deactivate(rule.id) },
+                )
             }
 
             Spacer(Modifier.size(8.dp))
@@ -94,7 +98,12 @@ fun RecurringRulesScreen(onBack: () -> Unit) {
 }
 
 @Composable
-private fun RecurringRuleCard(rule: RecurringRuleRow, symbol: String, onDeactivate: () -> Unit) {
+private fun RecurringRuleCard(
+    rule: RecurringRuleRow,
+    symbol: String,
+    onEdit: () -> Unit,
+    onDeactivate: () -> Unit,
+) {
     val accent = when (rule.type) {
         "INCOME" -> WmTheme.colors.pos
         "TRANSFER" -> WmTheme.colors.savings
@@ -130,7 +139,10 @@ private fun RecurringRuleCard(rule: RecurringRuleRow, symbol: String, onDeactiva
             }
             Text("Próximo: ${rule.nextOccurrence}", fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-            WmGhostButton("Desactivar", onClick = onDeactivate, modifier = Modifier.fillMaxWidth())
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                WmGhostButton("Editar", onClick = onEdit, modifier = Modifier.weight(1f))
+                WmGhostButton("Desactivar", onClick = onDeactivate, modifier = Modifier.weight(1f))
+            }
         }
     }
 }

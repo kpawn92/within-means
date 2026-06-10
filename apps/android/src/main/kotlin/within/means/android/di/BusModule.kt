@@ -42,10 +42,12 @@ import within.means.transactions.application.find.FindTransactionQueryHandler
 import within.means.transactions.application.recurring.CreateRecurringRuleCommandHandler
 import within.means.transactions.application.recurring.DeactivateRecurringRuleCommandHandler
 import within.means.transactions.application.recurring.ListActiveRecurringRulesQueryHandler
+import within.means.transactions.application.recurring.UpdateRecurringRuleCommandHandler
 import within.means.transactions.application.register.RegisterTransactionCommandHandler
 import within.means.transactions.application.search.SearchTransactionsQueryHandler
 import within.means.transactions.domain.RecurringRuleCreated
 import within.means.transactions.domain.RecurringRuleDeactivated
+import within.means.transactions.domain.RecurringRuleUpdated
 import within.means.transactions.domain.TransactionDeleted
 import within.means.transactions.domain.TransactionEdited
 import within.means.transactions.domain.TransactionRegistered
@@ -76,6 +78,7 @@ val busModule = module {
             get<DeleteTransactionCommandHandler>(),
             get<CreateRecurringRuleCommandHandler>(),
             get<DeactivateRecurringRuleCommandHandler>(),
+            get<UpdateRecurringRuleCommandHandler>(),
         )
         InMemoryCommandBus(handlers)
     }
@@ -113,6 +116,7 @@ val busModule = module {
             TransactionDeleted.NAME to TransactionDeleted.serializer(),
             RecurringRuleCreated.NAME to RecurringRuleCreated.serializer(),
             RecurringRuleDeactivated.NAME to RecurringRuleDeactivated.serializer(),
+            RecurringRuleUpdated.NAME to RecurringRuleUpdated.serializer(),
         )
         DomainEventJsonSerializer(serializers = registry)
     }

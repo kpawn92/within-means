@@ -17,16 +17,31 @@ import within.means.shared.domain.UuidGenerator
 class RecurringRule private constructor(
     val id: RecurringRuleId,
     val type: TransactionType,
-    val amount: Amount,
-    val categoryRef: CategoryRef,
-    val description: TransactionDescription,
-    val incomeSource: IncomeSource?,
-    val frequency: RecurrenceFrequency,
+    amount: Amount,
+    categoryRef: CategoryRef,
+    description: TransactionDescription,
+    incomeSource: IncomeSource?,
+    frequency: RecurrenceFrequency,
     val startDate: TransactionDate,
     nextOccurrence: TransactionDate,
     active: Boolean,
     val createdAt: Instant,
 ) : AggregateRoot() {
+
+    var amount: Amount = amount
+        private set
+
+    var categoryRef: CategoryRef = categoryRef
+        private set
+
+    var description: TransactionDescription = description
+        private set
+
+    var incomeSource: IncomeSource? = incomeSource
+        private set
+
+    var frequency: RecurrenceFrequency = frequency
+        private set
 
     var nextOccurrence: TransactionDate = nextOccurrence
         private set
@@ -71,6 +86,40 @@ class RecurringRule private constructor(
                 eventId = uuids.next(),
                 aggregateId = id.value,
                 occurredOn = clock.now(),
+            )
+        )
+    }
+
+    /**
+     * Edits the rule's details going forward. [type] and [startDate] are fixed
+     * (the type ties to the category kind and the cursor); a changed [frequency]
+     * applies from the next occurrence onward without disturbing the cursor.
+     */
+    fun updateDetails(
+        amount: Amount,
+        categoryRef: CategoryRef,
+        description: TransactionDescription,
+        incomeSource: IncomeSource?,
+        frequency: RecurrenceFrequency,
+        uuids: UuidGenerator,
+        clock: Clock = Clock.System,
+    ) {
+        requireIncomeSourceConsistency(type, incomeSource)
+        this.amount = amount
+        this.categoryRef = categoryRef
+        this.description = description
+        this.incomeSource = incomeSource
+        this.frequency = frequency
+        record(
+            RecurringRuleUpdated(
+                eventId = uuids.next(),
+                aggregateId = id.value,
+                occurredOn = clock.now(),
+                amountCents = amount.cents,
+                categoryId = categoryRef.value,
+                description = description.value,
+                incomeSource = incomeSource?.value,
+                frequency = frequency.name,
             )
         )
     }

@@ -8,6 +8,7 @@ import within.means.transactions.application.find.FindTransactionQueryHandler
 import within.means.transactions.application.recurring.CreateRecurringRuleCommandHandler
 import within.means.transactions.application.recurring.DeactivateRecurringRuleCommandHandler
 import within.means.transactions.application.recurring.ListActiveRecurringRulesQueryHandler
+import within.means.transactions.application.recurring.UpdateRecurringRuleCommandHandler
 import within.means.transactions.application.recurring.RecurringRuleRegistrar
 import within.means.transactions.application.recurring.RecurringTransactionsMaterializer
 import within.means.transactions.application.register.RegisterTransactionCommandHandler
@@ -29,6 +30,7 @@ val transactionsModule = module {
     // Handler takes an optional Clock with a default; explicit factory lets the
     // Kotlin default (system clock) apply instead of Koin trying to resolve one.
     single { DeactivateRecurringRuleCommandHandler(get(), get(), get()) }
+    single { UpdateRecurringRuleCommandHandler(get(), get(), get()) }
 
     singleOf(::FindTransactionQueryHandler)
     singleOf(::SearchTransactionsQueryHandler)

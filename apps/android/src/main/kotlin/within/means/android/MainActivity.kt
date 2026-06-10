@@ -68,6 +68,7 @@ import within.means.android.ui.home.HomeScreen
 import within.means.android.ui.onboarding.IntroCarousel
 import within.means.android.ui.onboarding.OnboardingScreen
 import within.means.android.ui.quickadd.QuickAddSheet
+import within.means.android.ui.recurring.RecurringEditScreen
 import within.means.android.ui.recurring.RecurringRulesScreen
 import within.means.android.ui.settings.SettingsScreen
 import within.means.android.ui.transactions.TransactionEditScreen
@@ -106,7 +107,10 @@ private object Routes {
     const val Stats = "stats"
     const val Settings = "settings"
     const val Recurring = "recurring"
+    const val RecurringEdit = "recurring/edit/{ruleId}"
     const val Intro = "intro"
+
+    fun recurringEdit(ruleId: String): String = "recurring/edit/$ruleId"
 
     fun categoryEdit(categoryId: String): String = "categories/edit/$categoryId"
     fun transactionEdit(transactionId: String): String = "transactions/edit/$transactionId"
@@ -259,7 +263,20 @@ private fun WithinMeansApp() {
                     )
                 }
                 composable(Routes.Recurring) {
-                    RecurringRulesScreen(onBack = { navController.popBackStack() })
+                    RecurringRulesScreen(
+                        onBack = { navController.popBackStack() },
+                        onEdit = { id -> navController.navigate(Routes.recurringEdit(id)) },
+                    )
+                }
+                composable(
+                    route = Routes.RecurringEdit,
+                    arguments = listOf(navArgument("ruleId") { type = NavType.StringType }),
+                ) { entry ->
+                    RecurringEditScreen(
+                        ruleId = entry.arguments?.getString("ruleId").orEmpty(),
+                        onBack = { navController.popBackStack() },
+                        onFinished = { navController.popBackStack() },
+                    )
                 }
                 composable(Routes.Intro) {
                     IntroCarousel(onDone = { navController.popBackStack() })
