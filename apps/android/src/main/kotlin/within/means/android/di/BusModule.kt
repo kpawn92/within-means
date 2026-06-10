@@ -40,6 +40,7 @@ import within.means.transactions.application.delete.DeleteTransactionCommandHand
 import within.means.transactions.application.edit.EditTransactionCommandHandler
 import within.means.transactions.application.find.FindTransactionQueryHandler
 import within.means.transactions.application.recurring.CreateRecurringRuleCommandHandler
+import within.means.transactions.application.recurring.DeactivateRecurringRuleCommandHandler
 import within.means.transactions.application.recurring.ListActiveRecurringRulesQueryHandler
 import within.means.transactions.application.register.RegisterTransactionCommandHandler
 import within.means.transactions.application.search.SearchTransactionsQueryHandler
@@ -74,6 +75,7 @@ val busModule = module {
             get<EditTransactionCommandHandler>(),
             get<DeleteTransactionCommandHandler>(),
             get<CreateRecurringRuleCommandHandler>(),
+            get<DeactivateRecurringRuleCommandHandler>(),
         )
         InMemoryCommandBus(handlers)
     }

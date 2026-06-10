@@ -9,6 +9,7 @@ import within.means.android.ui.categories.CategoryEditViewModel
 import within.means.android.ui.home.HomeViewModel
 import within.means.android.ui.onboarding.OnboardingViewModel
 import within.means.android.ui.quickadd.QuickAddViewModel
+import within.means.android.ui.recurring.RecurringRulesViewModel
 import within.means.android.ui.settings.SettingsViewModel
 import within.means.android.ui.transactions.TransactionEditViewModel
 import within.means.android.ui.transactions.TransactionsListViewModel
@@ -31,4 +32,5 @@ val uiModule = module {
     // QuickAddViewModel takes optional Clock+TimeZone with defaults.
     viewModel { QuickAddViewModel() }
     viewModelOf(::SettingsViewModel)
+    viewModelOf(::RecurringRulesViewModel)
 }
