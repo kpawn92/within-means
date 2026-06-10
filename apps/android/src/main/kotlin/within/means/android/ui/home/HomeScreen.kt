@@ -44,6 +44,9 @@ import within.means.android.ui.components.WmEyebrow
 import within.means.android.ui.categories.iconFor
 import within.means.android.ui.format.currencySymbol
 import within.means.android.ui.format.formatAmount
+import within.means.android.ui.motion.countUpCents
+import within.means.android.ui.motion.enterUp
+import within.means.android.ui.motion.rememberReducedMotion
 import within.means.android.ui.theme.WmTheme
 import within.means.android.ui.theme.categoryColor
 import within.means.transactions.application.TransactionResponse
@@ -68,6 +71,7 @@ fun HomeScreen(
     val viewModel: HomeViewModel = koinViewModel()
     val state by viewModel.state.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val reduced = rememberReducedMotion()
 
     LaunchedEffect(state.errorMessage) {
         state.errorMessage?.let {
@@ -86,16 +90,20 @@ fun HomeScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            item { GreetingHeader(state.displayName, state.summary?.yearMonth) }
+            item {
+                Box(Modifier.enterUp(0, reduced)) {
+                    GreetingHeader(state.displayName, state.summary?.yearMonth)
+                }
+            }
 
             if (state.loading && state.summary == null) {
                 item { LinearProgressIndicator(modifier = Modifier.fillMaxWidth()) }
             }
 
-            item { MonthHero(state) }
+            item { Box(Modifier.enterUp(1, reduced)) { MonthHero(state, reduced) } }
 
             if ((state.breakdown?.items?.isNotEmpty() == true)) {
-                item { SpendingDonutCard(state) }
+                item { Box(Modifier.enterUp(2, reduced)) { SpendingDonutCard(state) } }
             }
 
             item {
@@ -152,19 +160,20 @@ private fun GreetingHeader(name: String, yearMonth: String?) {
 }
 
 @Composable
-private fun MonthHero(state: HomeUiState) {
+private fun MonthHero(state: HomeUiState, reduced: Boolean) {
     val budget = state.budget
     if (budget != null) {
-        BudgetHero(budget, currencySymbol(state.baseCurrency))
+        BudgetHero(budget, currencySymbol(state.baseCurrency), reduced)
     } else {
-        BalanceHero(state)
+        BalanceHero(state, reduced)
     }
 }
 
 @Composable
-private fun BudgetHero(budget: BudgetView, sym: String) {
+private fun BudgetHero(budget: BudgetView, sym: String, reduced: Boolean) {
     val onBrand = MaterialTheme.colorScheme.onPrimaryContainer
     val fraction = if (budget.planCents > 0) budget.spentCents.toFloat() / budget.planCents else 0f
+    val available = countUpCents(budget.availableCents, reduced)
     WmCard(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.primaryContainer,
@@ -180,7 +189,7 @@ private fun BudgetHero(budget: BudgetView, sym: String) {
                 BudgetBadge(budget.withinPlan)
             }
             Text(
-                formatAmount(budget.availableCents, sym, signed = false, decimals = false),
+                formatAmount(available, sym, signed = false, decimals = false),
                 fontSize = 34.sp, fontWeight = FontWeight.Bold, color = onBrand,
             )
             WmBar(
@@ -222,9 +231,10 @@ private fun BudgetBadge(withinPlan: Boolean) {
 }
 
 @Composable
-private fun BalanceHero(state: HomeUiState) {
+private fun BalanceHero(state: HomeUiState, reduced: Boolean) {
     val sym = currencySymbol(state.baseCurrency)
     val summary = state.summary
+    val balance = countUpCents(summary?.balanceCents ?: 0L, reduced)
     WmCard(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.primaryContainer,
@@ -236,7 +246,7 @@ private fun BalanceHero(state: HomeUiState) {
                 Text("Aún sin datos", color = MaterialTheme.colorScheme.onPrimaryContainer)
             } else {
                 Text(
-                    formatAmount(summary.balanceCents, sym, signed = true, decimals = false),
+                    formatAmount(balance, sym, signed = true, decimals = false),
                     fontSize = 34.sp, fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                 )

@@ -361,10 +361,14 @@ de ser post-MVP).
   keypad/puntos ya existían. Verificado en emulador (setup "PIN (4 dígitos)" acepta 4 dots).
   ⚠️ Cambiar la longitud invalida la passphrase de DBs creadas con 6 dígitos → reinstalar.
 
-**Pendiente**
-- **F5** motion: entradas escalonadas, count-up, transiciones, reduced-motion.
+- **F5 Motion & pulido** — PR7. Helper `ui/motion/Motion.kt`: `rememberReducedMotion()`
+  (lee el animator duration scale del sistema = `prefers-reduced-motion`), `countUpCents()`
+  (cuenta-arriba del importe del hero) y `Modifier.enterUp(index)` (entrada escalonada de
+  los bloques de Home). Todo se salta cuando el usuario tiene animaciones desactivadas. Los
+  botones ya hacían `scale(0.97)`, las barras/donut/toggle ya animaban, y los sheets/diálogos
+  usan las transiciones por defecto de Material 3.
 
-> ✅ Verificado en emulador Pixel_9 (API 36): hero "Disponible €1.000 · €45/día · 22 días"
+> ✅ Diferido completo (PR1–PR7). Verificado en emulador Pixel_9 (API 36): hero "Disponible €1.000 · €45/día · 22 días"
 > + badge "Dentro del plan"; chip Ahorro filtra categoría "Transferencia"; toggle
 > Recurrente + Mensual/Semanal; al guardar un Ahorro recurrente el materializador crea la
 > transacción real ("Transferencia → €50,00") sin contar como gasto.
