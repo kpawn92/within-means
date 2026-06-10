@@ -65,7 +65,7 @@ class QuickAddViewModel(
         viewModelScope.launch { loadCategoriesForCurrentType() }
     }
 
-    fun onCategoryChanged(value: String) { _state.update { it.copy(categoryId = value) } }
+    fun onCategoryChanged(value: String) { _state.update { it.copy(categoryId = value, errorMessage = null) } }
     fun onNoteChanged(value: String) { _state.update { it.copy(note = value) } }
     fun onWhenChanged(value: QuickWhen) { _state.update { it.copy(whenChoice = value) } }
 
@@ -76,13 +76,25 @@ class QuickAddViewModel(
     fun onBackspace() { calc.onBackspace(); syncAmount() }
 
     private fun syncAmount() {
-        _state.update { it.copy(expression = calc.expression, amountCents = calc.resultCents() ?: 0L) }
+        _state.update {
+            it.copy(expression = calc.expression, amountCents = calc.resultCents() ?: 0L, errorMessage = null)
+        }
     }
 
     fun save() {
         val s = _state.value
-        if (!s.canSave) return
-        val categoryId = s.categoryId ?: return
+        if (s.saving) return
+        // Validate with explicit feedback (like the full editor) instead of a
+        // silently-disabled button: tell the user what's missing.
+        if (s.amountCents <= 0L) {
+            _state.update { it.copy(errorMessage = "Escribe un importe mayor que 0") }
+            return
+        }
+        val categoryId = s.categoryId
+        if (categoryId.isNullOrBlank()) {
+            _state.update { it.copy(errorMessage = "Selecciona una categoría") }
+            return
+        }
         viewModelScope.launch {
             _state.update { it.copy(saving = true, errorMessage = null) }
             runCatching {

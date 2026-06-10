@@ -74,12 +74,15 @@ fun QuickAddSheet(
         ) {
             WmSegmented(typeOptions, state.type, viewModel::onTypeChanged)
 
-            // Expression line + giant live result.
+            // Expression line + giant display. Like the editor's calculator:
+            // show the raw number as you type (native feel), and switch to the
+            // live formatted result only once an operator is in play.
+            val hasOperator = state.expression.any { it in "+-*/" }
             Column(
                 Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                if (state.expression.any { it in "+-*/" }) {
+                if (hasOperator) {
                     Text(
                         displayExpression(state.expression),
                         fontSize = 15.sp,
@@ -88,10 +91,12 @@ fun QuickAddSheet(
                     )
                 }
                 Text(
-                    "$sym${formatMoney(state.amountCents)}",
+                    if (hasOperator) "$sym${formatMoney(state.amountCents)}"
+                    else "$sym${state.expression.ifEmpty { "0" }}",
                     fontSize = 52.sp,
                     fontWeight = FontWeight.Bold,
                     color = if (state.expression.isEmpty()) amountColor.copy(alpha = 0.35f) else amountColor,
+                    maxLines = 1,
                 )
             }
 
@@ -123,10 +128,22 @@ fun QuickAddSheet(
                 onBackspace = viewModel::onBackspace,
             )
 
+            // Validation feedback (mirrors the full editor): the button stays
+            // tappable and tells the user what's missing instead of going dead.
+            state.errorMessage?.let { msg ->
+                Text(
+                    msg,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
             WmPrimaryButton(
                 text = if (state.saving) "Guardando…" else "Guardar ${formatAmount(state.amountCents, sym)}",
                 onClick = viewModel::save,
-                enabled = state.canSave,
+                enabled = !state.saving,
                 modifier = Modifier.fillMaxWidth(),
             )
         }
