@@ -6,6 +6,7 @@ import app.cash.sqldelight.db.SqlCursor
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.db.SqlSchema
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
+import net.zetetic.database.sqlcipher.SQLiteDatabase
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 import within.means.categories.db.CategoriesDatabase
 import within.means.shared.db.SharedDatabase
@@ -46,29 +47,52 @@ class AndroidDatabaseFactory(private val context: Context) {
         System.loadLibrary("sqlcipher")
     }
 
-    fun buildShared(passphrase: ByteArray): SharedDatabase {
+    /** A built database plus the [SqlDriver] backing it (so callers can close it). */
+    class Opened<T>(val database: T, val driver: SqlDriver)
+
+    fun buildShared(passphrase: ByteArray): Opened<SharedDatabase> {
         val driver = openDriver(SharedDatabase.Schema, sentinelTable = "domain_events", passphrase = passphrase)
-        return SharedDatabase(driver)
+        return Opened(SharedDatabase(driver), driver)
     }
 
-    fun buildUsers(passphrase: ByteArray): UsersDatabase {
+    fun buildUsers(passphrase: ByteArray): Opened<UsersDatabase> {
         val driver = openDriver(UsersDatabase.Schema, sentinelTable = "user_profile", passphrase = passphrase)
         // Additive migration for installs created before these columns existed.
         // Fresh installs already have them via Schema.create; the guard makes
         // this a no-op there.
         ensureColumn(driver, "user_profile", "month_start_day", "INTEGER NOT NULL DEFAULT 1")
         ensureColumn(driver, "user_profile", "hide_amounts", "INTEGER NOT NULL DEFAULT 0")
-        return UsersDatabase(driver)
+        return Opened(UsersDatabase(driver), driver)
     }
 
-    fun buildCategories(passphrase: ByteArray): CategoriesDatabase {
+    fun buildCategories(passphrase: ByteArray): Opened<CategoriesDatabase> {
         val driver = openDriver(CategoriesDatabase.Schema, sentinelTable = "category", passphrase = passphrase)
-        return CategoriesDatabase(driver)
+        return Opened(CategoriesDatabase(driver), driver)
     }
 
-    fun buildTransactions(passphrase: ByteArray): TransactionsDatabase {
+    fun buildTransactions(passphrase: ByteArray): Opened<TransactionsDatabase> {
         val driver = openDriver(TransactionsDatabase.Schema, sentinelTable = "transaction_entry", passphrase = passphrase)
-        return TransactionsDatabase(driver)
+        return Opened(TransactionsDatabase(driver), driver)
+    }
+
+    /**
+     * Re-encrypts the shared database file from [oldPassphrase] to
+     * [newPassphrase] via SQLCipher's `changePassword` (PRAGMA rekey).
+     *
+     * ALL SQLDelight drivers on the file MUST be closed first — an open
+     * connection on the old key would break once the file is re-keyed.
+     * Touches `sqlite_master` first so a wrong old passphrase fails fast
+     * (throwing) before any change is attempted.
+     */
+    fun rekey(oldPassphrase: ByteArray, newPassphrase: ByteArray) {
+        val file = context.getDatabasePath(DB_NAME)
+        val raw = SQLiteDatabase.openOrCreateDatabase(file, oldPassphrase.copyOf(), null, null)
+        try {
+            raw.rawQuery("SELECT count(*) FROM sqlite_master", null).use { it.moveToFirst() }
+            raw.changePassword(newPassphrase.copyOf())
+        } finally {
+            raw.close()
+        }
     }
 
     @Suppress("UNCHECKED_CAST")

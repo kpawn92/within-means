@@ -70,6 +70,7 @@ import within.means.android.ui.onboarding.OnboardingScreen
 import within.means.android.ui.quickadd.QuickAddSheet
 import within.means.android.ui.recurring.RecurringEditScreen
 import within.means.android.ui.recurring.RecurringRulesScreen
+import within.means.android.ui.settings.ChangePinScreen
 import within.means.android.ui.settings.SettingsScreen
 import within.means.android.ui.transactions.TransactionEditScreen
 import within.means.android.ui.transactions.TransactionsListScreen
@@ -109,6 +110,7 @@ private object Routes {
     const val Recurring = "recurring"
     const val RecurringEdit = "recurring/edit/{ruleId}"
     const val Intro = "intro"
+    const val ChangePin = "settings/change-pin"
 
     fun recurringEdit(ruleId: String): String = "recurring/edit/$ruleId"
 
@@ -260,6 +262,13 @@ private fun WithinMeansApp() {
                             }
                         },
                         onReplayIntro = { navController.navigate(Routes.Intro) },
+                        onChangePin = { navController.navigate(Routes.ChangePin) },
+                    )
+                }
+                composable(Routes.ChangePin) {
+                    ChangePinScreen(
+                        onBack = { navController.popBackStack() },
+                        onDone = { navController.popBackStack() },
                     )
                 }
                 composable(Routes.Recurring) {

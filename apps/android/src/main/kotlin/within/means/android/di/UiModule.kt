@@ -11,6 +11,7 @@ import within.means.android.ui.onboarding.OnboardingViewModel
 import within.means.android.ui.quickadd.QuickAddViewModel
 import within.means.android.ui.recurring.RecurringEditViewModel
 import within.means.android.ui.recurring.RecurringRulesViewModel
+import within.means.android.ui.settings.ChangePinViewModel
 import within.means.android.ui.settings.SettingsViewModel
 import within.means.android.ui.transactions.TransactionEditViewModel
 import within.means.android.ui.transactions.TransactionsListViewModel
@@ -35,4 +36,5 @@ val uiModule = module {
     viewModelOf(::SettingsViewModel)
     viewModelOf(::RecurringRulesViewModel)
     viewModelOf(::RecurringEditViewModel)
+    viewModel { ChangePinViewModel(get()) }
 }

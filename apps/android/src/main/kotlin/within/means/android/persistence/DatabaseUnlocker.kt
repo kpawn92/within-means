@@ -1,5 +1,6 @@
 package within.means.android.persistence
 
+import app.cash.sqldelight.db.SqlDriver
 import within.means.categories.db.CategoriesDatabase
 import within.means.shared.db.SharedDatabase
 import within.means.transactions.db.TransactionsDatabase
@@ -8,7 +9,8 @@ import within.means.users.db.UsersDatabase
 /**
  * Lazily holds the unlocked SQLCipher-backed databases. Access before
  * calling [unlock] fails fast — this is intentional and surfaces wiring
- * mistakes early.
+ * mistakes early. Keeps the backing [SqlDriver]s too so they can be closed
+ * (needed before re-keying the shared file in [changePin]).
  */
 class DatabaseUnlocker(
     private val factory: AndroidDatabaseFactory,
@@ -27,27 +29,61 @@ class DatabaseUnlocker(
     @Volatile
     private var transactionsDb: TransactionsDatabase? = null
 
+    @Volatile
+    private var drivers: List<SqlDriver> = emptyList()
+
     val isUnlocked: Boolean
         get() = sharedDb != null && usersDb != null && categoriesDb != null && transactionsDb != null
 
     fun unlock(pin: String) {
         val passphrase = passphraseProvider.derive(pin)
-        sharedDb = factory.buildShared(passphrase)
-        usersDb = factory.buildUsers(passphrase)
-        categoriesDb = factory.buildCategories(passphrase)
-        transactionsDb = factory.buildTransactions(passphrase)
+        val shared = factory.buildShared(passphrase)
+        val users = factory.buildUsers(passphrase)
+        val categories = factory.buildCategories(passphrase)
+        val transactions = factory.buildTransactions(passphrase)
+        sharedDb = shared.database
+        usersDb = users.database
+        categoriesDb = categories.database
+        transactionsDb = transactions.database
+        drivers = listOf(shared.driver, users.driver, categories.driver, transactions.driver)
     }
 
     /**
-     * Drops the in-memory database handles so the app falls back to the PIN
-     * unlock screen. The encrypted file on disk is untouched; the next
-     * [unlock] re-derives the passphrase and reopens it.
+     * Drops the database handles so the app falls back to the PIN unlock
+     * screen, closing the underlying connections. The encrypted file on disk is
+     * untouched; the next [unlock] re-derives the passphrase and reopens it.
      */
     fun lock() {
+        closeDrivers()
+    }
+
+    /**
+     * Changes the PIN by re-keying the shared SQLCipher file. Closes every
+     * connection, re-keys old → new, then reopens with the new PIN. If the old
+     * PIN is wrong (or the re-key fails) the file stays on the old key and we
+     * reopen with it, rethrowing so the caller can surface the error.
+     */
+    fun changePin(oldPin: String, newPin: String) {
+        val oldPassphrase = passphraseProvider.derive(oldPin)
+        val newPassphrase = passphraseProvider.derive(newPin)
+        closeDrivers()
+        try {
+            factory.rekey(oldPassphrase, newPassphrase)
+        } catch (e: Throwable) {
+            // Re-key didn't happen (wrong old PIN / error): restore the old key.
+            unlock(oldPin)
+            throw e
+        }
+        unlock(newPin)
+    }
+
+    private fun closeDrivers() {
         sharedDb = null
         usersDb = null
         categoriesDb = null
         transactionsDb = null
+        drivers.forEach { runCatching { it.close() } }
+        drivers = emptyList()
     }
 
     val shared: SharedDatabase
