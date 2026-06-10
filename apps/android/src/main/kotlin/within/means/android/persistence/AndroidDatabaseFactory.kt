@@ -28,13 +28,16 @@ import within.means.users.db.UsersDatabase
  * run `Schema.create(driver)`. This is fully idempotent and immune to
  * stale `_schema_installed` markers.
  *
- * In-place migrations: because `PRAGMA user_version` is global to the
- * shared file we can't let [AndroidSqliteDriver] drive upgrades. Instead
- * we keep a tiny `wm_schema_version(name, version)` table and, when a
- * schema's installed version is behind [SqlSchema.version], run
- * `Schema.migrate(...)` ourselves. A legacy install (sentinel present but
- * no version row) is treated as version 1 — the shipped baseline — so its
- * `.sqm` migrations replay and existing data is preserved (no wipe).
+ * In-place migrations: we keep the SQLDelight schema version pinned at 1 and
+ * do NOT use `.sqm` files. The reason is structural — `PRAGMA user_version`
+ * is global to the shared file, so bumping one schema's version makes
+ * SQLCipher's open helper fire `onUpgrade` for *every* schema (the global
+ * version now trails), running a migration whose `ALTER TABLE` may target a
+ * table that another schema hasn't created yet. Instead, additive migrations
+ * (the only kind we need so far) are applied as idempotent, guarded
+ * `ALTER TABLE ... ADD COLUMN` statements via [ensureColumn]: a fresh install
+ * gets the columns from `Schema.create`, an existing install gets them added
+ * in place. Existing data is preserved — no reinstall needed.
  */
 class AndroidDatabaseFactory(private val context: Context) {
 
@@ -44,29 +47,33 @@ class AndroidDatabaseFactory(private val context: Context) {
     }
 
     fun buildShared(passphrase: ByteArray): SharedDatabase {
-        val driver = openDriver(SharedDatabase.Schema, "shared", sentinelTable = "domain_events", passphrase = passphrase)
+        val driver = openDriver(SharedDatabase.Schema, sentinelTable = "domain_events", passphrase = passphrase)
         return SharedDatabase(driver)
     }
 
     fun buildUsers(passphrase: ByteArray): UsersDatabase {
-        val driver = openDriver(UsersDatabase.Schema, "users", sentinelTable = "user_profile", passphrase = passphrase)
+        val driver = openDriver(UsersDatabase.Schema, sentinelTable = "user_profile", passphrase = passphrase)
+        // Additive migration for installs created before these columns existed.
+        // Fresh installs already have them via Schema.create; the guard makes
+        // this a no-op there.
+        ensureColumn(driver, "user_profile", "month_start_day", "INTEGER NOT NULL DEFAULT 1")
+        ensureColumn(driver, "user_profile", "hide_amounts", "INTEGER NOT NULL DEFAULT 0")
         return UsersDatabase(driver)
     }
 
     fun buildCategories(passphrase: ByteArray): CategoriesDatabase {
-        val driver = openDriver(CategoriesDatabase.Schema, "categories", sentinelTable = "category", passphrase = passphrase)
+        val driver = openDriver(CategoriesDatabase.Schema, sentinelTable = "category", passphrase = passphrase)
         return CategoriesDatabase(driver)
     }
 
     fun buildTransactions(passphrase: ByteArray): TransactionsDatabase {
-        val driver = openDriver(TransactionsDatabase.Schema, "transactions", sentinelTable = "transaction_entry", passphrase = passphrase)
+        val driver = openDriver(TransactionsDatabase.Schema, sentinelTable = "transaction_entry", passphrase = passphrase)
         return TransactionsDatabase(driver)
     }
 
     @Suppress("UNCHECKED_CAST")
     private fun openDriver(
         schema: SqlSchema<*>,
-        schemaName: String,
         sentinelTable: String,
         passphrase: ByteArray,
     ): SqlDriver {
@@ -77,53 +84,37 @@ class AndroidDatabaseFactory(private val context: Context) {
             name = DB_NAME,
             factory = SupportOpenHelperFactory(passphrase.copyOf()),
         )
-        ensureVersionTable(driver)
         if (!tableExists(driver, sentinelTable)) {
-            // Fresh install: create the latest schema directly.
             typedSchema.create(driver).value
-            recordVersion(driver, schemaName, schema.version)
-        } else {
-            // Existing install: replay any pending migrations in place.
-            // A missing row means a pre-migration install → baseline v1.
-            val installed = installedVersion(driver, schemaName) ?: 1L
-            if (installed < schema.version) {
-                typedSchema.migrate(driver, installed, schema.version).value
-            }
-            recordVersion(driver, schemaName, schema.version)
         }
         return driver
     }
 
-    private fun ensureVersionTable(driver: SqlDriver) {
-        driver.execute(
-            identifier = null,
-            sql = "CREATE TABLE IF NOT EXISTS $VERSION_TABLE (name TEXT NOT NULL PRIMARY KEY, version INTEGER NOT NULL)",
-            parameters = 0,
-        )
+    /** Adds [column] to [table] if it isn't already present. Idempotent. */
+    private fun ensureColumn(driver: SqlDriver, table: String, column: String, definition: String) {
+        if (!columnExists(driver, table, column)) {
+            driver.execute(
+                identifier = null,
+                sql = "ALTER TABLE $table ADD COLUMN $column $definition",
+                parameters = 0,
+            )
+        }
     }
 
-    private fun installedVersion(driver: SqlDriver, schemaName: String): Long? =
+    private fun columnExists(driver: SqlDriver, table: String, column: String): Boolean =
         driver.executeQuery(
             identifier = null,
-            sql = "SELECT version FROM $VERSION_TABLE WHERE name = ?",
-            parameters = 1,
-            binders = { bindString(0, schemaName) },
-            mapper = { cursor: SqlCursor ->
-                QueryResult.Value(if (cursor.next().value) cursor.getLong(0) else null)
-            },
-        ).value
-
-    private fun recordVersion(driver: SqlDriver, schemaName: String, version: Long) {
-        driver.execute(
-            identifier = null,
-            sql = "INSERT OR REPLACE INTO $VERSION_TABLE(name, version) VALUES (?, ?)",
+            sql = "SELECT COUNT(*) FROM pragma_table_info(?) WHERE name = ?",
             parameters = 2,
             binders = {
-                bindString(0, schemaName)
-                bindLong(1, version)
+                bindString(0, table)
+                bindString(1, column)
             },
-        )
-    }
+            mapper = { cursor: SqlCursor ->
+                cursor.next()
+                QueryResult.Value((cursor.getLong(0) ?: 0L) > 0L)
+            },
+        ).value
 
     private fun tableExists(driver: SqlDriver, name: String): Boolean =
         driver.executeQuery(
@@ -139,8 +130,5 @@ class AndroidDatabaseFactory(private val context: Context) {
 
     companion object {
         const val DB_NAME = "within_means.db"
-
-        /** Per-schema version tracker (we can't use the global PRAGMA user_version). */
-        private const val VERSION_TABLE = "wm_schema_version"
     }
 }
