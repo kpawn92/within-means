@@ -18,6 +18,7 @@ import kotlinx.datetime.toLocalDateTime
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import within.means.analytics.application.CategoryBreakdownResponse
+import within.means.analytics.application.EvolutionGranularity
 import within.means.analytics.application.MonthlyEvolutionResponse
 import within.means.analytics.application.MonthlySummaryResponse
 import within.means.analytics.application.find_breakdown.FindBreakdownInRangeQuery
@@ -106,9 +107,9 @@ class StatsViewModel(
             val breakdown = bus.ask<FindBreakdownInRangeQuery, CategoryBreakdownResponse>(
                 FindBreakdownInRangeQuery(start.toString(), end.toString(), type = "EXPENSE")
             )
-            // Evolution stays month-based (the 6-month bar trend is period-agnostic).
+            // Evolution buckets follow the selected period: 6 weeks / months / years.
             val evolution = bus.ask<FindMonthlyEvolutionQuery, MonthlyEvolutionResponse>(
-                FindMonthlyEvolutionQuery(monthsBack = 6)
+                FindMonthlyEvolutionQuery(monthsBack = 6, granularity = evolutionGranularity(period))
             )
             Quad(summary, previous, breakdown, evolution)
         }.onSuccess { (summary, previous, breakdown, evolution) ->
@@ -154,6 +155,12 @@ class StatsViewModel(
         StatsPeriod.WEEK -> "que la semana pasada"
         StatsPeriod.MONTH -> "que el mes pasado"
         StatsPeriod.YEAR -> "que el año pasado"
+    }
+
+    private fun evolutionGranularity(period: StatsPeriod): EvolutionGranularity = when (period) {
+        StatsPeriod.WEEK -> EvolutionGranularity.WEEK
+        StatsPeriod.MONTH -> EvolutionGranularity.MONTH
+        StatsPeriod.YEAR -> EvolutionGranularity.YEAR
     }
 
     private fun periodLabel(period: StatsPeriod, today: LocalDate): String = when (period) {

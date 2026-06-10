@@ -222,8 +222,8 @@ private fun EvolutionCard(evolution: MonthlyEvolutionResponse?, sym: String) {
                                     else MaterialTheme.colorScheme.surfaceContainerHigh),
                         )
                         Spacer(Modifier.height(8.dp))
-                        Text(p.yearMonth.takeLast(2), fontSize = 10.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(p.label.ifBlank { p.yearMonth.takeLast(2) }, fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                     }
                 }
             }

@@ -9,6 +9,7 @@ import kotlin.test.Test
 import within.means.analytics.AnalyticsTestEnv
 import within.means.analytics.application.find_evolution.FindMonthlyEvolutionQuery
 import within.means.analytics.application.find_evolution.FindMonthlyEvolutionQueryHandler
+import within.means.analytics.application.EvolutionGranularity
 
 class FindMonthlyEvolutionQueryHandlerTest {
 
@@ -56,5 +57,29 @@ class FindMonthlyEvolutionQueryHandlerTest {
     fun rejects_out_of_range_monthsBack() {
         shouldThrow<IllegalArgumentException> { FindMonthlyEvolutionQuery(monthsBack = 0) }
         shouldThrow<IllegalArgumentException> { FindMonthlyEvolutionQuery(monthsBack = 37) }
+    }
+
+    @Test
+    fun weekly_granularity_buckets_by_monday_week() = runTest {
+        val env = AnalyticsTestEnv() // clock = 2026-05-27 (Wed); this week starts Mon 2026-05-25
+        val food = env.expenseCategory("Comida")
+
+        env.expense(1000L, LocalDate(2026, 5, 12), food) // week of 2026-05-11
+        env.expense(3000L, LocalDate(2026, 5, 26), food) // current week (2026-05-25)
+
+        val handler = FindMonthlyEvolutionQueryHandler(
+            env.transactions, clock = env.clock, timeZone = env.zone,
+        )
+
+        val r = handler.handle(
+            FindMonthlyEvolutionQuery(monthsBack = 3, granularity = EvolutionGranularity.WEEK)
+        )
+
+        r.points shouldHaveSize 3
+        r.points.map { it.yearMonth } shouldBe listOf("2026-05-11", "2026-05-18", "2026-05-25")
+        r.points[0].totalExpenseCents shouldBe 1000L
+        r.points[1].totalExpenseCents shouldBe 0L
+        r.points[2].totalExpenseCents shouldBe 3000L
+        r.points[2].label shouldBe "25/5"
     }
 }
