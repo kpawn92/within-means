@@ -49,7 +49,14 @@ data class TransactionEditUiState(
     val deleting: Boolean = false,
     val errorMessage: String? = null,
     val isFinished: Boolean = false,
-)
+) {
+    /** Parsed amount in cents for display; 0 when blank/invalid. */
+    val amountCents: Long
+        get() {
+            val n = amountText.replace(',', '.').trim().toDoubleOrNull() ?: return 0L
+            return (n * 100).toLong()
+        }
+}
 
 class TransactionEditViewModel : ViewModel(), KoinComponent {
 

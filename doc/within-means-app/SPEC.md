@@ -458,9 +458,9 @@ guardar → `WmPrimaryButton`); el resto seguía siendo M3 plano. Esta tanda lo 
 
 - **Topbar fullover**: cerrar (`Close`) / título / **borrar** (`DeleteOutline` en `neg`, solo en edición).
 - **Segmented tipo** (`WmSegmented` Gasto/Ingreso/Ahorro); fijo al editar (el tipo no cambia).
-- **Importe grande editable** (52sp, `BasicTextField` con teclado decimal del sistema — ver nota §4.3),
-  **coloreado por la categoría seleccionada** (`categoryColor`) con fallback al color del tipo; símbolo
-  de moneda real (`FindDefaultUserQuery`).
+- **Importe grande** (52sp) **coloreado por la categoría seleccionada** (`categoryColor`) con fallback al
+  color del tipo y símbolo de moneda real (`FindDefaultUserQuery`); al tocarlo **abre una calculadora
+  minimalista** (`CalculatorSheet`) — ver nota de calculadora abajo.
 - **Picker de categoría en chips horizontales con `CatIcon`** (scroll horizontal; chip con icono+nombre,
   resaltado con el color de la categoría).
 - Descripción + fuente (ingreso) + `DateField` (reutilizado) + toggle Recurrente/frecuencia (solo creación).
@@ -468,4 +468,16 @@ guardar → `WmPrimaryButton`); el resto seguía siendo M3 plano. Esta tanda lo 
 - **Diálogo de borrado** (`AlertDialog`) → `DeleteTransactionCommand`; el VM expone `delete()`.
 
 VM: `baseCurrency` + `loadCurrency()` (patrón QuickAdd) y `delete()` (no-op en creación). Tests por capa
-(borrar en edición elimina + finaliza; borrar en creación es no-op). 385 tests verdes.
+(borrar en edición elimina + finaliza; borrar en creación es no-op).
+
+**Calculadora minimalista del importe** (`ui/calculator/`). En vez del teclado del sistema, el importe del
+editor abre un sheet con calculadora que **permite cálculos** (`+ − × ÷`, precedencia, decimales):
+- `AmountCalculator` — lógica pura y testeable (sin deps de Compose): construye una expresión canónica,
+  aplica las mismas restricciones que QuickAdd (≤9 enteros, ≤2 decimales por operando), evalúa con
+  `BigDecimal` (sin float drift; división redondeada a 2; protege división por cero) y expone
+  `resultCents`/`resultText`/`displayExpression` (glifos `× ÷ −`).
+- `CalculatorSheet` — `ModalBottomSheet`: línea de expresión + «Borrar», preview gigante coloreado por el
+  acento, keypad 4×4 (dígitos/`.`/`⌫` + operadores) y fila `=` (colapsa a su valor para encadenar), CTA
+  «Usar {importe}» (deshabilitado si ≤0) que aplica el resultado al `amountText`.
+- Tests de la calculadora (precedencia, decimales sin drift, div/0, caps de operando, cero líder,
+  operador líder ignorado, reemplazo de operador, `=` in-place, semilla). 402 tests verdes.

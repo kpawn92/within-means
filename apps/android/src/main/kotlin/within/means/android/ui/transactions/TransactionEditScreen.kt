@@ -16,11 +16,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -52,11 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.datetime.Instant
@@ -65,6 +58,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.toLocalDateTime
 import org.koin.compose.viewmodel.koinViewModel
+import within.means.android.ui.calculator.CalculatorSheet
 import within.means.android.ui.categories.iconFor
 import within.means.android.ui.components.CatIcon
 import within.means.android.ui.components.WmPrimaryButton
@@ -86,6 +80,7 @@ fun TransactionEditScreen(
     val state by viewModel.state.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var showDeleteDialog by rememberSaveable { mutableStateOf(false) }
+    var showCalculator by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(transactionId) {
         if (transactionId != null && state.transactionId != transactionId) {
@@ -170,12 +165,14 @@ fun TransactionEditScreen(
                 onSelect = { if (!viewModel.isEditMode) viewModel.onTypeChanged(it) },
             )
 
-            // Giant editable amount, tinted by the chosen category (or type fallback).
+            // Giant amount; tapping opens the calculator. Tinted by the chosen
+            // category (or type fallback).
             AmountField(
                 symbol = sym,
-                value = state.amountText,
-                onValueChange = viewModel::onAmountTextChanged,
+                cents = state.amountCents,
+                isEmpty = state.amountText.isBlank(),
                 color = accent,
+                onClick = { showCalculator = true },
             )
 
             // Category picker: horizontal chips with CatIcon.
@@ -260,6 +257,19 @@ fun TransactionEditScreen(
         }
     }
 
+    if (showCalculator) {
+        CalculatorSheet(
+            initialAmount = state.amountText,
+            currencySymbol = sym,
+            accent = accent,
+            onConfirm = { result ->
+                viewModel.onAmountTextChanged(result)
+                showCalculator = false
+            },
+            onDismiss = { showCalculator = false },
+        )
+    }
+
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
@@ -283,42 +293,24 @@ fun TransactionEditScreen(
 @Composable
 private fun AmountField(
     symbol: String,
-    value: String,
-    onValueChange: (String) -> Unit,
+    cents: Long,
+    isEmpty: Boolean,
     color: androidx.compose.ui.graphics.Color,
+    onClick: () -> Unit,
 ) {
-    Row(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(WmRadii.lg))
+            .clickable(onClick = onClick)
             .padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically,
+        contentAlignment = Alignment.Center,
     ) {
-        Text(symbol, fontSize = 52.sp, fontWeight = FontWeight.Bold, color = color)
-        BasicTextField(
-            value = value,
-            onValueChange = onValueChange,
-            singleLine = true,
-            textStyle = TextStyle(
-                fontSize = 52.sp,
-                fontWeight = FontWeight.Bold,
-                color = color,
-                textAlign = TextAlign.Start,
-            ),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            cursorBrush = SolidColor(color),
-            modifier = Modifier.widthIn(min = 40.dp),
-            decorationBox = { inner ->
-                if (value.isEmpty()) {
-                    Text(
-                        "0",
-                        fontSize = 52.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = color.copy(alpha = 0.35f),
-                    )
-                }
-                inner()
-            },
+        Text(
+            "$symbol${within.means.android.ui.format.formatMoney(cents)}",
+            fontSize = 52.sp,
+            fontWeight = FontWeight.Bold,
+            color = if (isEmpty) color.copy(alpha = 0.35f) else color,
         )
     }
 }
