@@ -9,6 +9,7 @@ import within.means.android.persistence.DatabaseUnlocker
 import within.means.android.persistence.KeystoreManager
 import within.means.android.persistence.OnboardingState
 import within.means.android.persistence.PassphraseProvider
+import within.means.android.persistence.ThemePreference
 
 val appModule = module {
     single<CoroutineDispatcher>(qualifier = org.koin.core.qualifier.named("io")) { Dispatchers.IO }
@@ -17,4 +18,5 @@ val appModule = module {
     single { AndroidDatabaseFactory(androidContext()) }
     single { DatabaseUnlocker(get(), get()) }
     single { OnboardingState(androidContext()) }
+    single { ThemePreference(androidContext()) }
 }

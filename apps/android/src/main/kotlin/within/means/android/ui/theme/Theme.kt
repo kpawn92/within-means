@@ -19,7 +19,10 @@ import androidx.compose.ui.platform.LocalContext
  * semantics stay stable regardless of the user's wallpaper.
  */
 @Composable
-fun WithinMeansTheme(content: @Composable () -> Unit) {
+fun WithinMeansTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    content: @Composable () -> Unit,
+) {
     val light = lightColorScheme(
         primary = Color(0xFF3F8F6B),
         onPrimary = Color(0xFFFAFEF7),
@@ -54,7 +57,7 @@ fun WithinMeansTheme(content: @Composable () -> Unit) {
         outline = Color(0xFF3E4239),
         outlineVariant = Color(0xFF30332C),
     )
-    val isDark = isSystemInDarkTheme()
+    val isDark = darkTheme
     val context = LocalContext.current
     val supportsDynamic = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     val colorScheme = when {

@@ -35,12 +35,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
+import within.means.android.persistence.ThemeMode
+import within.means.android.persistence.ThemePreference
 import within.means.android.ui.components.WmCard
 import within.means.android.ui.components.WmChip
 import within.means.android.ui.components.WmEyebrow
 import within.means.android.ui.components.WmGhostButton
 import within.means.android.ui.components.WmPrimaryButton
+import within.means.android.ui.components.WmSegmented
 import within.means.android.ui.components.WmToggle
 import within.means.android.ui.format.currencySymbol
 
@@ -52,6 +56,8 @@ fun SettingsScreen(
 ) {
     val viewModel: SettingsViewModel = koinViewModel()
     val state by viewModel.state.collectAsState()
+    val themePreference: ThemePreference = koinInject()
+    val themeMode by themePreference.mode.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(state.errorMessage) {
@@ -108,6 +114,19 @@ fun SettingsScreen(
             WmCard(modifier = Modifier.fillMaxWidth()) {
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     WmEyebrow("Preferencias")
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Apariencia", fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        WmSegmented(
+                            options = listOf(
+                                ThemeMode.SYSTEM.name to "Sistema",
+                                ThemeMode.LIGHT.name to "Claro",
+                                ThemeMode.DARK.name to "Oscuro",
+                            ),
+                            selected = themeMode.name,
+                            onSelect = { themePreference.setMode(ThemeMode.valueOf(it)) },
+                        )
+                    }
                     OutlinedTextField(
                         value = state.displayName,
                         onValueChange = viewModel::onDisplayNameChanged,

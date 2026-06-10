@@ -31,9 +31,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,6 +58,8 @@ import androidx.navigation.navArgument
 import org.koin.compose.koinInject
 import within.means.android.persistence.DatabaseUnlocker
 import within.means.android.persistence.OnboardingState
+import within.means.android.persistence.ThemeMode
+import within.means.android.persistence.ThemePreference
 import within.means.android.ui.theme.WithinMeansTheme
 import within.means.android.ui.analytics.StatsScreen
 import within.means.android.ui.categories.CategoriesListScreen
@@ -75,7 +79,14 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            WithinMeansTheme {
+            val themePreference: ThemePreference = koinInject()
+            val themeMode by themePreference.mode.collectAsState()
+            val darkTheme = when (themeMode) {
+                ThemeMode.SYSTEM -> isSystemInDarkTheme()
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
+            }
+            WithinMeansTheme(darkTheme = darkTheme) {
                 WithinMeansApp()
             }
         }
