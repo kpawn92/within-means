@@ -14,6 +14,7 @@ import kotlinx.datetime.minus
 import kotlinx.datetime.toLocalDateTime
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
+import within.means.android.ui.calculator.AmountCalculator
 import within.means.android.ui.error.ErrorContext
 import within.means.android.ui.error.toUserMessage
 import within.means.categories.application.CategoriesResponse
@@ -28,8 +29,10 @@ enum class QuickWhen { TODAY, YESTERDAY }
 
 data class QuickAddUiState(
     val type: String = "EXPENSE",
-    /** Raw keypad buffer, e.g. "12.5"; empty means 0. */
-    val amountRaw: String = "",
+    /** Canonical calculator expression, e.g. "12.5" or "12+3"; empty means 0. */
+    val expression: String = "",
+    /** Live result of [expression] in cents; 0 when empty/invalid. */
+    val amountCents: Long = 0L,
     val categoryId: String? = null,
     val note: String = "",
     val whenChoice: QuickWhen = QuickWhen.TODAY,
@@ -39,15 +42,6 @@ data class QuickAddUiState(
     val errorMessage: String? = null,
     val savedAmountCents: Long? = null,
 ) {
-    val amountCents: Long
-        get() {
-            if (amountRaw.isEmpty()) return 0L
-            val parts = amountRaw.split('.')
-            val whole = parts[0].toLongOrNull() ?: 0L
-            val frac = parts.getOrNull(1)?.padEnd(2, '0')?.take(2)?.toLongOrNull() ?: 0L
-            return whole * 100 + frac
-        }
-
     val canSave: Boolean get() = amountCents > 0L && !categoryId.isNullOrBlank() && !saving
 }
 
@@ -58,6 +52,8 @@ class QuickAddViewModel(
 
     private val _state = MutableStateFlow(QuickAddUiState())
     val state: StateFlow<QuickAddUiState> = _state.asStateFlow()
+
+    private val calc = AmountCalculator()
 
     init {
         viewModelScope.launch { loadCategoriesForCurrentType() }
@@ -73,32 +69,14 @@ class QuickAddViewModel(
     fun onNoteChanged(value: String) { _state.update { it.copy(note = value) } }
     fun onWhenChanged(value: QuickWhen) { _state.update { it.copy(whenChoice = value) } }
 
-    /** Appends a digit, enforcing ≤9 integer digits and ≤2 decimals. */
-    fun onDigit(d: Char) {
-        _state.update { s ->
-            val raw = s.amountRaw
-            val parts = raw.split('.')
-            if (parts.size == 2) {
-                if (parts[1].length >= 2) return@update s
-            } else {
-                // integer part
-                if (raw.length >= 9) return@update s
-                if (raw == "0") return@update s.copy(amountRaw = d.toString())
-            }
-            s.copy(amountRaw = raw + d)
-        }
-    }
+    /** Keypad now drives a calculator: digits, decimals and `+ − × ÷`. */
+    fun onDigit(d: Char) { calc.onDigit(d); syncAmount() }
+    fun onDot() { calc.onDot(); syncAmount() }
+    fun onOperator(op: Char) { calc.onOperator(op); syncAmount() }
+    fun onBackspace() { calc.onBackspace(); syncAmount() }
 
-    fun onDot() {
-        _state.update { s ->
-            if (s.amountRaw.contains('.')) return@update s
-            val base = s.amountRaw.ifEmpty { "0" }
-            s.copy(amountRaw = "$base.")
-        }
-    }
-
-    fun onBackspace() {
-        _state.update { s -> s.copy(amountRaw = s.amountRaw.dropLast(1)) }
+    private fun syncAmount() {
+        _state.update { it.copy(expression = calc.expression, amountCents = calc.resultCents() ?: 0L) }
     }
 
     fun save() {
@@ -129,6 +107,7 @@ class QuickAddViewModel(
 
     /** Clears transient input so a reused instance starts fresh on reopen. */
     fun reset() {
+        calc.clear()
         _state.update { QuickAddUiState(baseCurrency = it.baseCurrency) }
         viewModelScope.launch { loadCategoriesForCurrentType() }
     }

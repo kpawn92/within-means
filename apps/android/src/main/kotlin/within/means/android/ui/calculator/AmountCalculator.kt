@@ -20,6 +20,14 @@ class AmountCalculator(initial: String = "") {
     var expression: String = initial
         private set
 
+    /**
+     * When the calculator is seeded with an existing amount (edit flow), the
+     * seeded value behaves like a calculator's prior result: the next digit/dot
+     * typed *replaces* it (start fresh), while an operator *continues* from it.
+     * Mirrors how native calculators handle a result on screen.
+     */
+    private var replaceOnNextEntry: Boolean = initial.isNotEmpty()
+
     private companion object {
         const val OPERATORS = "+-*/"
         const val MAX_INTEGER_DIGITS = 9
@@ -39,6 +47,7 @@ class AmountCalculator(initial: String = "") {
 
     fun onDigit(d: Char) {
         if (d !in '0'..'9') return
+        if (replaceOnNextEntry) { expression = ""; replaceOnNextEntry = false }
         val operand = currentOperand
         if (operand.contains('.')) {
             val decimals = operand.substringAfter('.')
@@ -55,6 +64,7 @@ class AmountCalculator(initial: String = "") {
     }
 
     fun onDot() {
+        if (replaceOnNextEntry) { expression = ""; replaceOnNextEntry = false }
         val operand = currentOperand
         if (operand.contains('.')) return
         // Starting a decimal with no integer part yields "0.".
@@ -64,23 +74,20 @@ class AmountCalculator(initial: String = "") {
     /** Appends an operator, normalising trailing operators/dots away first. */
     fun onOperator(op: Char) {
         if (op !in OPERATORS) return
+        replaceOnNextEntry = false // continue from the seeded value
         if (expression.isEmpty()) return // no leading operator
         if (expression.last() == '.') expression = expression.dropLast(1)
         expression = if (endsWithOperator) expression.dropLast(1) + op else expression + op
     }
 
     fun onBackspace() {
+        replaceOnNextEntry = false // editing the seeded value in place
         if (expression.isNotEmpty()) expression = expression.dropLast(1)
     }
 
     fun clear() {
         expression = ""
-    }
-
-    /** Replaces the expression with its evaluated result, so the user can keep operating. */
-    fun evaluateInPlace() {
-        val text = resultText() ?: return
-        expression = text
+        replaceOnNextEntry = false
     }
 
     /** Evaluated amount in cents, or null if empty/invalid. May be negative. */

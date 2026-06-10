@@ -104,20 +104,43 @@ class AmountCalculatorTest {
     }
 
     @Test
-    fun `evaluateInPlace collapses the expression to its value`() {
-        val c = calc('2', '+', '3')
-        c.evaluateInPlace()
-        c.expression shouldBe "5.00"
-        // and it can keep operating from there
-        c.onOperator('*')
-        c.onDigit('2')
-        c.resultCents() shouldBe 1000L
-    }
-
-    @Test
     fun `seeded amount is the starting expression`() {
         val c = AmountCalculator("12.50")
         c.resultCents() shouldBe 1250L
+    }
+
+    @Test
+    fun `typing a digit replaces the seeded amount`() {
+        val c = AmountCalculator("85.00")
+        c.onDigit('6'); c.onDigit('9')
+        c.expression shouldBe "69"
+        c.resultCents() shouldBe 6900L
+    }
+
+    @Test
+    fun `typing a dot replaces the seeded amount`() {
+        val c = AmountCalculator("85.00")
+        c.onDot(); c.onDigit('5')
+        c.expression shouldBe "0.5"
+        c.resultCents() shouldBe 50L
+    }
+
+    @Test
+    fun `an operator continues from the seeded amount`() {
+        val c = AmountCalculator("85.00")
+        c.onOperator('+'); c.onDigit('5')
+        c.expression shouldBe "85.00+5"
+        c.resultCents() shouldBe 9000L
+    }
+
+    @Test
+    fun `backspace edits the seeded amount in place`() {
+        val c = AmountCalculator("85.00")
+        c.onBackspace()
+        c.expression shouldBe "85.0"
+        // and subsequent digits append rather than replace
+        c.onDigit('7')
+        c.expression shouldBe "85.07"
     }
 
     @Test

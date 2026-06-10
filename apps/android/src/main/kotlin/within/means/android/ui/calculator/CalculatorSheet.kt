@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
@@ -18,7 +19,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -54,11 +54,13 @@ fun CalculatorSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val calc = remember { AmountCalculator(initialAmount.trim()) }
-    // Local mirror so recomposition tracks the mutable calculator.
+    // Local mirror so recomposition tracks the mutable calculator. Reading it
+    // here (via remember keys below) subscribes the whole composable, so the
+    // result/CTA recompute on every keystroke — not just the expression line.
     var expression by remember { mutableStateOf(calc.displayExpression()) }
     fun sync() { expression = calc.displayExpression() }
 
-    val resultCents = calc.resultCents()
+    val resultCents = remember(expression) { calc.resultCents() }
     val canApply = (resultCents ?: 0L) > 0L
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
@@ -70,28 +72,35 @@ fun CalculatorSheet(
                 .padding(bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            // Expression line + clear.
+            val hasOperator = expression.any { it in "×÷−+" }
+
+            // Expression line (only while doing arithmetic) + C (clear).
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Text(
-                    expression.ifEmpty { " " },
+                    if (hasOperator) expression else " ",
                     fontSize = 18.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                 )
-                TextButton(onClick = { calc.clear(); sync() }) { Text("Borrar") }
+                ClearButton(onClick = { calc.clear(); sync() })
             }
 
-            // Big result preview, tinted like the amount field.
+            // Big display: the raw number as you type it (native feel) for plain
+            // entry; the live result once an operator is in play.
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Text(
-                    "$currencySymbol${formatMoney(resultCents ?: 0L)}",
+                    if (hasOperator) {
+                        "$currencySymbol${formatMoney(resultCents ?: 0L)}"
+                    } else {
+                        "$currencySymbol${expression.ifEmpty { "0" }}"
+                    },
                     fontSize = 48.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (resultCents == null) accent.copy(alpha = 0.35f) else accent,
+                    color = if (expression.isEmpty()) accent.copy(alpha = 0.35f) else accent,
                     maxLines = 1,
                 )
             }
@@ -101,7 +110,6 @@ fun CalculatorSheet(
                 onDot = { calc.onDot(); sync() },
                 onOperator = { calc.onOperator(it); sync() },
                 onBackspace = { calc.onBackspace(); sync() },
-                onEquals = { calc.evaluateInPlace(); sync() },
             )
 
             WmPrimaryButton(
@@ -114,6 +122,21 @@ fun CalculatorSheet(
     }
 }
 
+/** Small round "C" button that clears the whole expression. */
+@Composable
+private fun ClearButton(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text("C", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+    }
+}
+
 private val keyRows = listOf(
     listOf("7", "8", "9", "÷"),
     listOf("4", "5", "6", "×"),
@@ -121,15 +144,18 @@ private val keyRows = listOf(
     listOf(".", "0", "⌫", "+"),
 )
 
+/** Reusable calculator keypad: digits + `.` + `⌫` and an operator column. The
+ *  result is shown live by the caller, so there is no `=` key — the caller's CTA
+ *  (e.g. "Usar"/"Guardar") commits the value. */
 @Composable
-private fun CalcKeypad(
+fun CalcKeypad(
     onDigit: (Char) -> Unit,
     onDot: () -> Unit,
     onOperator: (Char) -> Unit,
     onBackspace: () -> Unit,
-    onEquals: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         keyRows.forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 row.forEach { key ->
@@ -144,17 +170,12 @@ private fun CalcKeypad(
                                 "+" -> onOperator('+')
                                 "." -> onDot()
                                 "⌫" -> onBackspace()
-                                "=" -> onEquals()
                                 else -> onDigit(key[0])
                             }
                         },
                     )
                 }
             }
-        }
-        // Equals collapses the expression to its value in place.
-        Row(modifier = Modifier.fillMaxWidth()) {
-            CalcKey(key = "=", modifier = Modifier.weight(1f), accent = true, onClick = onEquals)
         }
     }
 }
@@ -163,20 +184,11 @@ private fun CalcKeypad(
 private fun CalcKey(
     key: String,
     modifier: Modifier = Modifier,
-    accent: Boolean = false,
     onClick: () -> Unit,
 ) {
-    val isOperator = key in listOf("÷", "×", "−", "+", "=")
-    val bg = when {
-        accent -> MaterialTheme.colorScheme.primaryContainer
-        isOperator -> MaterialTheme.colorScheme.surfaceVariant
-        else -> MaterialTheme.colorScheme.surface
-    }
-    val fg = when {
-        accent -> MaterialTheme.colorScheme.onPrimaryContainer
-        isOperator -> MaterialTheme.colorScheme.primary
-        else -> MaterialTheme.colorScheme.onSurface
-    }
+    val isOperator = key in listOf("÷", "×", "−", "+")
+    val bg = if (isOperator) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface
+    val fg = if (isOperator) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
     Box(
         modifier = modifier
             .height(52.dp)

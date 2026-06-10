@@ -476,8 +476,26 @@ editor abre un sheet con calculadora que **permite cálculos** (`+ − × ÷`, p
   aplica las mismas restricciones que QuickAdd (≤9 enteros, ≤2 decimales por operando), evalúa con
   `BigDecimal` (sin float drift; división redondeada a 2; protege división por cero) y expone
   `resultCents`/`resultText`/`displayExpression` (glifos `× ÷ −`).
-- `CalculatorSheet` — `ModalBottomSheet`: línea de expresión + «Borrar», preview gigante coloreado por el
-  acento, keypad 4×4 (dígitos/`.`/`⌫` + operadores) y fila `=` (colapsa a su valor para encadenar), CTA
-  «Usar {importe}» (deshabilitado si ≤0) que aplica el resultado al `amountText`.
-- Tests de la calculadora (precedencia, decimales sin drift, div/0, caps de operando, cero líder,
-  operador líder ignorado, reemplazo de operador, `=` in-place, semilla). 402 tests verdes.
+- `CalcKeypad` — keypad reutilizable (dígitos/`.`/`⌫` + columna de operadores). **Sin tecla `=`**: el
+  resultado se ve en vivo, así que el CTA del contenedor («Usar»/«Guardar») es el único que confirma —
+  se evita un segundo botón de aspecto primario que competía con «Usar».
+- **Edición estilo calculadora nativa**: cuando se siembra con un importe (flujo de editar), el valor se
+  comporta como un «resultado previo»: el siguiente **dígito/punto lo reemplaza** (empezar de cero) y un
+  **operador continúa** desde él (`⌫` lo edita en sitio). Antes el dígito se añadía/ignoraba y el importe
+  viejo se quedaba pegado (`replaceOnNextEntry` en `AmountCalculator`).
+- `CalculatorSheet` — `ModalBottomSheet` (editor): botón **C** (limpiar), display gigante que muestra el
+  **número tal como se teclea** (`€85`, `€85.5`) en entrada simple y el **resultado en vivo** cuando hay
+  operación (la línea de expresión solo aparece entonces), `CalcKeypad`, CTA «Usar {importe}» → `amountText`.
+  ⚠️ Fix: el resultado/CTA se calculaban **fuera** de la lambda del `ModalBottomSheet` y no leían `State`,
+  así que solo recomponía la línea de expresión y el importe se quedaba congelado (parecía que las teclas
+  «no escribían»). Ahora `resultCents = remember(expression) { … }` resuscribe todo el composable por tecla.
+
+**QuickAdd también usa la calculadora** (§4.3). El keypad inline de QuickAdd se sustituyó por `CalcKeypad`
+y su `amountRaw` por un `AmountCalculator`: el display gigante muestra el **resultado en vivo** coloreado
+por tipo, con la **línea de expresión** encima cuando hay operadores; `canSave` sigue exigiendo
+resultado>0 + categoría. Así el flujo rápido permite cálculos sin dejar de ser una sola hoja.
+
+- Tests: calculadora pura (precedencia, decimales sin drift, div/0, caps de operando, cero líder,
+  operador líder ignorado, reemplazo de operador, semilla, y **reemplazo del valor sembrado** al teclear
+  dígito/punto vs continuar con operador / editar con `⌫`) + QuickAdd (aritmética con precedencia,
+  además de los renombrados a `expression`). 406 tests verdes.

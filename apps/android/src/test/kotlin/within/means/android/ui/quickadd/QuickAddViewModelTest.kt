@@ -20,7 +20,7 @@ class QuickAddViewModelTest {
         vm.onDot()
         vm.onDigit('5')
 
-        vm.state.value.amountRaw shouldBe "12.5"
+        vm.state.value.expression shouldBe "12.5"
         vm.state.value.amountCents shouldBe 1250L
     }
 
@@ -30,7 +30,7 @@ class QuickAddViewModelTest {
         vm.onDigit('9'); vm.onDot(); vm.onDigit('9'); vm.onDigit('9')
         vm.onDigit('9') // ignored — already two decimals
 
-        vm.state.value.amountRaw shouldBe "9.99"
+        vm.state.value.expression shouldBe "9.99"
         vm.state.value.amountCents shouldBe 999L
     }
 
@@ -38,14 +38,23 @@ class QuickAddViewModelTest {
     fun `leading zero is replaced by the next digit`() = runTest {
         val vm = QuickAddViewModel()
         vm.onDigit('0'); vm.onDigit('5')
-        vm.state.value.amountRaw shouldBe "5"
+        vm.state.value.expression shouldBe "5"
     }
 
     @Test
     fun `backspace removes the last character`() = runTest {
         val vm = QuickAddViewModel()
         vm.onDigit('1'); vm.onDigit('2'); vm.onBackspace()
-        vm.state.value.amountRaw shouldBe "1"
+        vm.state.value.expression shouldBe "1"
+    }
+
+    @Test
+    fun `operators drive arithmetic and the live result`() = runTest {
+        val vm = QuickAddViewModel()
+        vm.onDigit('2'); vm.onOperator('+'); vm.onDigit('3'); vm.onOperator('*'); vm.onDigit('4')
+
+        vm.state.value.expression shouldBe "2+3*4"
+        vm.state.value.amountCents shouldBe 1400L // 2 + (3*4), precedence respected
     }
 
     @Test
