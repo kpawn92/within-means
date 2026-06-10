@@ -41,6 +41,10 @@ data class StatsUiState(
     val yearMonth: String = "",
     val baseCurrency: String = "",
     val summary: MonthlySummaryResponse? = null,
+    /** Same-kind period immediately before [summary] — for the savings-rate trend. */
+    val previousSummary: MonthlySummaryResponse? = null,
+    /** "que la semana pasada" / "que el mes pasado" / "que el año pasado". */
+    val comparisonLabel: String = "",
     val breakdown: CategoryBreakdownResponse? = null,
     val evolution: MonthlyEvolutionResponse? = null,
     val loading: Boolean = false,
@@ -88,11 +92,16 @@ class StatsViewModel(
     private suspend fun reload() {
         _state.update { it.copy(loading = true) }
         val today = clock.now().toLocalDateTime(zone).date
-        val (start, end) = rangeFor(_state.value.period, today)
+        val period = _state.value.period
+        val (start, end) = rangeFor(period, today)
+        val (prevStart, prevEnd) = previousRangeFor(period, today)
         runCatching {
             val bus = get<QueryBus>()
             val summary = bus.ask<FindSummaryInRangeQuery, MonthlySummaryResponse>(
                 FindSummaryInRangeQuery(start.toString(), end.toString())
+            )
+            val previous = bus.ask<FindSummaryInRangeQuery, MonthlySummaryResponse>(
+                FindSummaryInRangeQuery(prevStart.toString(), prevEnd.toString())
             )
             val breakdown = bus.ask<FindBreakdownInRangeQuery, CategoryBreakdownResponse>(
                 FindBreakdownInRangeQuery(start.toString(), end.toString(), type = "EXPENSE")
@@ -101,11 +110,13 @@ class StatsViewModel(
             val evolution = bus.ask<FindMonthlyEvolutionQuery, MonthlyEvolutionResponse>(
                 FindMonthlyEvolutionQuery(monthsBack = 6)
             )
-            Triple(summary, breakdown, evolution)
-        }.onSuccess { (summary, breakdown, evolution) ->
+            Quad(summary, previous, breakdown, evolution)
+        }.onSuccess { (summary, previous, breakdown, evolution) ->
             _state.update {
                 it.copy(
                     summary = summary,
+                    previousSummary = previous,
+                    comparisonLabel = comparisonLabel(period),
                     breakdown = breakdown,
                     evolution = evolution,
                     periodLabel = periodLabel(it.period, today),
@@ -129,6 +140,22 @@ class StatsViewModel(
         StatsPeriod.YEAR -> LocalDate(today.year, 1, 1) to LocalDate(today.year, 12, 31)
     }
 
+    /** The same-kind period immediately before the one containing [today]. */
+    private fun previousRangeFor(period: StatsPeriod, today: LocalDate): Pair<LocalDate, LocalDate> {
+        val shifted = when (period) {
+            StatsPeriod.WEEK -> today.minus(DatePeriod(days = 7))
+            StatsPeriod.MONTH -> today.minus(DatePeriod(months = 1))
+            StatsPeriod.YEAR -> today.minus(DatePeriod(years = 1))
+        }
+        return rangeFor(period, shifted)
+    }
+
+    private fun comparisonLabel(period: StatsPeriod): String = when (period) {
+        StatsPeriod.WEEK -> "que la semana pasada"
+        StatsPeriod.MONTH -> "que el mes pasado"
+        StatsPeriod.YEAR -> "que el año pasado"
+    }
+
     private fun periodLabel(period: StatsPeriod, today: LocalDate): String = when (period) {
         StatsPeriod.WEEK -> "Esta semana"
         StatsPeriod.MONTH -> MONTHS[today.monthNumber - 1]
@@ -147,3 +174,6 @@ private fun currentYearMonth(clock: Clock, zone: TimeZone): String {
     val today = clock.now().toLocalDateTime(zone).date
     return "${today.year}-${today.monthNumber.toString().padStart(2, '0')}"
 }
+
+/** Four-value tuple — the period summaries plus breakdown and evolution. */
+private data class Quad<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)

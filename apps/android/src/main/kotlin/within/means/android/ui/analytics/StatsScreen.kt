@@ -105,7 +105,7 @@ fun StatsScreen() {
                 item { Text("Sin datos en este periodo", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             } else {
                 item { SummaryTrio(summary, sym) }
-                item { SavingsRateCard(summary, sym) }
+                item { SavingsRateCard(summary, state.previousSummary, state.comparisonLabel, sym) }
                 item { EvolutionCard(state.evolution, sym) }
                 item { BreakdownCard(state, lens, { lens = it }, sym) }
             }
@@ -134,12 +134,25 @@ private fun StatCell(label: String, cents: Long, accent: Color, sym: String, mod
     }
 }
 
+/** Savings rate = balance / income, clamped to [0,1]. Returns null when no income. */
+private fun savingsRate(summary: MonthlySummaryResponse?): Float? {
+    val income = summary?.totalIncomeCents ?: return null
+    if (income <= 0L) return null
+    return (summary.balanceCents.toFloat() / income).coerceIn(0f, 1f)
+}
+
 @Composable
-private fun SavingsRateCard(summary: MonthlySummaryResponse, sym: String) {
+private fun SavingsRateCard(
+    summary: MonthlySummaryResponse,
+    previous: MonthlySummaryResponse?,
+    comparisonLabel: String,
+    sym: String,
+) {
     val income = summary.totalIncomeCents
     val saved = summary.balanceCents
     val pct = if (income > 0) (saved.toFloat() / income).coerceIn(0f, 1f) else 0f
     val pctInt = (pct * 100).toInt()
+    val prevRate = savingsRate(previous)
     WmCard(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.primaryContainer) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             WmDonut(
@@ -152,15 +165,25 @@ private fun SavingsRateCard(summary: MonthlySummaryResponse, sym: String) {
                 Text("$pctInt%", fontSize = 15.sp, fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer)
             }
-            Column(Modifier.weight(1f)) {
-                Text(if (pctInt >= 0) "Tasa de ahorro" else "Mes en números rojos",
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(if (pctInt >= 0) "Tasa de ahorro" else "Periodo en números rojos",
                     fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer)
                 Text(
-                    if (saved >= 0) "Guardaste ${formatAmount(saved, sym, decimals = false)} de lo que entró este mes."
+                    if (saved >= 0) "Guardaste ${formatAmount(saved, sym, decimals = false)} de lo que entró."
                     else "Gastaste ${formatAmount(-saved, sym, decimals = false)} más de lo que entró.",
                     fontSize = 12.sp, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
                 )
+                // Real previous-period comparison (replaces the mock phrase).
+                if (prevRate != null) {
+                    val deltaPts = pctInt - (prevRate * 100).toInt()
+                    val (text, color) = when {
+                        deltaPts > 0 -> "▲ $deltaPts pts $comparisonLabel" to WmTheme.colors.pos
+                        deltaPts < 0 -> "▼ ${-deltaPts} pts $comparisonLabel" to WmTheme.colors.neg
+                        else -> "Igual $comparisonLabel" to MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                    }
+                    Text(text, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = color)
+                }
             }
         }
     }
