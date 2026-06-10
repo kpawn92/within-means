@@ -412,5 +412,41 @@ Resuelve los `[mock]`/"create-only" que dejó el Diferido. Todo verificado en Pi
   título a 2 líneas, dots animados, Saltar + Siguiente/Empezar; reutilizado en primer arranque
   y en «Ver introducción». Verificado en emulador.
 
-> Pendiente menor de verificación visual: lista de recurrentes **poblada** + desactivar, y el
-> toggle de revelar importes (requieren datos sembrados); la lógica está cubierta por tests.
+> ~~Pendiente menor de verificación visual: lista de recurrentes **poblada** + desactivar, y el
+> toggle de revelar importes~~ → **verificado en device** en el ciclo 0.1.0 (ver §10.4).
+
+### 10.4 Cierre 0.1.0 — paquete de release firmado
+
+Última tanda (tema, comparativa real, edición de recurrentes, granularidad, cambiar PIN) +
+empaquetado de release. Con esto **el alcance del SPEC queda cerrado**: no queda ninguna
+feature descrita en §4/§8 sin construir. Todo verificado en Pixel_9 (API 36).
+
+- **Apariencia — tema claro/oscuro/sistema** (`[nuevo-ui]` §4.7). `ThemePreference` persistido
+  como `StateFlow` → el tema recompone al instante. `WithinMeansTheme(darkTheme=…)`; MainActivity
+  resuelve el modo. Segmented Sistema/Claro/Oscuro en Ajustes (aplica sin Guardar). Verificado
+  (oscuro al instante en toda la UI).
+
+- **Tasa de ahorro — comparación real con el periodo anterior** (cierra el `[mock]` "mes pasado"
+  de §4.4). StatsViewModel consulta el periodo previo (semana/mes/año) y muestra el delta real en
+  puntos (▲/▼/Igual «que el mes pasado»).
+
+- **Evolución del gasto — granularidad por periodo** (resuelve §4.4 "definir granularidad real").
+  Las barras siguen el periodo: 6 semanas / meses / años (`FindMonthlyEvolutionQuery.granularity`,
+  default MONTH). Verificado (Semana → barras "4/5·11/5·18/5·25/5·1/6").
+
+- **Editar recurrentes**. `RecurringRule.updateDetails()` + evento `RecurringRuleUpdated` +
+  `UpdateRecurringRuleCommand`/handler; importe/categoría/nota/frecuencia editables (tipo y fecha
+  de inicio fijos; el cursor de materialización no se toca). `RecurringEditScreen` accesible desde
+  «Editar» en cada tarjeta del gestor. Tests por capa.
+
+- **Cambiar PIN — re-key real de SQLCipher** (cierra §4.7 Seguridad «Bloqueo con PIN»). El antiguo
+  «próximamente» pasa a un flujo real: `DatabaseUnlocker.changePin()` cierra los 4 drivers →
+  `AndroidDatabaseFactory.rekey()` (`changePassword`/PRAGMA rekey sobre conexión raw net.zetetic) →
+  re-unlock con el PIN nuevo, con recuperación ante fallo. Verificado end-to-end: 1234→5678 re-key
+  OK, PIN viejo rechazado, PIN nuevo entra y **los datos sobreviven intactos**.
+
+> **Release 0.1.0** (`versionCode=1`/`versionName=0.1.0`): build R8 (minify+shrink) **firmado**,
+> APK 25 MB + AAB 16 MB. R8 smoke-tested en device (intro → PIN → creación/serialización de DB →
+> Home, 0 crashes). 383 tests verdes. Ver `RELEASE-0.1.0.md`.
+> ⚠️ Migraciones de esquema ahora son **in-place** (ALTER idempotente guardado); ya **no** requieren
+> borrar datos (corrige el ⚠️ de §10.2).
