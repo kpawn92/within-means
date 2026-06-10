@@ -8,16 +8,21 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
+import kotlinx.datetime.DatePeriod
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.isoDayNumber
+import kotlinx.datetime.minus
+import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import within.means.analytics.application.CategoryBreakdownResponse
 import within.means.analytics.application.MonthlyEvolutionResponse
 import within.means.analytics.application.MonthlySummaryResponse
-import within.means.analytics.application.find_breakdown.FindCategoryBreakdownQuery
+import within.means.analytics.application.find_breakdown.FindBreakdownInRangeQuery
 import within.means.analytics.application.find_evolution.FindMonthlyEvolutionQuery
-import within.means.analytics.application.find_summary.FindMonthlySummaryQuery
+import within.means.analytics.application.find_summary.FindSummaryInRangeQuery
 import within.means.android.ui.error.ErrorContext
 import within.means.android.ui.error.toUserMessage
 import within.means.shared.domain.bus.query.QueryBus
@@ -27,8 +32,12 @@ import within.means.users.application.find.FindDefaultUserQuery
 
 enum class StatsTab { SUMMARY, BREAKDOWN, EVOLUTION }
 
+enum class StatsPeriod { WEEK, MONTH, YEAR }
+
 data class StatsUiState(
     val tab: StatsTab = StatsTab.SUMMARY,
+    val period: StatsPeriod = StatsPeriod.MONTH,
+    val periodLabel: String = "",
     val yearMonth: String = "",
     val baseCurrency: String = "",
     val summary: MonthlySummaryResponse? = null,
@@ -40,8 +49,8 @@ data class StatsUiState(
 
 class StatsViewModel(
     transactions: TransactionRepository,
-    clock: Clock = Clock.System,
-    zone: TimeZone = TimeZone.currentSystemDefault(),
+    private val clock: Clock = Clock.System,
+    private val zone: TimeZone = TimeZone.currentSystemDefault(),
 ) : ViewModel(), KoinComponent {
 
     private val _state = MutableStateFlow(StatsUiState(yearMonth = currentYearMonth(clock, zone)))
@@ -67,8 +76,8 @@ class StatsViewModel(
         viewModelScope.launch { reload() }
     }
 
-    fun selectYearMonth(value: String) {
-        _state.update { it.copy(yearMonth = value) }
+    fun selectPeriod(period: StatsPeriod) {
+        _state.update { it.copy(period = period) }
         viewModelScope.launch { reload() }
     }
 
@@ -78,15 +87,17 @@ class StatsViewModel(
 
     private suspend fun reload() {
         _state.update { it.copy(loading = true) }
-        val ym = _state.value.yearMonth
+        val today = clock.now().toLocalDateTime(zone).date
+        val (start, end) = rangeFor(_state.value.period, today)
         runCatching {
             val bus = get<QueryBus>()
-            val summary = bus.ask<FindMonthlySummaryQuery, MonthlySummaryResponse>(
-                FindMonthlySummaryQuery(ym)
+            val summary = bus.ask<FindSummaryInRangeQuery, MonthlySummaryResponse>(
+                FindSummaryInRangeQuery(start.toString(), end.toString())
             )
-            val breakdown = bus.ask<FindCategoryBreakdownQuery, CategoryBreakdownResponse>(
-                FindCategoryBreakdownQuery(yearMonth = ym, type = "EXPENSE")
+            val breakdown = bus.ask<FindBreakdownInRangeQuery, CategoryBreakdownResponse>(
+                FindBreakdownInRangeQuery(start.toString(), end.toString(), type = "EXPENSE")
             )
+            // Evolution stays month-based (the 6-month bar trend is period-agnostic).
             val evolution = bus.ask<FindMonthlyEvolutionQuery, MonthlyEvolutionResponse>(
                 FindMonthlyEvolutionQuery(monthsBack = 6)
             )
@@ -97,12 +108,38 @@ class StatsViewModel(
                     summary = summary,
                     breakdown = breakdown,
                     evolution = evolution,
+                    periodLabel = periodLabel(it.period, today),
                     loading = false,
                 )
             }
         }.onFailure { e ->
             _state.update { it.copy(loading = false, errorMessage = e.toUserMessage(ErrorContext.GENERIC)) }
         }
+    }
+
+    private fun rangeFor(period: StatsPeriod, today: LocalDate): Pair<LocalDate, LocalDate> = when (period) {
+        StatsPeriod.WEEK -> {
+            val monday = today.minus(DatePeriod(days = today.dayOfWeek.isoDayNumber - 1))
+            monday to monday.plus(DatePeriod(days = 6))
+        }
+        StatsPeriod.MONTH -> {
+            val first = LocalDate(today.year, today.monthNumber, 1)
+            first to first.plus(DatePeriod(months = 1)).minus(DatePeriod(days = 1))
+        }
+        StatsPeriod.YEAR -> LocalDate(today.year, 1, 1) to LocalDate(today.year, 12, 31)
+    }
+
+    private fun periodLabel(period: StatsPeriod, today: LocalDate): String = when (period) {
+        StatsPeriod.WEEK -> "Esta semana"
+        StatsPeriod.MONTH -> MONTHS[today.monthNumber - 1]
+        StatsPeriod.YEAR -> today.year.toString()
+    }
+
+    private companion object {
+        val MONTHS = listOf(
+            "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+            "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+        )
     }
 }
 

@@ -82,6 +82,39 @@ class TransactionTest {
     }
 
     @Test
+    fun register_rejects_TRANSFER_with_incomeSource() {
+        shouldThrow<IllegalArgumentException> {
+            Transaction.register(
+                id = anyId,
+                type = TransactionType.TRANSFER,
+                amount = Amount(100L),
+                date = TransactionDate(today),
+                categoryRef = anyCategory,
+                incomeSource = IncomeSource("Empresa S.A."),
+                uuids = uuids,
+                clock = clock,
+                timeZone = zone,
+            )
+        }
+    }
+
+    @Test
+    fun register_accepts_TRANSFER_as_savings() {
+        val tx = Transaction.register(
+            id = anyId,
+            type = TransactionType.TRANSFER,
+            amount = Amount(30000L),
+            date = TransactionDate(today),
+            categoryRef = anyCategory,
+            uuids = uuids,
+            clock = clock,
+            timeZone = zone,
+        )
+        tx.type shouldBe TransactionType.TRANSFER
+        tx.pullDomainEvents().single().shouldBeInstanceOf<TransactionRegistered>().type shouldBe "TRANSFER"
+    }
+
+    @Test
     fun register_accepts_INCOME_with_or_without_incomeSource() {
         val withSource = Transaction.register(
             id = anyId,

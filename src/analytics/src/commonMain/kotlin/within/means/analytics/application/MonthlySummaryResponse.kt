@@ -17,4 +17,6 @@ data class MonthlySummaryResponse(
     val variableExpenseCents: Long,
     val essentialExpenseCents: Long,
     val discretionaryExpenseCents: Long,
+    /** Money explicitly set aside (TRANSFER / "Ahorro"); not part of balance. */
+    val totalTransferCents: Long = 0L,
 ) : Response

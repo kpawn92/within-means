@@ -82,15 +82,27 @@ fun StatsScreen() {
         ) {
             item {
                 Column(Modifier.padding(end = 44.dp)) {
-                    WmEyebrow(monthTitle(state.yearMonth))
+                    WmEyebrow(state.periodLabel.ifBlank { monthTitle(state.yearMonth) })
                     Text("Análisis", fontSize = 24.sp, fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface)
                 }
             }
 
+            item {
+                WmSegmented(
+                    options = listOf(
+                        StatsPeriod.WEEK.name to "Semana",
+                        StatsPeriod.MONTH.name to "Mes",
+                        StatsPeriod.YEAR.name to "Año",
+                    ),
+                    selected = state.period.name,
+                    onSelect = { viewModel.selectPeriod(StatsPeriod.valueOf(it)) },
+                )
+            }
+
             val summary = state.summary
             if (summary == null) {
-                item { Text("Sin datos para este mes", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                item { Text("Sin datos en este periodo", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             } else {
                 item { SummaryTrio(summary, sym) }
                 item { SavingsRateCard(summary, sym) }

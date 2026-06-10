@@ -55,8 +55,11 @@ import within.means.transactions.application.TransactionResponse
 
 private data class DayGroup(val label: String, val items: List<TransactionResponse>, val totalCents: Long)
 
-private fun signedCents(tx: TransactionResponse): Long =
-    if (tx.type == "INCOME") tx.amountCents else -tx.amountCents
+private fun signedCents(tx: TransactionResponse): Long = when (tx.type) {
+    "INCOME" -> tx.amountCents
+    "EXPENSE" -> -tx.amountCents
+    else -> 0L // TRANSFER moves money between buckets — neutral to the day's net.
+}
 
 @Composable
 fun TransactionsListScreen(
@@ -148,6 +151,7 @@ private val chipFilters = listOf(
     TransactionTypeFilter.ALL to "Todos",
     TransactionTypeFilter.EXPENSE to "Gastos",
     TransactionTypeFilter.INCOME to "Ingresos",
+    TransactionTypeFilter.TRANSFER to "Ahorro",
 )
 
 @Composable
@@ -188,6 +192,7 @@ private fun TransactionRow(
     onClick: () -> Unit,
 ) {
     val income = transaction.type == "INCOME"
+    val transfer = transaction.type == "TRANSFER"
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -205,10 +210,19 @@ private fun TransactionRow(
             Text(listOfNotNull(category?.name, transaction.incomeSource).joinToString(" · "),
                 fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
         }
+        val amount = formatAmount(transaction.amountCents, sym)
         Text(
-            formatAmount(transaction.amountCents, sym).let { if (income) "+$it" else "−$it" },
+            when {
+                income -> "+$amount"
+                transfer -> "→$amount"
+                else -> "−$amount"
+            },
             fontSize = 15.sp, fontWeight = FontWeight.Bold,
-            color = if (income) WmTheme.colors.pos else MaterialTheme.colorScheme.onSurface,
+            color = when {
+                income -> WmTheme.colors.pos
+                transfer -> WmTheme.colors.savings
+                else -> MaterialTheme.colorScheme.onSurface
+            },
         )
     }
 }

@@ -2,10 +2,12 @@ package within.means.android.di
 
 import kotlinx.serialization.KSerializer
 import org.koin.dsl.module
+import within.means.analytics.application.find_breakdown.FindBreakdownInRangeQueryHandler
 import within.means.analytics.application.find_breakdown.FindCategoryBreakdownQueryHandler
 import within.means.analytics.application.find_evolution.FindMonthlyEvolutionQueryHandler
 import within.means.analytics.application.find_summary.FindCurrentMonthSummaryQueryHandler
 import within.means.analytics.application.find_summary.FindMonthlySummaryQueryHandler
+import within.means.analytics.application.find_summary.FindSummaryInRangeQueryHandler
 import within.means.categories.application.create.CreateCategoryCommandHandler
 import within.means.categories.application.delete.DeleteCategoryCommandHandler
 import within.means.categories.application.find.FindCategoryQueryHandler
@@ -37,8 +39,12 @@ import within.means.shared.infrastructure.serialization.DomainEventJsonSerialize
 import within.means.transactions.application.delete.DeleteTransactionCommandHandler
 import within.means.transactions.application.edit.EditTransactionCommandHandler
 import within.means.transactions.application.find.FindTransactionQueryHandler
+import within.means.transactions.application.recurring.CreateRecurringRuleCommandHandler
+import within.means.transactions.application.recurring.ListActiveRecurringRulesQueryHandler
 import within.means.transactions.application.register.RegisterTransactionCommandHandler
 import within.means.transactions.application.search.SearchTransactionsQueryHandler
+import within.means.transactions.domain.RecurringRuleCreated
+import within.means.transactions.domain.RecurringRuleDeactivated
 import within.means.transactions.domain.TransactionDeleted
 import within.means.transactions.domain.TransactionEdited
 import within.means.transactions.domain.TransactionRegistered
@@ -67,6 +73,7 @@ val busModule = module {
             get<RegisterTransactionCommandHandler>(),
             get<EditTransactionCommandHandler>(),
             get<DeleteTransactionCommandHandler>(),
+            get<CreateRecurringRuleCommandHandler>(),
         )
         InMemoryCommandBus(handlers)
     }
@@ -79,9 +86,12 @@ val busModule = module {
             get<ListAllCategoriesQueryHandler>(),
             get<FindTransactionQueryHandler>(),
             get<SearchTransactionsQueryHandler>(),
+            get<ListActiveRecurringRulesQueryHandler>(),
             get<FindMonthlySummaryQueryHandler>(),
             get<FindCurrentMonthSummaryQueryHandler>(),
+            get<FindSummaryInRangeQueryHandler>(),
             get<FindCategoryBreakdownQueryHandler>(),
+            get<FindBreakdownInRangeQueryHandler>(),
             get<FindMonthlyEvolutionQueryHandler>(),
         )
         InMemoryQueryBus(handlers)
@@ -99,6 +109,8 @@ val busModule = module {
             TransactionRegistered.NAME to TransactionRegistered.serializer(),
             TransactionEdited.NAME to TransactionEdited.serializer(),
             TransactionDeleted.NAME to TransactionDeleted.serializer(),
+            RecurringRuleCreated.NAME to RecurringRuleCreated.serializer(),
+            RecurringRuleDeactivated.NAME to RecurringRuleDeactivated.serializer(),
         )
         DomainEventJsonSerializer(serializers = registry)
     }

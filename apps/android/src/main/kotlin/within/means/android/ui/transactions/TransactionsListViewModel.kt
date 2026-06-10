@@ -24,7 +24,7 @@ import within.means.transactions.domain.TransactionRepository
 import within.means.users.application.OptionalUserResponse
 import within.means.users.application.find.FindDefaultUserQuery
 
-enum class TransactionTypeFilter { ALL, INCOME, EXPENSE }
+enum class TransactionTypeFilter { ALL, INCOME, EXPENSE, TRANSFER }
 
 data class TransactionsListUiState(
     val items: List<TransactionResponse> = emptyList(),
@@ -86,6 +86,7 @@ class TransactionsListViewModel(
             TransactionTypeFilter.ALL -> { _ -> true }
             TransactionTypeFilter.INCOME -> { it -> it.type == "INCOME" }
             TransactionTypeFilter.EXPENSE -> { it -> it.type == "EXPENSE" }
+            TransactionTypeFilter.TRANSFER -> { it -> it.type == "TRANSFER" }
         }
         val q = s.query.trim().lowercase()
         val queryMatches: (TransactionResponse) -> Boolean = { tx ->

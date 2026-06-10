@@ -11,6 +11,8 @@ class UserProfile private constructor(
     displayName: DisplayName,
     locale: Locale,
     baseCurrency: Currency,
+    monthlyBudgetCents: Long,
+    spendingAlertsEnabled: Boolean,
     val createdAt: Instant,
 ) : AggregateRoot() {
 
@@ -23,16 +25,28 @@ class UserProfile private constructor(
     var baseCurrency: Currency = baseCurrency
         private set
 
+    /** Monthly spending plan in cents of [baseCurrency]; 0 means "no plan set". */
+    var monthlyBudgetCents: Long = monthlyBudgetCents
+        private set
+
+    var spendingAlertsEnabled: Boolean = spendingAlertsEnabled
+        private set
+
     fun updatePreferences(
         displayName: DisplayName,
         locale: Locale,
         baseCurrency: Currency,
+        monthlyBudgetCents: Long,
+        spendingAlertsEnabled: Boolean,
         uuids: UuidGenerator,
         clock: Clock = Clock.System,
     ) {
+        require(monthlyBudgetCents >= 0L) { "monthlyBudgetCents cannot be negative" }
         this.displayName = displayName
         this.locale = locale
         this.baseCurrency = baseCurrency
+        this.monthlyBudgetCents = monthlyBudgetCents
+        this.spendingAlertsEnabled = spendingAlertsEnabled
         record(
             UserPreferencesUpdated(
                 eventId = uuids.next(),
@@ -41,6 +55,8 @@ class UserProfile private constructor(
                 displayName = displayName.value,
                 locale = locale.code,
                 baseCurrency = baseCurrency.code,
+                monthlyBudgetCents = monthlyBudgetCents,
+                spendingAlertsEnabled = spendingAlertsEnabled,
             )
         )
     }
@@ -61,6 +77,8 @@ class UserProfile private constructor(
                 displayName = displayName,
                 locale = locale,
                 baseCurrency = baseCurrency,
+                monthlyBudgetCents = 0L,
+                spendingAlertsEnabled = true,
                 createdAt = now,
             ).apply {
                 record(
@@ -81,12 +99,16 @@ class UserProfile private constructor(
             displayName: DisplayName,
             locale: Locale,
             baseCurrency: Currency,
+            monthlyBudgetCents: Long,
+            spendingAlertsEnabled: Boolean,
             createdAt: Instant,
         ): UserProfile = UserProfile(
             id = id,
             displayName = displayName,
             locale = locale,
             baseCurrency = baseCurrency,
+            monthlyBudgetCents = monthlyBudgetCents,
+            spendingAlertsEnabled = spendingAlertsEnabled,
             createdAt = createdAt,
         )
 

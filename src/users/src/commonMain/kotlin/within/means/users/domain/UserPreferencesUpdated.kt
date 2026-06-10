@@ -14,6 +14,8 @@ data class UserPreferencesUpdated(
     val displayName: String,
     val locale: String,
     val baseCurrency: String,
+    val monthlyBudgetCents: Long = 0L,
+    val spendingAlertsEnabled: Boolean = true,
 ) : DomainEvent {
     override val eventName: String = NAME
 

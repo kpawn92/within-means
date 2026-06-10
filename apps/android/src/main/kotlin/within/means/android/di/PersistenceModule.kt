@@ -12,7 +12,9 @@ import within.means.shared.domain.bus.event.DomainEventStore
 import within.means.shared.infrastructure.RealUuidGenerator
 import within.means.shared.infrastructure.persistence.SqlDelightDomainEventStore
 import within.means.transactions.db.TransactionsDatabase
+import within.means.transactions.domain.RecurringRuleRepository
 import within.means.transactions.domain.TransactionRepository
+import within.means.transactions.infrastructure.persistence.SqlDelightRecurringRuleRepository
 import within.means.transactions.infrastructure.persistence.SqlDelightTransactionRepository
 import within.means.users.db.UsersDatabase
 import within.means.users.domain.UserProfileRepository
@@ -41,5 +43,8 @@ val persistenceModule = module {
     }
     single<TransactionRepository> {
         SqlDelightTransactionRepository(get(), get(named("io")))
+    }
+    single<RecurringRuleRepository> {
+        SqlDelightRecurringRuleRepository(get(), get(named("io")))
     }
 }

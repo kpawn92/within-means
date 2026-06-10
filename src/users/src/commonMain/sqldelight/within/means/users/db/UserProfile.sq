@@ -1,17 +1,22 @@
 CREATE TABLE user_profile (
-    id              TEXT NOT NULL PRIMARY KEY,
-    display_name    TEXT NOT NULL,
-    locale          TEXT NOT NULL,
-    base_currency   TEXT NOT NULL,
-    created_at      TEXT NOT NULL,
-    is_default      INTEGER NOT NULL DEFAULT 0
+    id                      TEXT NOT NULL PRIMARY KEY,
+    display_name            TEXT NOT NULL,
+    locale                  TEXT NOT NULL,
+    base_currency           TEXT NOT NULL,
+    created_at              TEXT NOT NULL,
+    is_default              INTEGER NOT NULL DEFAULT 0,
+    monthly_budget_cents    INTEGER NOT NULL DEFAULT 0,
+    spending_alerts_enabled INTEGER NOT NULL DEFAULT 1
 );
 
 CREATE UNIQUE INDEX idx_user_profile_default ON user_profile(is_default) WHERE is_default = 1;
 
 upsert:
-INSERT OR REPLACE INTO user_profile(id, display_name, locale, base_currency, created_at, is_default)
-VALUES (?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO user_profile(
+    id, display_name, locale, base_currency, created_at, is_default,
+    monthly_budget_cents, spending_alerts_enabled
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
 findById:
 SELECT * FROM user_profile WHERE id = ?;

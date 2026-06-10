@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import within.means.android.persistence.DatabaseUnlocker
+import within.means.android.persistence.PinPolicy
 import within.means.android.ui.error.ErrorContext
 import within.means.android.ui.error.toUserMessage
 
@@ -59,6 +60,6 @@ class UnlockViewModel(
     }
 
     companion object {
-        const val PIN_LENGTH = 6
+        const val PIN_LENGTH = PinPolicy.LENGTH
     }
 }

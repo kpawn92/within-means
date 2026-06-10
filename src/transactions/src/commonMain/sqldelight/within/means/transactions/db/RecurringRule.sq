@@ -1,0 +1,36 @@
+CREATE TABLE recurring_rule (
+    id              TEXT NOT NULL PRIMARY KEY,
+    type            TEXT NOT NULL,
+    amount_cents    INTEGER NOT NULL,
+    category_id     TEXT NOT NULL,
+    description     TEXT NOT NULL,
+    income_source   TEXT,
+    frequency       TEXT NOT NULL,
+    start_date      TEXT NOT NULL,
+    next_occurrence TEXT NOT NULL,
+    active          INTEGER NOT NULL DEFAULT 1,
+    created_at      TEXT NOT NULL
+);
+
+CREATE INDEX idx_recurring_active ON recurring_rule(active);
+
+upsert:
+INSERT OR REPLACE INTO recurring_rule(
+    id, type, amount_cents, category_id, description, income_source,
+    frequency, start_date, next_occurrence, active, created_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+findById:
+SELECT * FROM recurring_rule WHERE id = ?;
+
+findAll:
+SELECT * FROM recurring_rule ORDER BY created_at DESC;
+
+findActive:
+SELECT * FROM recurring_rule WHERE active = 1 ORDER BY created_at DESC;
+
+countActive:
+SELECT COUNT(*) FROM recurring_rule WHERE active = 1;
+
+deleteById:
+DELETE FROM recurring_rule WHERE id = ?;

@@ -19,6 +19,8 @@ class UpdateUserPreferencesCommandHandler(
             displayName = DisplayName(command.displayName),
             locale = Locale.ofCode(command.locale),
             baseCurrency = Currency.ofCode(command.baseCurrency),
+            monthlyBudgetCents = command.monthlyBudgetCents,
+            spendingAlertsEnabled = command.spendingAlertsEnabled,
         )
     }
 }

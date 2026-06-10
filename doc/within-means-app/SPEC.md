@@ -319,12 +319,58 @@ de ser post-MVP).
 - Símbolo de moneda unificado: Movimientos y Análisis ahora cargan la **moneda base**
   del usuario (antes mostraban `$` fijo; Home ya usaba la real).
 
-### 10.2 Diferido (requiere dominio/persistencia — F2/F4/F5)
-- **Hero "Disponible" + ritmo/día** (presupuesto mensual): necesita el contexto de presupuesto.
-- **Tipo Ahorro/transferencia** (`TransactionType.TRANSFER`): chip "Ahorro" en filtros/editor.
-- **Recurrentes**: toggle "Recurrente" en el editor.
-- **PIN de 4 dígitos**: el keypad/puntos ya existen; falta cambiar la derivación de
-  passphrase (hoy 6 dígitos) — afecta onboarding/unlock/`PassphraseProvider`.
-- **QuickAdd** (F4) con teclado numérico grande sobre el FAB central.
-- **Periodos Semana/Año** en Análisis (hoy solo mes actual).
-- **F5** motion: entradas escalonadas, count-up, transiciones, reduced-motion.
+### 10.2 Diferido — progreso (Ruta C: F2/F4/F5 en orden §8)
+
+**Hecho ✅**
+- **Tipo Ahorro/transferencia** (`TransactionType.TRANSFER`) — PR1. Enum + invariante
+  (`incomeSource` solo en `INCOME`); analítica suma transferencias en `totalTransferCents`
+  aparte (no afectan income/expense/balance); chip "Ahorro" en editor y filtros de
+  Movimientos; filas/totales con color `savings` y prefijo `→` (neutro en el neto del día).
+  Las categorías ya tenían `CategoryKind.TRANSFER`. Tests por capa.
+- **Presupuesto mensual + hero "Disponible" + ritmo/día** — PR2. Extensión de `:users`
+  (`monthly_budget_cents` + `spending_alerts_enabled`, migración de baseline regenerada y
+  verificada). Hero "Disponible = plan − gastado" con badge Dentro del plan/Atención, barra
+  gastado/plan y "X/día · N días restantes" (calculado en `HomeViewModel` con Clock+TZ
+  inyectables — sin acoplar `:analytics` con `:users`). Card "Presupuesto" en Ajustes (plan
+  + toggle de alertas). Tests por capa.
+
+- **Recurrentes** — PR3. Agregado real `RecurringRule` en `:transactions` (cadencia
+  WEEKLY/MONTHLY, `nextOccurrence` como cursor idempotente) + tabla `recurring_rule`
+  (baseline regenerado y verificado). `RecurringTransactionsMaterializer` materializa las
+  ocurrencias vencidas al entrar en Home (catch-up acotado, idempotente). Editor: toggle
+  "Recurrente" + chips de frecuencia (solo en creación) + "N activos". Tests de
+  materialización (cadencia/catch-up/idempotencia/futuro). Iteración: create-only (sin
+  desactivar/editar desde UI todavía; el agregado ya soporta `deactivate`).
+
+- **QuickAdd** (F4) — PR4. Bottom sheet sobre el FAB central: segmented
+  Gasto/Ingreso/Ahorro, importe gigante con color por tipo, chips de categoría filtrados,
+  nota + Hoy/Ayer, **teclado numérico propio** (≤2 decimales, ≤9 enteros) y CTA
+  "Guardar €X" (deshabilitado hasta importe>0 + categoría) con Toast. Reusa
+  `RegisterTransactionCommand`; el editor completo sigue para editar. Test de VM (keypad/
+  cents/canSave). Verificado en emulador (€25 Ocio → hero "€975 · €44/día" + donut).
+
+- **Periodos Semana/Año** en Análisis — PR5. Analítica generalizada a rango de fechas
+  (`FindSummaryInRangeQuery` / `FindBreakdownInRangeQuery`, reutilizando la lógica de mes);
+  segmented **Semana / Mes / Año** que recalcula trío, tasa de ahorro y desglose. Semana =
+  lunes–domingo de la semana actual; Año = 1 ene–31 dic. Tests de rango + label. Verificado
+  en emulador (eyebrow "Junio"↔"2026"). La evolución (barras 6 meses) se mantiene como tendencia.
+
+- **PIN de 4 dígitos** — PR6. La derivación HMAC es agnóstica a la longitud; el cambio es
+  de UI/validación. Se introdujo `PinPolicy.LENGTH = 4` como **única fuente de verdad** que
+  comparten onboarding y unlock (una divergencia derivaría otra passphrase → bloqueo). Los
+  keypad/puntos ya existían. Verificado en emulador (setup "PIN (4 dígitos)" acepta 4 dots).
+  ⚠️ Cambiar la longitud invalida la passphrase de DBs creadas con 6 dígitos → reinstalar.
+
+- **F5 Motion & pulido** — PR7. Helper `ui/motion/Motion.kt`: `rememberReducedMotion()`
+  (lee el animator duration scale del sistema = `prefers-reduced-motion`), `countUpCents()`
+  (cuenta-arriba del importe del hero) y `Modifier.enterUp(index)` (entrada escalonada de
+  los bloques de Home). Todo se salta cuando el usuario tiene animaciones desactivadas. Los
+  botones ya hacían `scale(0.97)`, las barras/donut/toggle ya animaban, y los sheets/diálogos
+  usan las transiciones por defecto de Material 3.
+
+> ✅ Diferido completo (PR1–PR7). Verificado en emulador Pixel_9 (API 36): hero "Disponible €1.000 · €45/día · 22 días"
+> + badge "Dentro del plan"; chip Ahorro filtra categoría "Transferencia"; toggle
+> Recurrente + Mensual/Semanal; al guardar un Ahorro recurrente el materializador crea la
+> transacción real ("Transferencia → €50,00") sin contar como gasto.
+> ⚠️ Sin `.sqm`, los cambios de esquema (PR2/PR3) requieren **borrar datos / reinstalar**
+> en instalaciones existentes (bootstrap por *sentinel table*; no hay migración in-place).

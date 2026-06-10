@@ -37,12 +37,16 @@ import org.koin.compose.viewmodel.koinViewModel
 import within.means.android.ui.CategoryView
 import within.means.android.ui.components.CatIcon
 import within.means.android.ui.components.DonutSegment
+import within.means.android.ui.components.WmBar
 import within.means.android.ui.components.WmCard
 import within.means.android.ui.components.WmDonut
 import within.means.android.ui.components.WmEyebrow
 import within.means.android.ui.categories.iconFor
 import within.means.android.ui.format.currencySymbol
 import within.means.android.ui.format.formatAmount
+import within.means.android.ui.motion.countUpCents
+import within.means.android.ui.motion.enterUp
+import within.means.android.ui.motion.rememberReducedMotion
 import within.means.android.ui.theme.WmTheme
 import within.means.android.ui.theme.categoryColor
 import within.means.transactions.application.TransactionResponse
@@ -67,6 +71,7 @@ fun HomeScreen(
     val viewModel: HomeViewModel = koinViewModel()
     val state by viewModel.state.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val reduced = rememberReducedMotion()
 
     LaunchedEffect(state.errorMessage) {
         state.errorMessage?.let {
@@ -85,16 +90,20 @@ fun HomeScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            item { GreetingHeader(state.displayName, state.summary?.yearMonth) }
+            item {
+                Box(Modifier.enterUp(0, reduced)) {
+                    GreetingHeader(state.displayName, state.summary?.yearMonth)
+                }
+            }
 
             if (state.loading && state.summary == null) {
                 item { LinearProgressIndicator(modifier = Modifier.fillMaxWidth()) }
             }
 
-            item { MonthHero(state) }
+            item { Box(Modifier.enterUp(1, reduced)) { MonthHero(state, reduced) } }
 
             if ((state.breakdown?.items?.isNotEmpty() == true)) {
-                item { SpendingDonutCard(state) }
+                item { Box(Modifier.enterUp(2, reduced)) { SpendingDonutCard(state) } }
             }
 
             item {
@@ -151,9 +160,81 @@ private fun GreetingHeader(name: String, yearMonth: String?) {
 }
 
 @Composable
-private fun MonthHero(state: HomeUiState) {
+private fun MonthHero(state: HomeUiState, reduced: Boolean) {
+    val budget = state.budget
+    if (budget != null) {
+        BudgetHero(budget, currencySymbol(state.baseCurrency), reduced)
+    } else {
+        BalanceHero(state, reduced)
+    }
+}
+
+@Composable
+private fun BudgetHero(budget: BudgetView, sym: String, reduced: Boolean) {
+    val onBrand = MaterialTheme.colorScheme.onPrimaryContainer
+    val fraction = if (budget.planCents > 0) budget.spentCents.toFloat() / budget.planCents else 0f
+    val available = countUpCents(budget.availableCents, reduced)
+    WmCard(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.primaryContainer,
+        contentPadding = 22.dp,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                WmEyebrow("Disponible", color = onBrand.copy(alpha = 0.7f))
+                BudgetBadge(budget.withinPlan)
+            }
+            Text(
+                formatAmount(available, sym, signed = false, decimals = false),
+                fontSize = 34.sp, fontWeight = FontWeight.Bold, color = onBrand,
+            )
+            WmBar(
+                fraction = fraction,
+                color = if (budget.withinPlan) WmTheme.colors.pos else WmTheme.colors.neg,
+                track = onBrand.copy(alpha = 0.18f),
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text("Gastado ${formatAmount(budget.spentCents, sym, decimals = false)}",
+                    fontSize = 12.sp, color = onBrand.copy(alpha = 0.8f))
+                Text("Plan ${formatAmount(budget.planCents, sym, decimals = false)}",
+                    fontSize = 12.sp, color = onBrand.copy(alpha = 0.8f))
+            }
+            if (budget.withinPlan && budget.perDayCents > 0) {
+                Text(
+                    "${formatAmount(budget.perDayCents, sym, decimals = false)}/día · " +
+                        "${budget.daysRemaining} días restantes",
+                    fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = onBrand,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun BudgetBadge(withinPlan: Boolean) {
+    val bg = if (withinPlan) WmTheme.colors.posSoft else WmTheme.colors.negSoft
+    val fg = if (withinPlan) WmTheme.colors.pos else WmTheme.colors.neg
+    Box(
+        modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(bg)
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+    ) {
+        Text(if (withinPlan) "Dentro del plan" else "Atención", fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold, color = fg)
+    }
+}
+
+@Composable
+private fun BalanceHero(state: HomeUiState, reduced: Boolean) {
     val sym = currencySymbol(state.baseCurrency)
     val summary = state.summary
+    val balance = countUpCents(summary?.balanceCents ?: 0L, reduced)
     WmCard(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.primaryContainer,
@@ -165,7 +246,7 @@ private fun MonthHero(state: HomeUiState) {
                 Text("Aún sin datos", color = MaterialTheme.colorScheme.onPrimaryContainer)
             } else {
                 Text(
-                    formatAmount(summary.balanceCents, sym, signed = true, decimals = false),
+                    formatAmount(balance, sym, signed = true, decimals = false),
                     fontSize = 34.sp, fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
@@ -249,6 +330,7 @@ private fun TransactionRow(
     onClick: () -> Unit,
 ) {
     val income = transaction.type == "INCOME"
+    val transfer = transaction.type == "TRANSFER"
     val sym = currencySymbol(currency)
     Row(
         modifier = Modifier
@@ -271,11 +353,19 @@ private fun TransactionRow(
                 listOfNotNull(category?.name, transaction.incomeSource).joinToString(" · "),
                 fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
         }
+        val amount = formatAmount(transaction.amountCents, sym, signed = false)
         Text(
-            formatAmount(transaction.amountCents, sym,
-                signed = false).let { if (income) "+$it" else "−$it" },
+            when {
+                income -> "+$amount"
+                transfer -> "→$amount"
+                else -> "−$amount"
+            },
             fontSize = 15.sp, fontWeight = FontWeight.Bold,
-            color = if (income) WmTheme.colors.pos else MaterialTheme.colorScheme.onSurface,
+            color = when {
+                income -> WmTheme.colors.pos
+                transfer -> WmTheme.colors.savings
+                else -> MaterialTheme.colorScheme.onSurface
+            },
         )
     }
 }

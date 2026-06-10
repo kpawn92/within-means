@@ -7,4 +7,6 @@ data class UpdateUserPreferencesCommand(
     val displayName: String,
     val locale: String,
     val baseCurrency: String,
+    val monthlyBudgetCents: Long,
+    val spendingAlertsEnabled: Boolean,
 ) : Command

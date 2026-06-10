@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -48,6 +49,7 @@ import kotlinx.datetime.toLocalDateTime
 import org.koin.compose.viewmodel.koinViewModel
 import within.means.android.ui.components.WmChip
 import within.means.android.ui.components.WmPrimaryButton
+import within.means.android.ui.components.WmToggle
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -98,9 +100,9 @@ fun TransactionEditScreen(
 
             Text("Tipo")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("EXPENSE", "INCOME").forEach { t ->
+                typeOptions.forEach { (t, label) ->
                     WmChip(
-                        label = if (t == "EXPENSE") "Gasto" else "Ingreso",
+                        label = label,
                         selected = state.type == t,
                         onClick = { if (!viewModel.isEditMode) viewModel.onTypeChanged(t) },
                     )
@@ -153,6 +155,34 @@ fun TransactionEditScreen(
                             selected = state.categoryId == c.id,
                             onClick = { viewModel.onCategoryChanged(c.id) },
                         )
+                    }
+                }
+            }
+
+            if (!viewModel.isEditMode) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                ) {
+                    Text(
+                        if (state.activeRecurringCount > 0) {
+                            "Recurrente · ${state.activeRecurringCount} activos"
+                        } else {
+                            "Recurrente"
+                        },
+                    )
+                    WmToggle(state.recurring, viewModel::onRecurringChanged)
+                }
+                if (state.recurring) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("MONTHLY" to "Mensual", "WEEKLY" to "Semanal").forEach { (f, label) ->
+                            WmChip(
+                                label = label,
+                                selected = state.frequency == f,
+                                onClick = { viewModel.onFrequencyChanged(f) },
+                            )
+                        }
                     }
                 }
             }
@@ -217,6 +247,12 @@ private fun DateField(
         }
     }
 }
+
+private val typeOptions = listOf(
+    "EXPENSE" to "Gasto",
+    "INCOME" to "Ingreso",
+    "TRANSFER" to "Ahorro",
+)
 
 private fun isoToUtcMillis(iso: String): Long? =
     runCatching {

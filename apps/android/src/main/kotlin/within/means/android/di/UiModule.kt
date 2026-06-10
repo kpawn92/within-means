@@ -8,6 +8,7 @@ import within.means.android.ui.categories.CategoriesListViewModel
 import within.means.android.ui.categories.CategoryEditViewModel
 import within.means.android.ui.home.HomeViewModel
 import within.means.android.ui.onboarding.OnboardingViewModel
+import within.means.android.ui.quickadd.QuickAddViewModel
 import within.means.android.ui.settings.SettingsViewModel
 import within.means.android.ui.transactions.TransactionEditViewModel
 import within.means.android.ui.transactions.TransactionsListViewModel
@@ -16,7 +17,9 @@ import within.means.android.ui.unlock.UnlockViewModel
 val uiModule = module {
     viewModelOf(::OnboardingViewModel)
     viewModelOf(::UnlockViewModel)
-    viewModelOf(::HomeViewModel)
+    // HomeViewModel takes optional Clock+TimeZone with defaults (budget pace).
+    // Explicit factory lets Kotlin defaults apply, like StatsViewModel below.
+    viewModel { HomeViewModel(get()) }
     viewModelOf(::CategoriesListViewModel)
     viewModelOf(::CategoryEditViewModel)
     viewModelOf(::TransactionsListViewModel)
@@ -25,5 +28,7 @@ val uiModule = module {
     // would try to resolve them via DI. Explicit factory lets Kotlin defaults
     // apply (system clock + current zone). Mirrors analyticsModule.
     viewModel { StatsViewModel(get()) }
+    // QuickAddViewModel takes optional Clock+TimeZone with defaults.
+    viewModel { QuickAddViewModel() }
     viewModelOf(::SettingsViewModel)
 }

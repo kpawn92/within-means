@@ -23,6 +23,9 @@ import within.means.shared.domain.bus.query.QueryBus
 import within.means.transactions.application.OptionalTransactionResponse
 import within.means.transactions.application.edit.EditTransactionCommand
 import within.means.transactions.application.find.FindTransactionQuery
+import within.means.transactions.application.recurring.CreateRecurringRuleCommand
+import within.means.transactions.application.recurring.ListActiveRecurringRulesQuery
+import within.means.transactions.application.recurring.RecurringRulesResponse
 import within.means.transactions.application.register.RegisterTransactionCommand
 
 data class TransactionEditUiState(
@@ -34,6 +37,9 @@ data class TransactionEditUiState(
     val categoryId: String? = null,
     val incomeSource: String = "",
     val availableCategories: List<CategoryResponse> = emptyList(),
+    val recurring: Boolean = false,
+    val frequency: String = "MONTHLY",
+    val activeRecurringCount: Int = 0,
     val loading: Boolean = false,
     val saving: Boolean = false,
     val errorMessage: String? = null,
@@ -49,6 +55,17 @@ class TransactionEditViewModel : ViewModel(), KoinComponent {
 
     init {
         viewModelScope.launch { loadCategoriesForCurrentType() }
+        viewModelScope.launch { loadActiveRecurringCount() }
+    }
+
+    private suspend fun loadActiveRecurringCount() {
+        runCatching {
+            get<QueryBus>().ask<ListActiveRecurringRulesQuery, RecurringRulesResponse>(
+                ListActiveRecurringRulesQuery()
+            )
+        }.onSuccess { resp ->
+            _state.update { it.copy(activeRecurringCount = resp.items.size) }
+        }
     }
 
     fun loadExisting(transactionId: String) {
@@ -93,6 +110,8 @@ class TransactionEditViewModel : ViewModel(), KoinComponent {
     fun onDescriptionChanged(value: String) { _state.update { it.copy(description = value) } }
     fun onCategoryChanged(value: String) { _state.update { it.copy(categoryId = value) } }
     fun onIncomeSourceChanged(value: String) { _state.update { it.copy(incomeSource = value) } }
+    fun onRecurringChanged(value: Boolean) { _state.update { it.copy(recurring = value) } }
+    fun onFrequencyChanged(value: String) { _state.update { it.copy(frequency = value) } }
 
     fun save() {
         val s = _state.value
@@ -112,7 +131,21 @@ class TransactionEditViewModel : ViewModel(), KoinComponent {
             runCatching {
                 val bus = get<CommandBus>()
                 val incomeSource = s.incomeSource.takeIf { it.isNotBlank() && s.type == "INCOME" }
-                if (s.transactionId == null) {
+                if (s.transactionId == null && s.recurring) {
+                    // Recurring is create-only: the rule materializes its own
+                    // occurrences (including the first one due today).
+                    bus.dispatch(
+                        CreateRecurringRuleCommand(
+                            type = s.type,
+                            amountCents = cents,
+                            categoryId = categoryId,
+                            description = s.description,
+                            incomeSource = incomeSource,
+                            frequency = s.frequency,
+                            startDate = s.date,
+                        )
+                    )
+                } else if (s.transactionId == null) {
                     bus.dispatch(
                         RegisterTransactionCommand(
                             type = s.type,
