@@ -136,6 +136,42 @@ class TransactionEditViewModelTest {
     }
 
     @Test
+    fun `delete in edit mode removes the transaction and marks finished`() = runTest {
+        val cat = fixture.seedCategory("Comida")
+        fixture.commandBus.dispatch(
+            RegisterTransactionCommand(
+                type = "EXPENSE",
+                amountCents = 1500L,
+                date = "2026-05-20",
+                description = "Mercado",
+                categoryId = cat,
+            )
+        )
+        val saved = fixture.txRepository.all().single()
+
+        val vm = TransactionEditViewModel()
+        vm.loadExisting(saved.id.value)
+        advanceUntilIdle()
+
+        vm.delete()
+        advanceUntilIdle()
+
+        fixture.txRepository.all() shouldHaveSize 0
+        vm.state.value.isFinished shouldBe true
+    }
+
+    @Test
+    fun `delete in create mode is a no-op`() = runTest {
+        val vm = TransactionEditViewModel()
+        advanceUntilIdle()
+
+        vm.delete()
+        advanceUntilIdle()
+
+        vm.state.value.isFinished shouldBe false
+    }
+
+    @Test
     fun `save with a future date propagates a user-friendly error from the aggregate`() = runTest {
         val cat = fixture.seedCategory("Comida")
         val vm = TransactionEditViewModel()

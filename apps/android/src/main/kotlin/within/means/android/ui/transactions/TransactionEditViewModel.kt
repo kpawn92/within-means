@@ -21,8 +21,11 @@ import within.means.categories.application.search.SearchCategoriesQuery
 import within.means.shared.domain.bus.command.CommandBus
 import within.means.shared.domain.bus.query.QueryBus
 import within.means.transactions.application.OptionalTransactionResponse
+import within.means.transactions.application.delete.DeleteTransactionCommand
 import within.means.transactions.application.edit.EditTransactionCommand
 import within.means.transactions.application.find.FindTransactionQuery
+import within.means.users.application.OptionalUserResponse
+import within.means.users.application.find.FindDefaultUserQuery
 import within.means.transactions.application.recurring.CreateRecurringRuleCommand
 import within.means.transactions.application.recurring.ListActiveRecurringRulesQuery
 import within.means.transactions.application.recurring.RecurringRulesResponse
@@ -40,8 +43,10 @@ data class TransactionEditUiState(
     val recurring: Boolean = false,
     val frequency: String = "MONTHLY",
     val activeRecurringCount: Int = 0,
+    val baseCurrency: String = "",
     val loading: Boolean = false,
     val saving: Boolean = false,
+    val deleting: Boolean = false,
     val errorMessage: String? = null,
     val isFinished: Boolean = false,
 )
@@ -56,6 +61,15 @@ class TransactionEditViewModel : ViewModel(), KoinComponent {
     init {
         viewModelScope.launch { loadCategoriesForCurrentType() }
         viewModelScope.launch { loadActiveRecurringCount() }
+        viewModelScope.launch { loadCurrency() }
+    }
+
+    private suspend fun loadCurrency() {
+        runCatching {
+            get<QueryBus>().ask<FindDefaultUserQuery, OptionalUserResponse>(FindDefaultUserQuery())
+        }.onSuccess { resp ->
+            resp.user?.let { u -> _state.update { it.copy(baseCurrency = u.baseCurrency) } }
+        }
     }
 
     private suspend fun loadActiveRecurringCount() {
@@ -172,6 +186,20 @@ class TransactionEditViewModel : ViewModel(), KoinComponent {
                 _state.update { it.copy(saving = false, isFinished = true) }
             }.onFailure { e ->
                 _state.update { it.copy(saving = false, errorMessage = e.toUserMessage(ErrorContext.GENERIC)) }
+            }
+        }
+    }
+
+    fun delete() {
+        val id = _state.value.transactionId ?: return
+        viewModelScope.launch {
+            _state.update { it.copy(deleting = true, errorMessage = null) }
+            runCatching {
+                get<CommandBus>().dispatch(DeleteTransactionCommand(transactionId = id))
+            }.onSuccess {
+                _state.update { it.copy(deleting = false, isFinished = true) }
+            }.onFailure { e ->
+                _state.update { it.copy(deleting = false, errorMessage = e.toUserMessage(ErrorContext.GENERIC)) }
             }
         }
     }

@@ -450,3 +450,22 @@ feature descrita en §4/§8 sin construir. Todo verificado en Pixel_9 (API 36).
 > Home, 0 crashes). 383 tests verdes. Ver `RELEASE-0.1.0.md`.
 > ⚠️ Migraciones de esquema ahora son **in-place** (ALTER idempotente guardado); ya **no** requieren
 > borrar datos (corrige el ⚠️ de §10.2).
+
+### 10.5 Post-0.1.0 — Editor de movimiento a fidelidad plena (§4.5)
+
+En 0.1.0 el editor (`TransactionEditScreen`) recibió solo re-estilado ligero (chips → `WmChip`,
+guardar → `WmPrimaryButton`); el resto seguía siendo M3 plano. Esta tanda lo lleva al §4.5 completo:
+
+- **Topbar fullover**: cerrar (`Close`) / título / **borrar** (`DeleteOutline` en `neg`, solo en edición).
+- **Segmented tipo** (`WmSegmented` Gasto/Ingreso/Ahorro); fijo al editar (el tipo no cambia).
+- **Importe grande editable** (52sp, `BasicTextField` con teclado decimal del sistema — ver nota §4.3),
+  **coloreado por la categoría seleccionada** (`categoryColor`) con fallback al color del tipo; símbolo
+  de moneda real (`FindDefaultUserQuery`).
+- **Picker de categoría en chips horizontales con `CatIcon`** (scroll horizontal; chip con icono+nombre,
+  resaltado con el color de la categoría).
+- Descripción + fuente (ingreso) + `DateField` (reutilizado) + toggle Recurrente/frecuencia (solo creación).
+- **Barra inferior** sticky con `WmPrimaryButton` "Añadir/Guardar".
+- **Diálogo de borrado** (`AlertDialog`) → `DeleteTransactionCommand`; el VM expone `delete()`.
+
+VM: `baseCurrency` + `loadCurrency()` (patrón QuickAdd) y `delete()` (no-op en creación). Tests por capa
+(borrar en edición elimina + finaliza; borrar en creación es no-op). 385 tests verdes.
