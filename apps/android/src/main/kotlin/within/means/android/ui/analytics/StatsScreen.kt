@@ -242,12 +242,19 @@ private data class BreakdownRow(val name: String, val cents: Long, val color: Co
 @Composable
 private fun BreakdownCard(state: StatsUiState, lens: String, onLens: (String) -> Unit, sym: String) {
     val summary = state.summary ?: return
-    val rows: List<BreakdownRow> = if (lens == "categoria") {
-        state.breakdown?.items.orEmpty()
+    // Three lenses over the same expenses. "Necesidad" (essential/discretionary) and
+    // "Tipo" (fixed/variable) are two different partitions the analytics engine already
+    // computes; their colours only distinguish the split — they are NOT income/expense,
+    // so they deliberately avoid the blue/red brand rule.
+    val rows: List<BreakdownRow> = when (lens) {
+        "categoria" -> state.breakdown?.items.orEmpty()
             .sortedByDescending { it.totalCents }
             .map { BreakdownRow(it.categoryName, it.totalCents, categoryColor(it.color)) }
-    } else {
-        listOf(
+        "tipo" -> listOf(
+            BreakdownRow("Fijo", summary.fixedExpenseCents, categoryColor("#717A8C")),
+            BreakdownRow("Variable", summary.variableExpenseCents, categoryColor("#C8783C")),
+        )
+        else -> listOf(
             BreakdownRow("Esencial", summary.essentialExpenseCents, WmTheme.colors.pos),
             BreakdownRow("Discrecional", summary.discretionaryExpenseCents, WmTheme.colors.savings),
         )
@@ -258,7 +265,11 @@ private fun BreakdownCard(state: StatsUiState, lens: String, onLens: (String) ->
             Text("Desglose", fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface)
             WmSegmented(
-                options = listOf("categoria" to "Categoría", "tipo" to "Tipo"),
+                options = listOf(
+                    "categoria" to "Categoría",
+                    "necesidad" to "Necesidad",
+                    "tipo" to "Tipo",
+                ),
                 selected = lens, onSelect = onLens,
             )
             if (rows.isEmpty()) {

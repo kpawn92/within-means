@@ -15,8 +15,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -50,6 +52,7 @@ import within.means.android.ui.format.currencySymbol
 
 @Composable
 fun SettingsScreen(
+    onBack: () -> Unit = {},
     onManageRecurring: () -> Unit = {},
     onLockNow: () -> Unit = {},
     onReplayIntro: () -> Unit = {},
@@ -84,8 +87,18 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Spacer(Modifier.size(4.dp))
-            Text("Ajustes", fontSize = 24.sp, fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(end = 44.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack, modifier = Modifier.size(40.dp)) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Atrás",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+                Spacer(Modifier.size(8.dp))
+                Text("Ajustes", fontSize = 24.sp, fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface)
+            }
 
             if (state.loading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
 

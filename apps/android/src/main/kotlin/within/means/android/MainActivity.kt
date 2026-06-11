@@ -254,6 +254,7 @@ private fun WithinMeansApp() {
                 composable(Routes.Stats) { StatsScreen() }
                 composable(Routes.Settings) {
                     SettingsScreen(
+                        onBack = { navController.popBackStack() },
                         onManageRecurring = { navController.navigate(Routes.Recurring) },
                         onLockNow = {
                             unlocker.lock()
