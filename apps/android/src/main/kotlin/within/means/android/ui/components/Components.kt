@@ -7,6 +7,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -24,18 +25,25 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.roundToInt
 import within.means.android.ui.theme.WmRadii
 
 /* ---------- Card ---------- */
@@ -81,12 +89,45 @@ fun WmSegmented(
     selected: String,
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
+    // Switch by dragging too, not only tapping: each segment-width of horizontal
+    // drag advances one option. `selectedState` is read live so a single drag can
+    // cross several segments without the gesture restarting.
+    var widthPx by remember { mutableStateOf(0) }
+    val segWidth = if (options.isNotEmpty()) widthPx.toFloat() / options.size else 0f
+    val selectedState = rememberUpdatedState(selected)
     Row(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(WmRadii.pill))
             .background(MaterialTheme.colorScheme.surfaceVariant)
+            // A locked control reads as locked: dimmed, no ripple, no response.
+            .alpha(if (enabled) 1f else 0.5f)
+            .onSizeChanged { widthPx = it.width }
+            .pointerInput(enabled, options, segWidth) {
+                if (!enabled || segWidth <= 0f) return@pointerInput
+                var startIndex = 0
+                var acc = 0f
+                var lastEmitted = 0
+                detectHorizontalDragGestures(
+                    onDragStart = {
+                        startIndex = options.indexOfFirst { it.first == selectedState.value }
+                            .coerceAtLeast(0)
+                        acc = 0f
+                        lastEmitted = startIndex
+                    },
+                    onHorizontalDrag = { _, delta ->
+                        acc += delta
+                        val target = (startIndex + (acc / segWidth).roundToInt())
+                            .coerceIn(0, options.lastIndex)
+                        if (target != lastEmitted) {
+                            lastEmitted = target
+                            onSelect(options[target].first)
+                        }
+                    },
+                )
+            }
             .padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
@@ -105,7 +146,7 @@ fun WmSegmented(
                     .weight(1f)
                     .clip(RoundedCornerShape(WmRadii.pill))
                     .background(bg)
-                    .clickable { onSelect(value) }
+                    .clickable(enabled = enabled) { onSelect(value) }
                     .padding(vertical = 9.dp),
                 contentAlignment = Alignment.Center,
             ) {

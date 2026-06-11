@@ -159,11 +159,21 @@ fun TransactionEditScreen(
         ) {
             Spacer(Modifier.size(4.dp))
 
+            // Type is fixed once a movement exists (you can't turn an expense into
+            // savings after the fact), so it's shown locked rather than fake-tappable.
             WmSegmented(
                 options = typeOptions,
                 selected = state.type,
-                onSelect = { if (!viewModel.isEditMode) viewModel.onTypeChanged(it) },
+                onSelect = viewModel::onTypeChanged,
+                enabled = !viewModel.isEditMode,
             )
+            if (viewModel.isEditMode) {
+                Text(
+                    "El tipo no se puede cambiar al editar.",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
 
             // Giant amount; tapping opens the calculator. Tinted by the chosen
             // category (or type fallback).
