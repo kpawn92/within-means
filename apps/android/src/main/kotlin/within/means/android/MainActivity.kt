@@ -65,6 +65,8 @@ import within.means.android.ui.theme.WithinMeansTheme
 import within.means.android.ui.analytics.StatsScreen
 import within.means.android.ui.categories.CategoriesListScreen
 import within.means.android.ui.categories.CategoryEditScreen
+import within.means.android.ui.help.HelpAction
+import within.means.android.ui.help.HelpScreen
 import within.means.android.ui.home.HomeScreen
 import within.means.android.ui.onboarding.IntroCarousel
 import within.means.android.ui.onboarding.OnboardingScreen
@@ -112,6 +114,7 @@ private object Routes {
     const val RecurringEdit = "recurring/edit/{ruleId}"
     const val Intro = "intro"
     const val ChangePin = "settings/change-pin"
+    const val Help = "help"
 
     fun recurringEdit(ruleId: String): String = "recurring/edit/$ruleId"
 
@@ -265,6 +268,19 @@ private fun WithinMeansApp() {
                         },
                         onReplayIntro = { navController.navigate(Routes.Intro) },
                         onChangePin = { navController.navigate(Routes.ChangePin) },
+                        onOpenHelp = { navController.navigate(Routes.Help) },
+                    )
+                }
+                composable(Routes.Help) {
+                    HelpScreen(
+                        onBack = { navController.popBackStack() },
+                        onAction = { action ->
+                            when (action) {
+                                HelpAction.QUICK_ADD -> showQuickAdd = true
+                                HelpAction.STATS -> navController.navigateToTab(Routes.Stats)
+                                HelpAction.CATEGORIES -> navController.navigateToTab(Routes.Categories)
+                            }
+                        },
                     )
                 }
                 composable(Routes.ChangePin) {
