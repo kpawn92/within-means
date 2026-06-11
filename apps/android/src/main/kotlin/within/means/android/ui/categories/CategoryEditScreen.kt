@@ -22,6 +22,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
@@ -35,11 +37,15 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -60,6 +66,7 @@ fun CategoryEditScreen(
 ) {
     val viewModel: CategoryEditViewModel = koinViewModel()
     val state by viewModel.state.collectAsState()
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(categoryId) {
         if (categoryId != null) viewModel.loadExisting(categoryId)
@@ -78,6 +85,20 @@ fun CategoryEditScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Atrás")
+                    }
+                },
+                actions = {
+                    // Delete is only offered for an existing category that no transaction
+                    // uses yet (state.isUsed == false). While usage is still being checked
+                    // (null) or the category is in use, the action stays hidden.
+                    if (viewModel.isEditMode && state.isUsed == false) {
+                        IconButton(onClick = { showDeleteDialog = true }, enabled = !state.deleting) {
+                            Icon(
+                                Icons.Outlined.DeleteOutline,
+                                contentDescription = "Borrar categoría",
+                                tint = MaterialTheme.colorScheme.error,
+                            )
+                        }
                     }
                 },
             )
@@ -193,6 +214,23 @@ fun CategoryEditScreen(
                 onClick = viewModel::save,
                 enabled = !state.saving,
                 modifier = Modifier.fillMaxWidth(),
+            )
+        }
+
+        if (showDeleteDialog) {
+            AlertDialog(
+                onDismissRequest = { showDeleteDialog = false },
+                title = { Text("Borrar categoría") },
+                text = { Text("¿Seguro que quieres borrar \"${state.name}\"? No se puede deshacer.") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showDeleteDialog = false
+                        viewModel.delete()
+                    }) { Text("Borrar", color = MaterialTheme.colorScheme.error) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteDialog = false }) { Text("Cancelar") }
+                },
             )
         }
     }

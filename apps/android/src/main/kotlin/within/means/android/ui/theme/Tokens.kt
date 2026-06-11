@@ -30,10 +30,18 @@ data class WmColorTokens(
     val income: Color,
     /** Soft blue background for income emphasis (badges/chips). */
     val incomeSoft: Color,
+    /** Filled blue container (hero card on a positive net balance). */
+    val incomeContainer: Color,
+    /** Content/text on [incomeContainer]. */
+    val onIncomeContainer: Color,
     /** Expense / money-out — RED. Brand rule. */
     val expense: Color,
     /** Soft red background for expense emphasis. */
     val expenseSoft: Color,
+    /** Filled red container (hero card on a negative net balance). */
+    val expenseContainer: Color,
+    /** Content/text on [expenseContainer]. */
+    val onExpenseContainer: Color,
     /** State "warning / bad" — warm terracotta (NOT expense; e.g. budget attention, errors). */
     val neg: Color,
     /** Soft terracotta background for warning state. */
@@ -51,8 +59,12 @@ data class WmColorTokens(
 private val LightTokens = WmColorTokens(
     income = Color(0xFF2F6FB3),
     incomeSoft = Color(0xFFE1ECF7),
+    incomeContainer = Color(0xFF3F6FA6),
+    onIncomeContainer = Color(0xFFF2F7FD),
     expense = Color(0xFFC5392B),
     expenseSoft = Color(0xFFF8E1DD),
+    expenseContainer = Color(0xFFB5453A),
+    onExpenseContainer = Color(0xFFFDF3F1),
     neg = Color(0xFFC25B47),
     negSoft = Color(0xFFF4E2DC),
     pos = Color(0xFF3F8F6B),
@@ -64,8 +76,12 @@ private val LightTokens = WmColorTokens(
 private val DarkTokens = WmColorTokens(
     income = Color(0xFF5FA8E0),
     incomeSoft = Color(0xFF1B2C3D),
-    expense = Color(0xFFE5705C),
+    incomeContainer = Color(0xFF2C4A6B),
+    onIncomeContainer = Color(0xFFDCE8F7),
+    expense = Color(0xFFFF5449),
     expenseSoft = Color(0xFF3A2420),
+    expenseContainer = Color(0xFF8C2F26),
+    onExpenseContainer = Color(0xFFFFDAD4),
     neg = Color(0xFFD98162),
     negSoft = Color(0xFF3A271F),
     pos = Color(0xFF5FBE8E),

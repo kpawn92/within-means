@@ -102,7 +102,7 @@ fun TransactionsListScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(formatAmount(monthExpense, sym, decimals = false),
                             fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            color = WmTheme.colors.expense)
                         IconButton(onClick = onCreate) {
                             Icon(Icons.Filled.Add, contentDescription = "Nuevo movimiento",
                                 tint = MaterialTheme.colorScheme.primary)

@@ -118,7 +118,9 @@ private fun SummaryTrio(summary: MonthlySummaryResponse, sym: String) {
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         StatCell("Ingresos", summary.totalIncomeCents, WmTheme.colors.income, sym, Modifier.weight(1f))
         StatCell("Gastos", summary.totalExpenseCents, WmTheme.colors.expense, sym, Modifier.weight(1f))
-        StatCell("Ahorro", summary.balanceCents, WmTheme.colors.savings, sym, Modifier.weight(1f))
+        // Net result: surplus reads as income (blue), deficit as expense (red).
+        val netColor = if (summary.balanceCents >= 0) WmTheme.colors.income else WmTheme.colors.expense
+        StatCell("Ahorro", summary.balanceCents, netColor, sym, Modifier.weight(1f))
     }
 }
 
@@ -153,36 +155,40 @@ private fun SavingsRateCard(
     val pct = if (income > 0) (saved.toFloat() / income).coerceIn(0f, 1f) else 0f
     val pctInt = (pct * 100).toInt()
     val prevRate = savingsRate(previous)
-    WmCard(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.primaryContainer) {
+    // Brand rule: a surplus reads as income (blue), a deficit as expense (red).
+    val (cardColor, onC) = if (saved >= 0)
+        WmTheme.colors.incomeContainer to WmTheme.colors.onIncomeContainer
+    else
+        WmTheme.colors.expenseContainer to WmTheme.colors.onExpenseContainer
+    WmCard(modifier = Modifier.fillMaxWidth(), color = cardColor) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             WmDonut(
                 segments = listOf(
-                    DonutSegment(pct, MaterialTheme.colorScheme.primary),
-                    DonutSegment(1f - pct, MaterialTheme.colorScheme.surfaceContainerHigh),
+                    DonutSegment(pct, onC),
+                    DonutSegment(1f - pct, onC.copy(alpha = 0.18f)),
                 ),
                 size = 68.dp, thickness = 10.dp, gapDegrees = 0f,
             ) {
-                Text("$pctInt%", fontSize = 15.sp, fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer)
+                Text("$pctInt%", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = onC)
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(if (pctInt >= 0) "Tasa de ahorro" else "Periodo en números rojos",
-                    fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer)
+                Text(if (saved >= 0) "Tasa de ahorro" else "Periodo en números rojos",
+                    fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = onC)
                 Text(
                     if (saved >= 0) "Guardaste ${formatAmount(saved, sym, decimals = false)} de lo que entró."
                     else "Gastaste ${formatAmount(-saved, sym, decimals = false)} más de lo que entró.",
-                    fontSize = 12.sp, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                    fontSize = 12.sp, color = onC.copy(alpha = 0.8f),
                 )
                 // Real previous-period comparison (replaces the mock phrase).
                 if (prevRate != null) {
                     val deltaPts = pctInt - (prevRate * 100).toInt()
-                    val (text, color) = when {
-                        deltaPts > 0 -> "▲ $deltaPts pts $comparisonLabel" to WmTheme.colors.pos
-                        deltaPts < 0 -> "▼ ${-deltaPts} pts $comparisonLabel" to WmTheme.colors.neg
-                        else -> "Igual $comparisonLabel" to MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                    val text = when {
+                        deltaPts > 0 -> "▲ $deltaPts pts $comparisonLabel"
+                        deltaPts < 0 -> "▼ ${-deltaPts} pts $comparisonLabel"
+                        else -> "Igual $comparisonLabel"
                     }
-                    Text(text, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = color)
+                    Text(text, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                        color = onC.copy(alpha = if (deltaPts == 0) 0.7f else 1f))
                 }
             }
         }

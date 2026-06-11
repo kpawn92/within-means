@@ -229,12 +229,16 @@ private fun BudgetHero(
     revealed: Boolean,
     onToggleReveal: () -> Unit,
 ) {
-    val onBrand = MaterialTheme.colorScheme.onPrimaryContainer
+    // Brand rule: within plan reads as income (blue), over plan as expense (red).
+    val (cardColor, onBrand) = if (budget.withinPlan)
+        WmTheme.colors.incomeContainer to WmTheme.colors.onIncomeContainer
+    else
+        WmTheme.colors.expenseContainer to WmTheme.colors.onExpenseContainer
     val fraction = if (budget.planCents > 0) budget.spentCents.toFloat() / budget.planCents else 0f
     val available = countUpCents(budget.availableCents, reduced)
     WmCard(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.primaryContainer,
+        color = cardColor,
         contentPadding = 22.dp,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -245,7 +249,7 @@ private fun BudgetHero(
             ) {
                 WmEyebrow("Disponible", color = onBrand.copy(alpha = 0.7f))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    BudgetBadge(budget.withinPlan)
+                    BudgetBadge(budget.withinPlan, onBrand)
                     if (canReveal) {
                         Spacer(Modifier.size(4.dp))
                         RevealToggle(revealed, onBrand.copy(alpha = 0.8f), onToggleReveal)
@@ -258,7 +262,8 @@ private fun BudgetHero(
             )
             WmBar(
                 fraction = fraction,
-                color = if (budget.withinPlan) WmTheme.colors.pos else WmTheme.colors.neg,
+                // The card colour already conveys good/bad; keep the bar legible on it.
+                color = onBrand.copy(alpha = 0.9f),
                 track = onBrand.copy(alpha = 0.18f),
             )
             Row(
@@ -282,15 +287,13 @@ private fun BudgetHero(
 }
 
 @Composable
-private fun BudgetBadge(withinPlan: Boolean) {
-    val bg = if (withinPlan) WmTheme.colors.posSoft else WmTheme.colors.negSoft
-    val fg = if (withinPlan) WmTheme.colors.pos else WmTheme.colors.neg
+private fun BudgetBadge(withinPlan: Boolean, onContainer: Color) {
     Box(
-        modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(bg)
+        modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(onContainer.copy(alpha = 0.18f))
             .padding(horizontal = 10.dp, vertical = 4.dp),
     ) {
         Text(if (withinPlan) "Dentro del plan" else "Atención", fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold, color = fg)
+            fontWeight = FontWeight.SemiBold, color = onContainer)
     }
 }
 
@@ -305,11 +308,18 @@ private fun BalanceHero(
 ) {
     val sym = currencySymbol(state.baseCurrency)
     val summary = state.summary
-    val balance = countUpCents(summary?.balanceCents ?: 0L, reduced)
-    val onBrand = MaterialTheme.colorScheme.onPrimaryContainer
+    val balanceCents = summary?.balanceCents ?: 0L
+    val balance = countUpCents(balanceCents, reduced)
+    // Brand rule: a positive net balance reads as income (blue), a negative one as
+    // expense (red); zero stays on the neutral brand container.
+    val (cardColor, onBrand) = when {
+        balanceCents > 0 -> WmTheme.colors.incomeContainer to WmTheme.colors.onIncomeContainer
+        balanceCents < 0 -> WmTheme.colors.expenseContainer to WmTheme.colors.onExpenseContainer
+        else -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
+    }
     WmCard(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.primaryContainer,
+        color = cardColor,
         contentPadding = 22.dp,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -334,8 +344,8 @@ private fun BalanceHero(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(24.dp),
                 ) {
-                    HeroStat("Ingresos", summary.totalIncomeCents, WmTheme.colors.income, sym, masked)
-                    HeroStat("Gastos", summary.totalExpenseCents, WmTheme.colors.expense, sym, masked)
+                    HeroStat("Ingresos", summary.totalIncomeCents, WmTheme.colors.income, onBrand, sym, masked)
+                    HeroStat("Gastos", summary.totalExpenseCents, WmTheme.colors.expense, onBrand, sym, masked)
                 }
             }
         }
@@ -343,15 +353,15 @@ private fun BalanceHero(
 }
 
 @Composable
-private fun HeroStat(label: String, cents: Long, color: Color, sym: String, masked: Boolean) {
+private fun HeroStat(label: String, cents: Long, color: Color, onContainer: Color, sym: String, masked: Boolean) {
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(8.dp).clip(RoundedCornerShape(4.dp)).background(color))
             Spacer(Modifier.size(6.dp))
-            Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
+            Text(label, fontSize = 12.sp, color = onContainer.copy(alpha = 0.8f))
         }
         Text(money(cents, sym, masked, decimals = false), fontSize = 16.sp, fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onPrimaryContainer)
+            color = onContainer)
     }
 }
 

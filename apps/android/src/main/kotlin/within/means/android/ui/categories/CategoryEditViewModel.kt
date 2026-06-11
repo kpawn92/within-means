@@ -13,12 +13,15 @@ import within.means.android.ui.error.ErrorContext
 import within.means.android.ui.error.toUserMessage
 import within.means.categories.application.OptionalCategoryResponse
 import within.means.categories.application.create.CreateCategoryCommand
+import within.means.categories.application.delete.DeleteCategoryCommand
 import within.means.categories.application.find.FindCategoryQuery
 import within.means.categories.application.reclassify.ReclassifyCategoryCommand
 import within.means.categories.application.recolor.RestyleCategoryCommand
 import within.means.categories.application.rename.RenameCategoryCommand
 import within.means.shared.domain.bus.command.CommandBus
 import within.means.shared.domain.bus.query.QueryBus
+import within.means.transactions.application.TransactionsResponse
+import within.means.transactions.application.search.SearchTransactionsQuery
 
 data class CategoryEditUiState(
     val categoryId: String? = null,
@@ -32,8 +35,14 @@ data class CategoryEditUiState(
     val engelGroup: String? = "OTHER",
     val loading: Boolean = false,
     val saving: Boolean = false,
+    val deleting: Boolean = false,
     val errorMessage: String? = null,
     val isFinished: Boolean = false,
+    /**
+     * Whether this category already has transactions. `null` while it's still being
+     * checked (or in create mode); deletion is only offered once this is `false`.
+     */
+    val isUsed: Boolean? = null,
 )
 
 class CategoryEditViewModel : ViewModel(), KoinComponent {
@@ -64,9 +73,42 @@ class CategoryEditViewModel : ViewModel(), KoinComponent {
                         engelGroup = c.engelGroup,
                     )
                 }
+                checkUsage(categoryId)
             }.onFailure { e ->
                 _state.update {
                     it.copy(loading = false, errorMessage = e.toUserMessage(ErrorContext.GENERIC))
+                }
+            }
+        }
+    }
+
+    /**
+     * Cross-context usage check (app layer, not inside the KMP module): a category can
+     * only be deleted while no transaction references it. Failures leave [isUsed] null,
+     * so the delete action simply stays hidden rather than offering an unsafe delete.
+     */
+    private fun checkUsage(categoryId: String) {
+        viewModelScope.launch {
+            runCatching {
+                get<QueryBus>().ask<SearchTransactionsQuery, TransactionsResponse>(
+                    SearchTransactionsQuery(categoryId = categoryId, limit = 1)
+                ).items.isNotEmpty()
+            }.onSuccess { used -> _state.update { it.copy(isUsed = used) } }
+        }
+    }
+
+    fun delete() {
+        val id = _state.value.categoryId ?: return
+        if (_state.value.isUsed != false) return
+        viewModelScope.launch {
+            _state.update { it.copy(deleting = true, errorMessage = null) }
+            runCatching {
+                get<CommandBus>().dispatch(DeleteCategoryCommand(id))
+            }.onSuccess {
+                _state.update { it.copy(deleting = false, isFinished = true) }
+            }.onFailure { e ->
+                _state.update {
+                    it.copy(deleting = false, errorMessage = e.toUserMessage(ErrorContext.GENERIC))
                 }
             }
         }
