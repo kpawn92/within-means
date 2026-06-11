@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
@@ -374,8 +375,11 @@ private fun NavBarItem(
         else MaterialTheme.colorScheme.onSurfaceVariant
     Column(
         modifier = Modifier
-            .clickable { onTab(tab.route) }
-            .padding(horizontal = 6.dp, vertical = 4.dp),
+            // Clip first so the tap ripple is a rounded pill, not a square box.
+            // The active tab isn't re-tappable, which avoids unexpected re-navigation.
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(enabled = !selected) { onTab(tab.route) }
+            .padding(horizontal = 14.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {

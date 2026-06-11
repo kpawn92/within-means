@@ -48,6 +48,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.font.FontWeight
@@ -273,7 +274,8 @@ private fun ColorRow(selected: String, onSelected: (String) -> Unit) {
             Box(
                 modifier = Modifier
                     .size(36.dp)
-                    .background(parseHex(hex), CircleShape)
+                    .clip(CircleShape)
+                    .background(parseHex(hex))
                     .border(
                         width = if (isSelected) 3.dp else 1.dp,
                         color = if (isSelected) MaterialTheme.colorScheme.primary else Color.LightGray,
@@ -298,9 +300,9 @@ private fun IconRow(selected: String, onSelected: (String) -> Unit, color: Strin
             Box(
                 modifier = Modifier
                     .size(48.dp)
+                    .clip(RoundedCornerShape(12.dp))
                     .background(
                         color = if (isSelected) parseHex(color) else MaterialTheme.colorScheme.surfaceVariant,
-                        shape = RoundedCornerShape(12.dp),
                     )
                     .clickable { onSelected(id) },
                 contentAlignment = Alignment.Center,
