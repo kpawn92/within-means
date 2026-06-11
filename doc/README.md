@@ -45,6 +45,9 @@ doc/
 | Entender cómo escala el sistema | [`scalability/strategy.md`](scalability/strategy.md) |
 | Ver los KPIs profesionales objetivo | [`scalability/kpi-catalog.md`](scalability/kpi-catalog.md) |
 | Saber qué se construye y cuándo | [`roadmap/mvp.md`](roadmap/mvp.md) / [`roadmap/post-mvp.md`](roadmap/post-mvp.md) |
+| Implementar el rediseño de la app | [`within-means-app/SPEC.md`](within-means-app/SPEC.md) |
+| Diseñar la pantalla principal (Home) | [`within-means-app/HOME-DESIGN-SPEC.md`](within-means-app/HOME-DESIGN-SPEC.md) |
+| **Regla de color: ingreso=azul, gasto=rojo** | [`within-means-app/HOME-DESIGN-SPEC.md`](within-means-app/HOME-DESIGN-SPEC.md) §1 |
 
 ## Convenciones de la documentación
 

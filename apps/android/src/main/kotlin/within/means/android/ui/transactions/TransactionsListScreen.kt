@@ -136,8 +136,8 @@ fun TransactionsListScreen(
                                 WmEyebrow(group.label)
                                 Text(formatAmount(group.totalCents, sym, signed = true, decimals = false),
                                     fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                                    color = if (group.totalCents >= 0) WmTheme.colors.pos
-                                        else MaterialTheme.colorScheme.onSurfaceVariant)
+                                    color = if (group.totalCents >= 0) WmTheme.colors.income
+                                        else WmTheme.colors.expense)
                             }
                             WmCard(contentPadding = 6.dp) {
                                 Column {
@@ -227,9 +227,9 @@ private fun TransactionRow(
             },
             fontSize = 15.sp, fontWeight = FontWeight.Bold,
             color = when {
-                income -> WmTheme.colors.pos
+                income -> WmTheme.colors.income
                 transfer -> WmTheme.colors.savings
-                else -> MaterialTheme.colorScheme.onSurface
+                else -> WmTheme.colors.expense
             },
         )
     }

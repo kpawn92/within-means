@@ -11,18 +11,36 @@ import androidx.compose.ui.unit.dp
  * Fixed design tokens that Material 3's dynamic color scheme does not provide.
  *
  * Per SPEC §7-D we keep Material You (dynamic) for "chrome" — surfaces, primary,
- * text — but finance semantics (income green / expense terracotta) and the
- * category palette must NOT follow the wallpaper, so they live here as fixed
- * values that still flip between light and dark.
+ * text — but finance semantics and the category palette must NOT follow the
+ * wallpaper, so they live here as fixed values that still flip between light and dark.
+ *
+ * HARD BRAND RULE (see doc/within-means-app/HOME-DESIGN-SPEC.md §1):
+ *   INCOME  = BLUE  ([income]/[incomeSoft])
+ *   EXPENSE = RED   ([expense]/[expenseSoft])
+ *   SAVINGS = olive brand ([savings])
+ * Never use [income]/[expense] for anything that is not money-in / money-out.
+ *
+ * [pos]/[neg] are NOT income/expense — they are STATE tokens (ok / warning),
+ * used for budget "within plan / attention", savings-rate deltas and destructive
+ * actions. They stay green / terracotta on purpose so they don't clash with the
+ * blue/red flow-of-money semantics.
  */
 data class WmColorTokens(
-    /** Expense / negative — warm terracotta, never pure red. */
+    /** Income / money-in — BLUE. Brand rule, independent of dynamic primary. */
+    val income: Color,
+    /** Soft blue background for income emphasis (badges/chips). */
+    val incomeSoft: Color,
+    /** Expense / money-out — RED. Brand rule. */
+    val expense: Color,
+    /** Soft red background for expense emphasis. */
+    val expenseSoft: Color,
+    /** State "warning / bad" — warm terracotta (NOT expense; e.g. budget attention, errors). */
     val neg: Color,
-    /** Soft terracotta background for negative emphasis. */
+    /** Soft terracotta background for warning state. */
     val negSoft: Color,
-    /** Income / positive — brand green, independent of dynamic primary. */
+    /** State "ok / good" — brand green (NOT income; e.g. within-plan, positive delta). */
     val pos: Color,
-    /** Soft green background for positive emphasis. */
+    /** Soft green background for ok state. */
     val posSoft: Color,
     /** Savings / transfer accent (olive-leaning brand). */
     val savings: Color,
@@ -31,6 +49,10 @@ data class WmColorTokens(
 )
 
 private val LightTokens = WmColorTokens(
+    income = Color(0xFF2F6FB3),
+    incomeSoft = Color(0xFFE1ECF7),
+    expense = Color(0xFFC5392B),
+    expenseSoft = Color(0xFFF8E1DD),
     neg = Color(0xFFC25B47),
     negSoft = Color(0xFFF4E2DC),
     pos = Color(0xFF3F8F6B),
@@ -40,6 +62,10 @@ private val LightTokens = WmColorTokens(
 )
 
 private val DarkTokens = WmColorTokens(
+    income = Color(0xFF5FA8E0),
+    incomeSoft = Color(0xFF1B2C3D),
+    expense = Color(0xFFE5705C),
+    expenseSoft = Color(0xFF3A2420),
     neg = Color(0xFFD98162),
     negSoft = Color(0xFF3A271F),
     pos = Color(0xFF5FBE8E),

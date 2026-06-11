@@ -105,9 +105,9 @@ private fun RecurringRuleCard(
     onDeactivate: () -> Unit,
 ) {
     val accent = when (rule.type) {
-        "INCOME" -> WmTheme.colors.pos
+        "INCOME" -> WmTheme.colors.income
         "TRANSFER" -> WmTheme.colors.savings
-        else -> WmTheme.colors.neg
+        else -> WmTheme.colors.expense
     }
     val prefix = when (rule.type) {
         "INCOME" -> "+"

@@ -58,9 +58,9 @@ fun QuickAddSheet(
 
     val sym = currencySymbol(state.baseCurrency)
     val amountColor = when (state.type) {
-        "INCOME" -> WmTheme.colors.pos
+        "INCOME" -> WmTheme.colors.income
         "TRANSFER" -> WmTheme.colors.savings
-        else -> WmTheme.colors.neg
+        else -> WmTheme.colors.expense
     }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {

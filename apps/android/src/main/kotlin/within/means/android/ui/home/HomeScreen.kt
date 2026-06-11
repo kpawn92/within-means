@@ -334,8 +334,8 @@ private fun BalanceHero(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(24.dp),
                 ) {
-                    HeroStat("Ingresos", summary.totalIncomeCents, WmTheme.colors.pos, sym, masked)
-                    HeroStat("Gastos", summary.totalExpenseCents, WmTheme.colors.neg, sym, masked)
+                    HeroStat("Ingresos", summary.totalIncomeCents, WmTheme.colors.income, sym, masked)
+                    HeroStat("Gastos", summary.totalExpenseCents, WmTheme.colors.expense, sym, masked)
                 }
             }
         }
@@ -442,9 +442,9 @@ private fun TransactionRow(
             },
             fontSize = 15.sp, fontWeight = FontWeight.Bold,
             color = when {
-                income -> WmTheme.colors.pos
+                income -> WmTheme.colors.income
                 transfer -> WmTheme.colors.savings
-                else -> MaterialTheme.colorScheme.onSurface
+                else -> WmTheme.colors.expense
             },
         )
     }

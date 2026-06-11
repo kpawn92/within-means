@@ -100,9 +100,9 @@ fun TransactionEditScreen(
     val selectedCategory = state.availableCategories.firstOrNull { it.id == state.categoryId }
     val accent = when {
         selectedCategory != null -> categoryColor(selectedCategory.color)
-        state.type == "INCOME" -> WmTheme.colors.pos
+        state.type == "INCOME" -> WmTheme.colors.income
         state.type == "TRANSFER" -> WmTheme.colors.savings
-        else -> WmTheme.colors.neg
+        else -> WmTheme.colors.expense
     }
     val busy = state.saving || state.deleting
 

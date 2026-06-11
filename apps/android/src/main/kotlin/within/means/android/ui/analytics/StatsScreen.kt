@@ -116,8 +116,8 @@ fun StatsScreen() {
 @Composable
 private fun SummaryTrio(summary: MonthlySummaryResponse, sym: String) {
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        StatCell("Ingresos", summary.totalIncomeCents, WmTheme.colors.pos, sym, Modifier.weight(1f))
-        StatCell("Gastos", summary.totalExpenseCents, WmTheme.colors.neg, sym, Modifier.weight(1f))
+        StatCell("Ingresos", summary.totalIncomeCents, WmTheme.colors.income, sym, Modifier.weight(1f))
+        StatCell("Gastos", summary.totalExpenseCents, WmTheme.colors.expense, sym, Modifier.weight(1f))
         StatCell("Ahorro", summary.balanceCents, WmTheme.colors.savings, sym, Modifier.weight(1f))
     }
 }
