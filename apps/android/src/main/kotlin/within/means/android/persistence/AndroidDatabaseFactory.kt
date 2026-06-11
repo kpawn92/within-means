@@ -72,6 +72,8 @@ class AndroidDatabaseFactory(private val context: Context) {
 
     fun buildTransactions(passphrase: ByteArray): Opened<TransactionsDatabase> {
         val driver = openDriver(TransactionsDatabase.Schema, sentinelTable = "transaction_entry", passphrase = passphrase)
+        // Additive migration: optional time-of-day for installs created before it existed.
+        ensureColumn(driver, "transaction_entry", "time", "TEXT")
         return Opened(TransactionsDatabase(driver), driver)
     }
 

@@ -26,6 +26,7 @@ class SqlDelightTransactionRepository(
             type = transaction.type.name,
             amount_cents = transaction.amount.cents,
             date = transaction.date.value.toString(),
+            time = transaction.time?.toString(),
             description = transaction.description.value,
             category_id = transaction.categoryRef.value,
             income_source = transaction.incomeSource?.value,

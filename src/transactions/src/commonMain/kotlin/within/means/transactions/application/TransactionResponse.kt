@@ -7,6 +7,7 @@ data class TransactionResponse(
     val type: String,
     val amountCents: Long,
     val date: String,
+    val time: String?,
     val description: String,
     val categoryId: String,
     val incomeSource: String?,

@@ -3,6 +3,7 @@ package within.means.transactions.domain
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import within.means.shared.domain.AggregateRoot
@@ -13,6 +14,7 @@ class Transaction private constructor(
     val type: TransactionType,
     amount: Amount,
     date: TransactionDate,
+    time: LocalTime?,
     description: TransactionDescription,
     categoryRef: CategoryRef,
     incomeSource: IncomeSource?,
@@ -25,6 +27,9 @@ class Transaction private constructor(
         private set
     var date: TransactionDate = date
         private set
+    /** Optional time-of-day for the movement; null for legacy/recurring rows. */
+    var time: LocalTime? = time
+        private set
     var description: TransactionDescription = description
         private set
     var categoryRef: CategoryRef = categoryRef
@@ -35,6 +40,7 @@ class Transaction private constructor(
     fun edit(
         newAmount: Amount,
         newDate: TransactionDate,
+        newTime: LocalTime?,
         newDescription: TransactionDescription,
         newCategoryRef: CategoryRef,
         newIncomeSource: IncomeSource?,
@@ -47,6 +53,7 @@ class Transaction private constructor(
 
         val unchanged = newAmount == this.amount &&
             newDate == this.date &&
+            newTime == this.time &&
             newDescription == this.description &&
             newCategoryRef == this.categoryRef &&
             newIncomeSource == this.incomeSource
@@ -54,6 +61,7 @@ class Transaction private constructor(
 
         this.amount = newAmount
         this.date = newDate
+        this.time = newTime
         this.description = newDescription
         this.categoryRef = newCategoryRef
         this.incomeSource = newIncomeSource
@@ -65,6 +73,7 @@ class Transaction private constructor(
                 occurredOn = clock.now(),
                 amountCents = newAmount.cents,
                 date = newDate.value.toString(),
+                time = newTime?.toString(),
                 description = newDescription.value,
                 categoryId = newCategoryRef.value,
                 incomeSource = newIncomeSource?.value,
@@ -89,6 +98,7 @@ class Transaction private constructor(
             type: TransactionType,
             amount: Amount,
             date: TransactionDate,
+            time: LocalTime? = null,
             description: TransactionDescription = TransactionDescription.EMPTY,
             categoryRef: CategoryRef,
             incomeSource: IncomeSource? = null,
@@ -107,6 +117,7 @@ class Transaction private constructor(
                 type = type,
                 amount = amount,
                 date = date,
+                time = time,
                 description = description,
                 categoryRef = categoryRef,
                 incomeSource = incomeSource,
@@ -122,6 +133,7 @@ class Transaction private constructor(
                         type = type.name,
                         amountCents = amount.cents,
                         date = date.value.toString(),
+                        time = time?.toString(),
                         description = description.value,
                         categoryId = categoryRef.value,
                         incomeSource = incomeSource?.value,
@@ -137,6 +149,7 @@ class Transaction private constructor(
             type: TransactionType,
             amount: Amount,
             date: TransactionDate,
+            time: LocalTime?,
             description: TransactionDescription,
             categoryRef: CategoryRef,
             incomeSource: IncomeSource?,
@@ -148,6 +161,7 @@ class Transaction private constructor(
             type = type,
             amount = amount,
             date = date,
+            time = time,
             description = description,
             categoryRef = categoryRef,
             incomeSource = incomeSource,

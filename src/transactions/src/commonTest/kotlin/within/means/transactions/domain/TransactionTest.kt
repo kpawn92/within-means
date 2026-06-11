@@ -150,6 +150,7 @@ class TransactionTest {
         tx.edit(
             newAmount = Amount(2000L),
             newDate = TransactionDate(today),
+            newTime = null,
             newDescription = TransactionDescription("Supermercado XL"),
             newCategoryRef = anyCategory,
             newIncomeSource = null,
@@ -173,6 +174,7 @@ class TransactionTest {
         tx.edit(
             newAmount = tx.amount,
             newDate = tx.date,
+            newTime = tx.time,
             newDescription = tx.description,
             newCategoryRef = tx.categoryRef,
             newIncomeSource = tx.incomeSource,
@@ -192,6 +194,7 @@ class TransactionTest {
             tx.edit(
                 newAmount = tx.amount,
                 newDate = TransactionDate(tomorrow),
+                newTime = null,
                 newDescription = tx.description,
                 newCategoryRef = tx.categoryRef,
                 newIncomeSource = null,

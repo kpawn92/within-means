@@ -3,6 +3,7 @@ CREATE TABLE transaction_entry (
     type            TEXT NOT NULL,
     amount_cents    INTEGER NOT NULL,
     date            TEXT NOT NULL,
+    time            TEXT,
     description     TEXT NOT NULL,
     category_id     TEXT NOT NULL,
     income_source   TEXT,
@@ -17,9 +18,9 @@ CREATE INDEX idx_transaction_category ON transaction_entry(category_id);
 
 upsert:
 INSERT OR REPLACE INTO transaction_entry(
-    id, type, amount_cents, date, description, category_id,
+    id, type, amount_cents, date, time, description, category_id,
     income_source, origin_ref, recurring_ref, created_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 findById:
 SELECT * FROM transaction_entry WHERE id = ?;

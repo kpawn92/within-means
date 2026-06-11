@@ -7,6 +7,7 @@ fun Transaction.toResponse(): TransactionResponse = TransactionResponse(
     type = type.name,
     amountCents = amount.cents,
     date = date.value.toString(),
+    time = time?.toString(),
     description = description.value,
     categoryId = categoryRef.value,
     incomeSource = incomeSource?.value,

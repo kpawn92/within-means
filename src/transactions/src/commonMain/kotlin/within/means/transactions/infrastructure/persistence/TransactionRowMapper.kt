@@ -2,6 +2,7 @@ package within.means.transactions.infrastructure.persistence
 
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 import within.means.transactions.db.Transaction_entry as TransactionRow
 import within.means.transactions.domain.Amount
 import within.means.transactions.domain.CategoryRef
@@ -19,6 +20,7 @@ internal fun TransactionRow.toAggregate(): Transaction = Transaction.rehydrate(
     type = TransactionType.valueOf(type),
     amount = Amount(amount_cents),
     date = TransactionDate(LocalDate.parse(date)),
+    time = time?.let { LocalTime.parse(it) },
     description = TransactionDescription(description),
     categoryRef = CategoryRef(category_id),
     incomeSource = income_source?.let { IncomeSource(it) },

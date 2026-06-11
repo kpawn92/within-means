@@ -35,7 +35,12 @@ data class QuickAddUiState(
     val amountCents: Long = 0L,
     val categoryId: String? = null,
     val note: String = "",
-    val whenChoice: QuickWhen = QuickWhen.TODAY,
+    /** Resolved movement date (ISO `yyyy-MM-dd`); blank until [reset] seeds today. */
+    val date: String = "",
+    /** Movement time (ISO `HH:mm`); blank until [reset] seeds now. */
+    val time: String = "",
+    /** Which quick chip is lit, or null when a custom date was picked. */
+    val whenChoice: QuickWhen? = QuickWhen.TODAY,
     val availableCategories: List<CategoryResponse> = emptyList(),
     val baseCurrency: String = "",
     val saving: Boolean = false,
@@ -67,7 +72,12 @@ class QuickAddViewModel(
 
     fun onCategoryChanged(value: String) { _state.update { it.copy(categoryId = value, errorMessage = null) } }
     fun onNoteChanged(value: String) { _state.update { it.copy(note = value) } }
-    fun onWhenChanged(value: QuickWhen) { _state.update { it.copy(whenChoice = value) } }
+    fun onWhenChanged(value: QuickWhen) {
+        _state.update { it.copy(whenChoice = value, date = resolveDate(value)) }
+    }
+    /** Custom date from the picker; lights no quick chip. */
+    fun onDateChanged(value: String) { _state.update { it.copy(date = value, whenChoice = null) } }
+    fun onTimeChanged(value: String) { _state.update { it.copy(time = value) } }
 
     /** Keypad now drives a calculator: digits, decimals and `+ − × ÷`. */
     fun onDigit(d: Char) { calc.onDigit(d); syncAmount() }
@@ -102,7 +112,8 @@ class QuickAddViewModel(
                     RegisterTransactionCommand(
                         type = s.type,
                         amountCents = s.amountCents,
-                        date = resolveDate(s.whenChoice),
+                        date = s.date.ifBlank { resolveDate(QuickWhen.TODAY) },
+                        time = s.time.ifBlank { null },
                         description = s.note,
                         categoryId = categoryId,
                     )
@@ -120,7 +131,13 @@ class QuickAddViewModel(
     /** Clears transient input so a reused instance starts fresh on reopen. */
     fun reset() {
         calc.clear()
-        _state.update { QuickAddUiState(baseCurrency = it.baseCurrency) }
+        _state.update {
+            QuickAddUiState(
+                baseCurrency = it.baseCurrency,
+                date = resolveDate(QuickWhen.TODAY),
+                time = nowTime(),
+            )
+        }
         viewModelScope.launch { loadCategoriesForCurrentType() }
     }
 
@@ -131,6 +148,12 @@ class QuickAddViewModel(
             QuickWhen.YESTERDAY -> today.minus(DatePeriod(days = 1))
         }
         return date.toString()
+    }
+
+    /** Current local time as `HH:mm`. */
+    private fun nowTime(): String {
+        val t = clock.now().toLocalDateTime(zone).time
+        return "${t.hour.toString().padStart(2, '0')}:${t.minute.toString().padStart(2, '0')}"
     }
 
     private suspend fun loadCategoriesForCurrentType() {

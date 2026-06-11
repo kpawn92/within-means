@@ -1,6 +1,7 @@
 package within.means.transactions.application.edit
 
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 import within.means.shared.domain.UuidGenerator
 import within.means.shared.domain.bus.command.CommandHandler
 import within.means.shared.domain.bus.event.EventBus
@@ -29,6 +30,7 @@ class EditTransactionCommandHandler(
         transaction.edit(
             newAmount = Amount(command.amountCents),
             newDate = TransactionDate(LocalDate.parse(command.date)),
+            newTime = command.time?.let { LocalTime.parse(it) },
             newDescription = TransactionDescription(command.description),
             newCategoryRef = CategoryRef(command.categoryId),
             newIncomeSource = command.incomeSource?.let { IncomeSource(it) },

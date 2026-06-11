@@ -11,15 +11,25 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,6 +67,8 @@ fun QuickAddSheet(
     }
 
     val sym = currencySymbol(state.baseCurrency)
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
     val amountColor = when (state.type) {
         "INCOME" -> WmTheme.colors.income
         "TRANSFER" -> WmTheme.colors.savings
@@ -114,11 +126,13 @@ fun QuickAddSheet(
                 }
             }
 
-            // Extras: note + when.
+            // Extras: note + when (date) + time.
             NoteField(state.note, viewModel::onNoteChanged)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 WmChip("Hoy", state.whenChoice == QuickWhen.TODAY, { viewModel.onWhenChanged(QuickWhen.TODAY) })
                 WmChip("Ayer", state.whenChoice == QuickWhen.YESTERDAY, { viewModel.onWhenChanged(QuickWhen.YESTERDAY) })
+                WmChip("📅 ${prettyDate(state.date)}", state.whenChoice == null, { showDatePicker = true })
+                WmChip("🕐 ${state.time.ifBlank { "--:--" }}", false, { showTimePicker = true })
             }
 
             CalcKeypad(
@@ -148,7 +162,77 @@ fun QuickAddSheet(
             )
         }
     }
+
+    if (showDatePicker) {
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = remember(state.date) { isoToUtcMillis(state.date) },
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    pickerState.selectedDateMillis?.let { viewModel.onDateChanged(utcMillisToIso(it)) }
+                    showDatePicker = false
+                }) { Text("Aceptar") }
+            },
+            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Cancelar") } },
+        ) { DatePicker(state = pickerState) }
+    }
+
+    if (showTimePicker) {
+        val (h, m) = remember(state.time) { parseHourMinute(state.time) }
+        val tpState = rememberTimePickerState(initialHour = h, initialMinute = m, is24Hour = true)
+        AlertDialog(
+            onDismissRequest = { showTimePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    val hh = tpState.hour.toString().padStart(2, '0')
+                    val mm = tpState.minute.toString().padStart(2, '0')
+                    viewModel.onTimeChanged("$hh:$mm")
+                    showTimePicker = false
+                }) { Text("Aceptar") }
+            },
+            dismissButton = { TextButton(onClick = { showTimePicker = false }) { Text("Cancelar") } },
+            text = {
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    TimePicker(state = tpState)
+                }
+            },
+        )
+    }
 }
+
+/** "2026-06-11" → "11 jun"; falls back to the raw string. */
+private fun prettyDate(iso: String): String {
+    val parts = iso.split("-")
+    if (parts.size != 3) return iso
+    val months = listOf("ene", "feb", "mar", "abr", "may", "jun",
+        "jul", "ago", "sep", "oct", "nov", "dic")
+    val m = parts[1].toIntOrNull() ?: return iso
+    val d = parts[2].toIntOrNull() ?: return iso
+    return "$d ${months.getOrElse(m - 1) { parts[1] }}"
+}
+
+/** Parses `HH:mm` into (hour, minute); noon fallback for blank/invalid. */
+private fun parseHourMinute(value: String): Pair<Int, Int> {
+    val parts = value.split(":")
+    val h = parts.getOrNull(0)?.toIntOrNull()?.coerceIn(0, 23) ?: 12
+    val m = parts.getOrNull(1)?.toIntOrNull()?.coerceIn(0, 59) ?: 0
+    return h to m
+}
+
+private const val MILLIS_PER_DAY = 86_400_000L
+
+/** ISO `yyyy-MM-dd` → UTC midnight millis (for the M3 date picker). */
+private fun isoToUtcMillis(iso: String): Long {
+    val d = runCatching { kotlinx.datetime.LocalDate.parse(iso) }.getOrNull()
+        ?: return 0L
+    return d.toEpochDays().toLong() * MILLIS_PER_DAY
+}
+
+/** UTC millis from the picker → ISO `yyyy-MM-dd`. */
+private fun utcMillisToIso(millis: Long): String =
+    kotlinx.datetime.LocalDate.fromEpochDays((millis / MILLIS_PER_DAY).toInt()).toString()
 
 /** Maps a canonical expression to math glyphs for display (`* / -` → `× ÷ −`). */
 private fun displayExpression(expr: String): String =

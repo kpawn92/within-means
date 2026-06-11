@@ -1,6 +1,7 @@
 package within.means.transactions.application.register
 
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 import within.means.shared.domain.UuidGenerator
 import within.means.shared.domain.bus.event.EventBus
 import within.means.transactions.domain.Amount
@@ -27,6 +28,7 @@ class TransactionRegistrar(
             type = TransactionType.valueOf(command.type),
             amount = Amount(command.amountCents),
             date = TransactionDate(LocalDate.parse(command.date)),
+            time = command.time?.let { LocalTime.parse(it) },
             description = TransactionDescription(command.description),
             categoryRef = CategoryRef(command.categoryId),
             incomeSource = command.incomeSource?.let { IncomeSource(it) },

@@ -22,6 +22,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
@@ -38,14 +40,18 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -79,6 +85,7 @@ fun TransactionEditScreen(
     val viewModel: TransactionEditViewModel = koinViewModel()
     val state by viewModel.state.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
     var showDeleteDialog by rememberSaveable { mutableStateOf(false) }
     var showCalculator by rememberSaveable { mutableStateOf(false) }
 
@@ -117,6 +124,18 @@ fun TransactionEditScreen(
                 },
                 actions = {
                     if (viewModel.isEditMode) {
+                        IconButton(onClick = {
+                            viewModel.duplicate()
+                            scope.launch {
+                                snackbarHostState.showSnackbar("Copia lista: revisa y pulsa Añadir")
+                            }
+                        }) {
+                            Icon(
+                                Icons.Outlined.ContentCopy,
+                                contentDescription = "Duplicar",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                         IconButton(onClick = { showDeleteDialog = true }) {
                             Icon(
                                 Icons.Outlined.DeleteOutline,
@@ -229,11 +248,18 @@ fun TransactionEditScreen(
                 )
             }
 
-            DateField(
-                value = state.date,
-                onValueChange = viewModel::onDateChanged,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                DateField(
+                    value = state.date,
+                    onValueChange = viewModel::onDateChanged,
+                    modifier = Modifier.weight(1f),
+                )
+                TimeField(
+                    value = state.time,
+                    onValueChange = viewModel::onTimeChanged,
+                    modifier = Modifier.weight(1f),
+                )
+            }
 
             if (!viewModel.isEditMode) {
                 Row(
@@ -409,6 +435,69 @@ private fun DateField(
             DatePicker(state = pickerState)
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TimeField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var showDialog by rememberSaveable { mutableStateOf(false) }
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    LaunchedEffect(pressed) { if (pressed) showDialog = true }
+
+    OutlinedTextField(
+        value = value,
+        onValueChange = {},
+        readOnly = true,
+        label = { Text("Hora") },
+        placeholder = { Text("--:--") },
+        trailingIcon = {
+            IconButton(onClick = { showDialog = true }) {
+                Icon(Icons.Filled.Schedule, contentDescription = "Elegir hora")
+            }
+        },
+        interactionSource = interactionSource,
+        singleLine = true,
+        modifier = modifier,
+    )
+
+    if (showDialog) {
+        val (initH, initM) = remember(value) { parseHourMinute(value) }
+        val pickerState = rememberTimePickerState(initialHour = initH, initialMinute = initM, is24Hour = true)
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val hh = pickerState.hour.toString().padStart(2, '0')
+                        val mm = pickerState.minute.toString().padStart(2, '0')
+                        onValueChange("$hh:$mm")
+                        showDialog = false
+                    },
+                ) { Text("Aceptar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDialog = false }) { Text("Cancelar") }
+            },
+            text = {
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    TimePicker(state = pickerState)
+                }
+            },
+        )
+    }
+}
+
+/** Parses `HH:mm` into (hour, minute); falls back to noon for blank/invalid. */
+private fun parseHourMinute(value: String): Pair<Int, Int> {
+    val parts = value.split(":")
+    val h = parts.getOrNull(0)?.toIntOrNull()?.coerceIn(0, 23) ?: 12
+    val m = parts.getOrNull(1)?.toIntOrNull()?.coerceIn(0, 59) ?: 0
+    return h to m
 }
 
 private val typeOptions = listOf(

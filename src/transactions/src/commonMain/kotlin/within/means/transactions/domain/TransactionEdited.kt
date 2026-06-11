@@ -13,6 +13,8 @@ data class TransactionEdited(
     override val occurredOn: Instant,
     val amountCents: Long,
     val date: String,
+    // Nullable + defaulted so events serialized before time-of-day existed still deserialize.
+    val time: String? = null,
     val description: String,
     val categoryId: String,
     val incomeSource: String?,

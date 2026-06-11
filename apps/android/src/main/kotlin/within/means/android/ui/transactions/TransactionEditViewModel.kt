@@ -36,6 +36,8 @@ data class TransactionEditUiState(
     val type: String = "EXPENSE",
     val amountText: String = "",
     val date: String = todayIso(),
+    /** ISO local time `HH:mm`; blank means no time-of-day. Defaults to now on create. */
+    val time: String = nowTimeIso(),
     val description: String = "",
     val categoryId: String? = null,
     val incomeSource: String = "",
@@ -103,6 +105,7 @@ class TransactionEditViewModel : ViewModel(), KoinComponent {
                         type = t.type,
                         amountText = (t.amountCents / 100.0).toString(),
                         date = t.date,
+                        time = t.time.orEmpty(),
                         description = t.description,
                         categoryId = t.categoryId,
                         incomeSource = t.incomeSource.orEmpty(),
@@ -128,6 +131,7 @@ class TransactionEditViewModel : ViewModel(), KoinComponent {
 
     fun onAmountTextChanged(value: String) { _state.update { it.copy(amountText = value) } }
     fun onDateChanged(value: String) { _state.update { it.copy(date = value) } }
+    fun onTimeChanged(value: String) { _state.update { it.copy(time = value) } }
     fun onDescriptionChanged(value: String) { _state.update { it.copy(description = value) } }
     fun onCategoryChanged(value: String) { _state.update { it.copy(categoryId = value) } }
     fun onIncomeSourceChanged(value: String) { _state.update { it.copy(incomeSource = value) } }
@@ -172,6 +176,7 @@ class TransactionEditViewModel : ViewModel(), KoinComponent {
                             type = s.type,
                             amountCents = cents,
                             date = s.date,
+                            time = s.time.ifBlank { null },
                             description = s.description,
                             categoryId = categoryId,
                             incomeSource = incomeSource,
@@ -183,6 +188,7 @@ class TransactionEditViewModel : ViewModel(), KoinComponent {
                             transactionId = s.transactionId,
                             amountCents = cents,
                             date = s.date,
+                            time = s.time.ifBlank { null },
                             description = s.description,
                             categoryId = categoryId,
                             incomeSource = incomeSource,
@@ -194,6 +200,25 @@ class TransactionEditViewModel : ViewModel(), KoinComponent {
             }.onFailure { e ->
                 _state.update { it.copy(saving = false, errorMessage = e.toUserMessage(ErrorContext.GENERIC)) }
             }
+        }
+    }
+
+    /**
+     * Turns the loaded movement into a fresh draft (create mode): keeps type,
+     * amount, category, description and source, but drops the id, sets the date to
+     * today and clears the recurring flag. The user reviews and taps "Añadir" to
+     * save it as a new, independent copy.
+     */
+    fun duplicate() {
+        if (_state.value.transactionId == null) return
+        _state.update {
+            it.copy(
+                transactionId = null,
+                date = todayIso(),
+                recurring = false,
+                isFinished = false,
+                errorMessage = null,
+            )
         }
     }
 
@@ -230,3 +255,11 @@ class TransactionEditViewModel : ViewModel(), KoinComponent {
 
 private fun todayIso(): String =
     Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date.toString()
+
+/** Current local time as `HH:mm` (seconds dropped). */
+private fun nowTimeIso(): String {
+    val t = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).time
+    val hh = t.hour.toString().padStart(2, '0')
+    val mm = t.minute.toString().padStart(2, '0')
+    return "$hh:$mm"
+}
