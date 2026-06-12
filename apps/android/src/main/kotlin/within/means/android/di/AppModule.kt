@@ -5,6 +5,8 @@ import kotlinx.coroutines.Dispatchers
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 import within.means.android.persistence.AndroidDatabaseFactory
+import within.means.android.persistence.BiometricAvailability
+import within.means.android.persistence.BiometricVault
 import within.means.android.persistence.DatabaseUnlocker
 import within.means.android.persistence.KeystoreManager
 import within.means.android.persistence.OnboardingState
@@ -19,4 +21,7 @@ val appModule = module {
     single { DatabaseUnlocker(get(), get()) }
     single { OnboardingState(androidContext()) }
     single { ThemePreference(androidContext()) }
+    // Biometric unlock (BiometricGate is built per-screen — it needs the activity).
+    single { BiometricAvailability(androidContext()) }
+    single { BiometricVault(androidContext()) }
 }

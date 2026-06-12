@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
+import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -25,6 +26,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,7 +36,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
+import within.means.android.persistence.BiometricAvailability
 import within.means.android.ui.theme.WmTheme
 
 @Composable
@@ -40,6 +46,31 @@ fun UnlockScreen(onUnlocked: () -> Unit) {
     val viewModel: UnlockViewModel = koinViewModel()
     val state by viewModel.state.collectAsState()
     val pinLength = UnlockViewModel.PIN_LENGTH
+
+    val availability: BiometricAvailability = koinInject()
+    val biometric = rememberBiometricSession()
+    var biometricUsable by remember { mutableStateOf(biometric.isEnrolled && availability.isAvailable) }
+    var biometricNotice by remember { mutableStateOf<String?>(null) }
+
+    fun promptBiometric() {
+        biometric.unlock { result ->
+            when (result) {
+                is BiometricUnlockResult.Recovered -> viewModel.unlockWith(result.pin, onUnlocked)
+                BiometricUnlockResult.Invalidated -> {
+                    biometricUsable = false
+                    biometricNotice = "Tus huellas cambiaron. Entra con tu PIN y vuelve a " +
+                        "activar el desbloqueo rápido si quieres."
+                }
+                is BiometricUnlockResult.Failed -> biometricNotice = result.message
+                BiometricUnlockResult.Cancelled -> Unit
+            }
+        }
+    }
+
+    // Offer the fingerprint sheet automatically on entry; the keypad stays behind it.
+    LaunchedEffect(Unit) {
+        if (biometricUsable) promptBiometric()
+    }
 
     // auto-submit once the PIN is complete
     LaunchedEffect(state.pin) {
@@ -79,6 +110,9 @@ fun UnlockScreen(onUnlocked: () -> Unit) {
             if (error) {
                 Spacer(Modifier.height(14.dp))
                 Text(state.errorMessage!!, color = WmTheme.colors.neg, fontSize = 13.sp)
+            } else biometricNotice?.let { notice ->
+                Spacer(Modifier.height(14.dp))
+                Text(notice, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
             }
 
             Spacer(Modifier.height(36.dp))
@@ -89,8 +123,35 @@ fun UnlockScreen(onUnlocked: () -> Unit) {
                     onDigit = { viewModel.updatePin(state.pin + it) },
                     onBackspace = { if (state.pin.isNotEmpty()) viewModel.updatePin(state.pin.dropLast(1)) },
                 )
+                if (biometricUsable) {
+                    Spacer(Modifier.height(24.dp))
+                    FingerprintButton(onClick = ::promptBiometric)
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun FingerprintButton(onClick: () -> Unit) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(RoundedCornerShape(28.dp))
+                .background(MaterialTheme.colorScheme.surface)
+                .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Filled.Fingerprint,
+                contentDescription = "Desbloquear con huella",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(28.dp),
+            )
+        }
+        Spacer(Modifier.height(6.dp))
+        Text("Usar huella", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Optional biometric unlock (opt-in from Settings, API 30+). The app stays
+         fully functional with PIN only when the hardware/permission is absent. -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+
     <application
         android:name=".WithinMeansApplication"
         android:label="@string/app_name"

@@ -37,12 +37,19 @@ class UnlockViewModel(
             _state.update { it.copy(errorMessage = "El PIN debe tener $PIN_LENGTH dígitos") }
             return
         }
+        unlockWith(current.pin, onUnlocked)
+    }
+
+    /**
+     * Unlocks with a PIN obtained out-of-band (e.g. recovered from the biometric
+     * vault). Shares the wrong-PIN detection with [submit]: SQLCipher only fails
+     * at the first real query, so we force-touch the DB.
+     */
+    fun unlockWith(pin: String, onUnlocked: () -> Unit) {
         viewModelScope.launch {
             _state.update { it.copy(isWorking = true, errorMessage = null) }
             runCatching {
-                unlocker.unlock(current.pin)
-                // Force-touch the database to surface a wrong-pin error
-                // (SQLCipher only fails at the first real query).
+                unlocker.unlock(pin)
                 unlocker.users.userProfileQueries.findDefault().executeAsOneOrNull()
             }.onSuccess {
                 _state.update { it.copy(isWorking = false) }

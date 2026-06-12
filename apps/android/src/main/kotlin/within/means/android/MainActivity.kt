@@ -1,6 +1,8 @@
 package within.means.android
 
 import android.app.Activity
+import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -96,6 +98,22 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+}
+
+/**
+ * Restarts the whole process and relaunches into the lock screen. Used when the
+ * encrypted databases are closed in-session ("Bloquear ahora") or re-keyed
+ * ("Cambiar PIN"): the persistence singletons cache the now-stale database
+ * handles, so the only safe way back is a cold start with a fresh object graph.
+ * Killing the process also wipes the decrypted state from memory, which is the
+ * point of locking.
+ */
+private fun Context.relaunchToLock() {
+    val intent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+    }
+    startActivity(intent)
+    Runtime.getRuntime().exit(0)
 }
 
 private object Routes {
@@ -260,12 +278,7 @@ private fun WithinMeansApp() {
                     SettingsScreen(
                         onBack = { navController.popBackStack() },
                         onManageRecurring = { navController.navigate(Routes.Recurring) },
-                        onLockNow = {
-                            unlocker.lock()
-                            navController.navigate(Routes.Unlock) {
-                                popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
-                            }
-                        },
+                        onLockNow = { context.relaunchToLock() },
                         onReplayIntro = { navController.navigate(Routes.Intro) },
                         onChangePin = { navController.navigate(Routes.ChangePin) },
                         onOpenHelp = { navController.navigate(Routes.Help) },
@@ -286,7 +299,10 @@ private fun WithinMeansApp() {
                 composable(Routes.ChangePin) {
                     ChangePinScreen(
                         onBack = { navController.popBackStack() },
-                        onDone = { navController.popBackStack() },
+                        // Re-keying closed and reopened the DBs in-session, leaving the
+                        // persistence singletons stale: restart into the lock screen so
+                        // the user re-enters with the new PIN against a fresh graph.
+                        onDone = { context.relaunchToLock() },
                     )
                 }
                 composable(Routes.Recurring) {

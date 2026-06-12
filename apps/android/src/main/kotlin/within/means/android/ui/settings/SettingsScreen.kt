@@ -30,17 +30,26 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
+import within.means.android.persistence.BiometricAvailability
+import within.means.android.persistence.BiometricStatus
+import within.means.android.persistence.BiometricVault
+import within.means.android.persistence.DatabaseUnlocker
 import within.means.android.persistence.ThemeMode
 import within.means.android.persistence.ThemePreference
+import within.means.android.ui.unlock.rememberBiometricSession
 import within.means.android.ui.components.WmCard
 import within.means.android.ui.components.WmChip
 import within.means.android.ui.components.WmEyebrow
@@ -64,6 +73,13 @@ fun SettingsScreen(
     val themePreference: ThemePreference = koinInject()
     val themeMode by themePreference.mode.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    val biometricAvailability: BiometricAvailability = koinInject()
+    val biometricVault: BiometricVault = koinInject()
+    val unlocker: DatabaseUnlocker = koinInject()
+    val biometricSession = rememberBiometricSession()
+    val scope = rememberCoroutineScope()
+    var biometricEnabled by remember { mutableStateOf(biometricVault.isEnrolled) }
 
     LaunchedEffect(state.errorMessage) {
         state.errorMessage?.let {
@@ -252,6 +268,48 @@ fun SettingsScreen(
             WmCard(modifier = Modifier.fillMaxWidth()) {
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     WmEyebrow("Seguridad")
+                    // Biometric unlock: only when the device supports a strong
+                    // biometric. Hidden entirely on unsupported hardware/OS so the
+                    // surface stays minimal (simplicity-first).
+                    when (biometricAvailability.status()) {
+                        BiometricStatus.AVAILABLE -> Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text("Desbloquear con huella", fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface)
+                                Text("Entra con tu huella en vez del PIN", fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            WmToggle(biometricEnabled, onCheckedChange = { want ->
+                                if (want) {
+                                    val pin = unlocker.sessionPin
+                                    if (pin == null) {
+                                        scope.launch { snackbarHostState.showSnackbar("Vuelve a abrir la app para activarlo") }
+                                    } else {
+                                        biometricSession.enroll(pin) { ok, _ ->
+                                            biometricEnabled = ok
+                                            if (!ok) scope.launch {
+                                                snackbarHostState.showSnackbar("No se activó la huella")
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    biometricVault.clear()
+                                    biometricEnabled = false
+                                }
+                            })
+                        }
+                        BiometricStatus.NONE_ENROLLED -> Column(Modifier.fillMaxWidth()) {
+                            Text("Desbloquear con huella", fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Añade una huella en los ajustes del teléfono para usarla", fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        BiometricStatus.NO_HARDWARE, BiometricStatus.UNSUPPORTED -> Unit
+                    }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,

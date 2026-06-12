@@ -36,5 +36,5 @@ val uiModule = module {
     viewModelOf(::SettingsViewModel)
     viewModelOf(::RecurringRulesViewModel)
     viewModelOf(::RecurringEditViewModel)
-    viewModel { ChangePinViewModel(get()) }
+    viewModel { ChangePinViewModel(get(), get()) }
 }

@@ -32,8 +32,20 @@ class DatabaseUnlocker(
     @Volatile
     private var drivers: List<SqlDriver> = emptyList()
 
+    @Volatile
+    private var lastPin: String? = null
+
     val isUnlocked: Boolean
         get() = sharedDb != null && usersDb != null && categoriesDb != null && transactionsDb != null
+
+    /**
+     * The PIN that unlocked the current session, kept in memory only while the
+     * app is unlocked (cleared on [lock]). Biometric enrollment reads it to wrap
+     * the PIN without re-prompting the user, since the SQLCipher passphrase —
+     * derived from this same PIN — is already resident in memory anyway.
+     */
+    val sessionPin: String?
+        get() = lastPin
 
     fun unlock(pin: String) {
         val passphrase = passphraseProvider.derive(pin)
@@ -46,6 +58,7 @@ class DatabaseUnlocker(
         categoriesDb = categories.database
         transactionsDb = transactions.database
         drivers = listOf(shared.driver, users.driver, categories.driver, transactions.driver)
+        lastPin = pin
     }
 
     /**
@@ -84,6 +97,7 @@ class DatabaseUnlocker(
         transactionsDb = null
         drivers.forEach { runCatching { it.close() } }
         drivers = emptyList()
+        lastPin = null
     }
 
     val shared: SharedDatabase

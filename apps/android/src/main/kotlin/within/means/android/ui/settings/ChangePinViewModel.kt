@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import within.means.android.persistence.BiometricVault
 import within.means.android.persistence.DatabaseUnlocker
 import within.means.android.persistence.PinPolicy
 
@@ -28,6 +29,7 @@ data class ChangePinUiState(
  */
 class ChangePinViewModel(
     private val unlocker: DatabaseUnlocker,
+    private val biometricVault: BiometricVault,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ChangePinUiState())
@@ -55,6 +57,9 @@ class ChangePinViewModel(
                 runCatching {
                     withContext(Dispatchers.IO) { unlocker.changePin(s.currentPin, s.newPin) }
                 }.onSuccess {
+                    // The wrapped PIN is now stale; drop biometric so it can't
+                    // unlock with the old PIN. User re-enables it from Settings.
+                    biometricVault.clear()
                     _state.update { it.copy(isWorking = false, done = true) }
                 }.onFailure {
                     // The re-key validates the current PIN by touching the file;
