@@ -265,24 +265,38 @@ private fun ChipRow(
 @Composable
 private fun ColorRow(selected: String, onSelected: (String) -> Unit) {
     FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.padding(top = 8.dp),
     ) {
         CategoryColorPalette.forEach { hex ->
             val isSelected = hex.equals(selected, ignoreCase = true)
             Box(
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(40.dp)
                     .clip(CircleShape)
-                    .background(parseHex(hex))
-                    .border(
-                        width = if (isSelected) 3.dp else 1.dp,
-                        color = if (isSelected) MaterialTheme.colorScheme.primary else Color.LightGray,
-                        shape = CircleShape,
+                    .clickable { onSelected(hex) },
+                contentAlignment = Alignment.Center,
+            ) {
+                // When selected, draw an outer ring with a gap so the halo never
+                // bleeds onto neighbouring swatches.
+                if (isSelected) {
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape),
                     )
-                    .clickable { onSelected(hex) }
-            )
+                }
+                // The colour fill itself: a hairline, theme-warm outline keeps the
+                // lighter swatches crisp without the cold grey ring that washed them out.
+                Box(
+                    Modifier
+                        .size(if (isSelected) 28.dp else 40.dp)
+                        .clip(CircleShape)
+                        .background(parseHex(hex))
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
+                )
+            }
         }
     }
 }

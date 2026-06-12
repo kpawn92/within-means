@@ -1,5 +1,6 @@
 package within.means.android.ui.theme
 
+import android.app.Activity
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
@@ -9,8 +10,11 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 
 /**
  * App theme. Per SPEC §7-D we keep Material You dynamic color for chrome on
@@ -66,6 +70,19 @@ fun WithinMeansTheme(
         isDark -> dark
         else -> light
     }
+    // Keep the transparent system bars (set up via enableEdgeToEdge) legible: dark
+    // icons on the light theme, light icons on the dark theme — tracking the in-app
+    // theme, not the system one, since the user can force either.
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        val window = (view.context as Activity).window
+        SideEffect {
+            val controller = WindowCompat.getInsetsController(window, view)
+            controller.isAppearanceLightStatusBars = !isDark
+            controller.isAppearanceLightNavigationBars = !isDark
+        }
+    }
+
     CompositionLocalProvider(LocalWmColors provides wmColorTokens(isDark)) {
         MaterialTheme(colorScheme = colorScheme, content = content)
     }

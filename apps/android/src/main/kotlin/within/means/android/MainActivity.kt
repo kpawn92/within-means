@@ -7,6 +7,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -87,6 +88,10 @@ import within.means.android.ui.unlock.UnlockScreen
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Draw behind the system bars so the status/navigation bars take the app's
+        // own background colour instead of the system's grey scrim. The bar icon
+        // contrast is then driven by the in-app theme (see WithinMeansTheme).
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setContent {
             val themePreference: ThemePreference = koinInject()
