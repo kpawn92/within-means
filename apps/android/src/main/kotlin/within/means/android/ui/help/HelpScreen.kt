@@ -1,7 +1,13 @@
 package within.means.android.ui.help
 
-import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -11,12 +17,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -44,23 +52,30 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import within.means.android.ui.components.WmCard
 import within.means.android.ui.components.WmEyebrow
+import within.means.android.ui.motion.enterUp
+import within.means.android.ui.motion.rememberReducedMotion
 import within.means.android.ui.theme.WmRadii
+import within.means.android.ui.theme.WmTheme
 
 /**
  * Help / "Aprende" view. See doc/within-means-app/HELP-EDUCATION-SPEC.md.
  *
- * Simplicity first (regla #0): the default surface is just header + the 4-step
- * guided route + a single closed disclosure + footer. The libraries (B/C/§5)
- * live collapsed inside the disclosure and never expand on load.
+ * Simplicity first (regla #0): the default surface is just header + a short "why"
+ * + the 4-step guided route + a single closed disclosure + footer. The libraries
+ * (B/C/§5) live collapsed inside the disclosure and never expand on load. The
+ * worked examples and the 50/30/20 illustration are themselves opt-in: they only
+ * appear once the user expands a lesson.
  *
  * Minimalist but warm (§4.5): no shadows, hairline separators, neutral palette,
- * the brand accent only on actions, generous breathing room, gentle motion.
+ * the brand accent only on actions/examples, generous breathing room. Motion is
+ * gentle (staggered enter, soft expand) and fully skipped under reduced motion.
  */
 @Composable
 fun HelpScreen(
     onBack: () -> Unit = {},
     onAction: (HelpAction) -> Unit = {},
 ) {
+    val reducedMotion = rememberReducedMotion()
     Scaffold { padding ->
         Column(
             modifier = Modifier
@@ -73,7 +88,10 @@ fun HelpScreen(
             Spacer(Modifier.size(4.dp))
 
             // Header — light, no hero.
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.enterUp(0, reducedMotion),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 IconButton(onClick = onBack, modifier = Modifier.size(40.dp)) {
                     Icon(
                         Icons.AutoMirrored.Filled.ArrowBack,
@@ -94,8 +112,23 @@ fun HelpScreen(
                 }
             }
 
+            // The "why" — one calm paragraph, no wall of text (§0).
+            Text(
+                "Saber a dónde va tu dinero no es controlarlo todo: es ganar calma. Cuando ves " +
+                    "tu flujo —lo que entra, lo que apartas y lo que gastas— decides con intención, " +
+                    "en vez de llegar a fin de mes con dudas.",
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .enterUp(1, reducedMotion)
+                    .padding(horizontal = 4.dp),
+            )
+
             // §4.2 — the guided route: the only thing one *needs* to read.
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(
+                modifier = Modifier.enterUp(2, reducedMotion),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
                 Text(
                     "Empieza por aquí",
                     fontSize = 15.sp,
@@ -113,7 +146,11 @@ fun HelpScreen(
             }
 
             // §4.3 — everything else, opt-in, closed by default.
-            DeepenDisclosure(onAction = onAction)
+            DeepenDisclosure(
+                onAction = onAction,
+                reducedMotion = reducedMotion,
+                modifier = Modifier.enterUp(3, reducedMotion),
+            )
 
             // §4.4 — gentle disclaimer.
             Text(
@@ -121,7 +158,9 @@ fun HelpScreen(
                     "Tú conoces tu vida mejor que nadie.",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 4.dp),
+                modifier = Modifier
+                    .enterUp(4, reducedMotion)
+                    .padding(horizontal = 4.dp),
             )
 
             Spacer(Modifier.size(8.dp))
@@ -171,13 +210,14 @@ private fun GuideStepRow(step: GuideStep, onClick: () -> Unit) {
 /* ---------- "¿Quieres profundizar?" disclosure ---------- */
 
 @Composable
-private fun DeepenDisclosure(onAction: (HelpAction) -> Unit) {
+private fun DeepenDisclosure(
+    onAction: (HelpAction) -> Unit,
+    reducedMotion: Boolean,
+    modifier: Modifier = Modifier,
+) {
     var open by remember { mutableStateOf(false) }
     val chevron by animateFloatAsState(if (open) 180f else 0f, label = "deepenChevron")
-    Column(
-        modifier = Modifier.animateContentSize(),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
+    Column(modifier = modifier) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -207,16 +247,33 @@ private fun DeepenDisclosure(onAction: (HelpAction) -> Unit) {
             )
         }
 
-        if (open) {
-            lessonLibraries.forEach { library ->
-                LessonLibrarySection(library = library, onAction = onAction)
+        AnimatedVisibility(
+            visible = open,
+            enter = if (reducedMotion) EnterTransition.None else expandVertically() + fadeIn(),
+            exit = if (reducedMotion) ExitTransition.None else shrinkVertically() + fadeOut(),
+        ) {
+            Column(
+                modifier = Modifier.padding(top = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                lessonLibraries.forEach { library ->
+                    LessonLibrarySection(
+                        library = library,
+                        onAction = onAction,
+                        reducedMotion = reducedMotion,
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun LessonLibrarySection(library: LessonLibrary, onAction: (HelpAction) -> Unit) {
+private fun LessonLibrarySection(
+    library: LessonLibrary,
+    onAction: (HelpAction) -> Unit,
+    reducedMotion: Boolean,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Column {
             Text(
@@ -232,7 +289,7 @@ private fun LessonLibrarySection(library: LessonLibrary, onAction: (HelpAction) 
             )
         }
         library.lessons.forEach { lesson ->
-            LessonCard(lesson = lesson, onAction = onAction)
+            LessonCard(lesson = lesson, onAction = onAction, reducedMotion = reducedMotion)
         }
     }
 }
@@ -240,11 +297,15 @@ private fun LessonLibrarySection(library: LessonLibrary, onAction: (HelpAction) 
 /* ---------- Lesson accordion card ---------- */
 
 @Composable
-private fun LessonCard(lesson: Lesson, onAction: (HelpAction) -> Unit) {
+private fun LessonCard(
+    lesson: Lesson,
+    onAction: (HelpAction) -> Unit,
+    reducedMotion: Boolean,
+) {
     var expanded by remember { mutableStateOf(false) }
     val chevron by animateFloatAsState(if (expanded) 180f else 0f, label = "lessonChevron")
-    WmCard(modifier = Modifier.fillMaxWidth().animateContentSize(), contentPadding = 16.dp) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    WmCard(modifier = Modifier.fillMaxWidth(), contentPadding = 16.dp) {
+        Column {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -275,21 +336,32 @@ private fun LessonCard(lesson: Lesson, onAction: (HelpAction) -> Unit) {
                 )
             }
 
-            if (expanded) {
-                HairlineDivider()
-                LessonBlock("Qué es", lesson.whatItIs)
-                LessonBlock("Por qué importa", lesson.whyItMatters)
-                LessonBlock("En la app", lesson.inTheApp)
-                LessonBlock("La idea", lesson.rule)
-                lesson.alsoKnownAs?.let {
-                    Text(
-                        "También llamado: $it",
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                    )
-                }
-                lesson.action?.let { action ->
-                    LessonActionButton(action = action, onClick = { onAction(action) })
+            AnimatedVisibility(
+                visible = expanded,
+                enter = if (reducedMotion) EnterTransition.None else expandVertically() + fadeIn(),
+                exit = if (reducedMotion) ExitTransition.None else shrinkVertically() + fadeOut(),
+            ) {
+                Column(
+                    modifier = Modifier.padding(top = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    HairlineDivider()
+                    LessonBlock("Qué es", lesson.whatItIs)
+                    LessonBlock("Por qué importa", lesson.whyItMatters)
+                    LessonBlock("En la app", lesson.inTheApp)
+                    LessonBlock("La idea", lesson.rule)
+                    if (lesson.visual == LessonVisual.SPLIT_50_30_20) ProportionBar()
+                    lesson.example?.let { LessonExample(it) }
+                    lesson.alsoKnownAs?.let {
+                        Text(
+                            "También llamado: $it",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        )
+                    }
+                    lesson.action?.let { action ->
+                        LessonActionButton(action = action, onClick = { onAction(action) })
+                    }
                 }
             }
         }
@@ -311,6 +383,85 @@ private fun LessonBlock(label: String, body: String) {
             fontSize = 14.sp,
             color = MaterialTheme.colorScheme.onSurface,
         )
+    }
+}
+
+/** A concrete worked case, set apart on a tinted card so it reads as a practical example. */
+@Composable
+private fun LessonExample(text: String) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(WmRadii.sm))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        Text(
+            "EJEMPLO",
+            fontSize = 10.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 1.2.sp,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Text(
+            text,
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}
+
+/**
+ * The 50 / 30 / 20 split, shown rather than told: three weighted segments in the
+ * brand money tones (essential = expense red, choice = warm terracotta, savings =
+ * olive) with a short legend. Proportions are illustrative, not the user's data.
+ */
+@Composable
+private fun ProportionBar() {
+    val colors = WmTheme.colors
+    val segments = listOf(
+        Triple("Esencial", 0.5f, colors.expense),
+        Triple("Elección", 0.3f, colors.neg),
+        Triple("Para ti", 0.2f, colors.savings),
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(14.dp)
+                .clip(RoundedCornerShape(WmRadii.pill)),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            segments.forEach { (_, weight, color) ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .weight(weight)
+                        .background(color),
+                )
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            segments.forEach { (label, weight, color) ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                ) {
+                    Box(
+                        Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(color),
+                    )
+                    Text(
+                        "$label ${(weight * 100).toInt()}%",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
     }
 }
 

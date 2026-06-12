@@ -18,6 +18,18 @@ enum class HelpAction(val label: String) {
     CATEGORIES("Ver mis categorías"),
 }
 
+/**
+ * Optional illustration a lesson can render to *show* a pattern, not just tell it.
+ * Kept as a flag (not a Composable) so the content layer stays free of Compose.
+ */
+enum class LessonVisual {
+    /** No illustration. */
+    NONE,
+
+    /** The 50 / 30 / 20 proportion bar (essential / choice / savings). */
+    SPLIT_50_30_20,
+}
+
 /** One step of the minimal "Empieza por aquí" guided route (§4.2). */
 data class GuideStep(
     val emoji: String,
@@ -35,9 +47,13 @@ data class Lesson(
     val whyItMatters: String,
     val inTheApp: String,
     val rule: String,
+    /** A concrete worked case with round numbers (§ejemplo). Warm, no guilt. May be null. */
+    val example: String? = null,
     val action: HelpAction? = null,
     /** Technical name, shown as small print only ("también llamado…"). May be null. */
     val alsoKnownAs: String? = null,
+    /** Optional illustration the view renders to show the pattern. */
+    val visual: LessonVisual = LessonVisual.NONE,
 )
 
 /** A titled group of lessons inside the "¿Quieres profundizar?" disclosure (§4.3). */
@@ -88,6 +104,7 @@ private val readYourNumbers = LessonLibrary(
             whyItMatters = "Es el número que mejor resume tu mes. Subirlo poco a poco, sin agobios, es el objetivo de todo lo demás.",
             inTheApp = "Lo ves en Análisis, como tu ahorro del mes y su evolución.",
             rule = "Una buena referencia: que te quede al menos 1 de cada 5 (un 20%).",
+            example = "Entran 1.500 y gastas 1.200 → te quedan 300. Eso es 1 de cada 5: vas en buen rumbo.",
             action = HelpAction.STATS,
             alsoKnownAs = "tasa de ahorro",
         ),
@@ -140,6 +157,7 @@ private val techniques = LessonLibrary(
             whyItMatters = "Lo que se aparta primero se conserva. Lo que se deja “para lo que sobre”, casi siempre se gasta.",
             inTheApp = "Regístralo como Ahorro en el registro rápido en cuanto entre tu dinero.",
             rule = "Si puedes, automatízalo como movimiento recurrente.",
+            example = "Cobras hoy: antes de nada, apartas 150 como Ahorro. El resto ya es tu mes; gástalo con calma.",
             action = HelpAction.QUICK_ADD,
             alsoKnownAs = "págate a ti primero",
         ),
@@ -151,8 +169,10 @@ private val techniques = LessonLibrary(
             whyItMatters = "Te da una referencia rápida para saber si tu mes está equilibrado, sin llevar mil cuentas.",
             inTheApp = "Compara en Análisis tus gastos esenciales/elección y tu ahorro frente a este reparto.",
             rule = "Ajústalo a tu realidad: lo importante es tener una proporción, no estos números exactos.",
+            example = "Con 1.500 al mes: ~750 a lo esencial, ~450 a tus gustos y ~300 para ti. Una brújula, no una jaula.",
             action = HelpAction.STATS,
             alsoKnownAs = "regla 50/30/20",
+            visual = LessonVisual.SPLIT_50_30_20,
         ),
         Lesson(
             emoji = "🗓️",
@@ -162,6 +182,7 @@ private val techniques = LessonLibrary(
             whyItMatters = "Gastar mucho a principio de mes deja el final cuesta arriba. Un ritmo constante da calma.",
             inTheApp = "Cuando definas tu plan mensual, el inicio te mostrará tu ritmo sugerido por día.",
             rule = "Si un día te pasas, no pasa nada: compensa los siguientes.",
+            example = "Te quedan 600 y faltan 20 días → unos 30 al día. Así llegas a fin de mes sin sustos.",
         ),
         Lesson(
             emoji = "⚙️",
@@ -171,6 +192,7 @@ private val techniques = LessonLibrary(
             whyItMatters = "La meta a largo plazo de cualquier técnica es que una parte de tu dinero no dependa de tu tiempo.",
             inTheApp = "Al registrar un ingreso, eliges si es activo o pasivo. Así puedes ver crecer el pasivo.",
             rule = "Celebra cada ingreso pasivo, por pequeño que sea: es semilla.",
+            example = "Tu sueldo es activo: lo cambias por tu tiempo. 20 de intereses que entran solos son pasivos: ahí empieza.",
             action = HelpAction.QUICK_ADD,
             alsoKnownAs = "ingreso activo vs pasivo",
         ),
@@ -182,6 +204,7 @@ private val techniques = LessonLibrary(
             whyItMatters = "Con colchón, un imprevisto (avería, mes sin ingresos) es un inconveniente, no una catástrofe.",
             inTheApp = "La app conoce tus gastos esenciales del mes: multiplícalos por 3–6 y ese es tu objetivo.",
             rule = "Es la prioridad número uno, antes de pensar en invertir.",
+            example = "Si vivir te cuesta 1.000 al mes, tu colchón está entre 3.000 y 6.000. Llegas poco a poco, sin prisa.",
             action = HelpAction.STATS,
             alsoKnownAs = "fondo de emergencia",
         ),

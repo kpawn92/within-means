@@ -7,6 +7,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,10 +19,12 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Category
@@ -326,21 +329,42 @@ private fun WithinMeansApp() {
                 }
             }
 
-            // Settings entry: floating top-right on the main tabs (the design puts it
-            // on the avatar/topbar; this keeps it reachable until Home is redesigned).
+            // Top-right entries on the main tabs: a discoverable "?" help affordance
+            // next to Settings (the design puts these on the avatar/topbar; this keeps
+            // them reachable until Home is redesigned). Help is also reachable from
+            // within Settings, so it lives in both places on purpose.
             if (showChrome) {
-                IconButton(
-                    onClick = { navController.navigate(Routes.Settings) },
+                Row(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .statusBarsPadding()
                         .padding(top = 6.dp, end = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(
-                        Icons.Filled.Settings,
-                        contentDescription = "Ajustes",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    // "?" — tonal circle, deliberately distinct from the grey gear.
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .clickable { navController.navigate(Routes.Help) },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Outlined.HelpOutline,
+                            contentDescription = "Ayuda",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                    IconButton(onClick = { navController.navigate(Routes.Settings) }) {
+                        Icon(
+                            Icons.Filled.Settings,
+                            contentDescription = "Ajustes",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
 
