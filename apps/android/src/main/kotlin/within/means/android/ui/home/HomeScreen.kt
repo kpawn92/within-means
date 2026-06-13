@@ -35,7 +35,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -190,6 +192,19 @@ private fun GreetingHeader(name: String, yearMonth: String?) {
     }
 }
 
+/**
+ * Diagonal gradient for a hero card: a touch lighter at the top-start, the base in
+ * the middle, deeper at the bottom-end. Gives the saturated semantic color depth so
+ * it reads as a premium surface, not a flat block.
+ */
+private fun heroBrush(base: Color): Brush = Brush.linearGradient(
+    colors = listOf(
+        lerp(base, Color.White, 0.12f),
+        base,
+        lerp(base, Color.Black, 0.18f),
+    ),
+)
+
 @Composable
 private fun MonthHero(
     state: HomeUiState,
@@ -239,6 +254,8 @@ private fun BudgetHero(
     WmCard(
         modifier = Modifier.fillMaxWidth(),
         color = cardColor,
+        brush = heroBrush(cardColor),
+        elevated = true,
         contentPadding = 22.dp,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -320,6 +337,8 @@ private fun BalanceHero(
     WmCard(
         modifier = Modifier.fillMaxWidth(),
         color = cardColor,
+        brush = heroBrush(cardColor),
+        elevated = true,
         contentPadding = 22.dp,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {

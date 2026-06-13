@@ -33,6 +33,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -54,14 +56,23 @@ fun WmCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
     color: Color = MaterialTheme.colorScheme.surface,
+    /** When set, fills with this gradient instead of [color] — the hero treatment. */
+    brush: Brush? = null,
+    /** Hero cards lift off the page with a soft shadow and drop the hairline border. */
+    elevated: Boolean = false,
     contentPadding: Dp = WmRadii.md,
     content: @Composable () -> Unit,
 ) {
     val shape = RoundedCornerShape(WmRadii.lg)
+    // A saturated block + a contrasting hairline reads cheap; a gradient + soft
+    // shadow + a faint glassy top-edge reads premium. Pick per mode.
+    val borderColor =
+        if (brush != null) Color.White.copy(alpha = 0.14f) else MaterialTheme.colorScheme.outlineVariant
     val base = Modifier
+        .then(if (elevated) Modifier.shadow(16.dp, shape, clip = false) else Modifier)
         .clip(shape)
-        .background(color)
-        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
+        .then(if (brush != null) Modifier.background(brush) else Modifier.background(color))
+        .border(1.dp, borderColor, shape)
         .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
         .padding(contentPadding)
     Box(modifier = modifier.then(base)) { content() }

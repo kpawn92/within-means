@@ -133,6 +133,13 @@ tokens de estado `pos`/`neg`. El azul/rojo no compite con el presupuesto.
 hero (`onPrimaryContainer`), para no inundar de rojo la tarjeta principal; el rojo se
 reserva a la lista y al `HeroStat` de gastos.
 
+**C. Acabado del hero → degradado + elevación, no bloque plano.** Un relleno sólido
+saturado con filo de 1dp lee barato. `WmCard` admite `brush` + `elevated`: el hero usa
+un **degradado lineal diagonal** (`heroBrush`: +12% blanco arriba-izq · base · −18% negro
+abajo-der) que da profundidad, una **sombra suave** (16dp) que lo levanta de la página y
+un borde apenas perceptible (blanco α0.14) en lugar del hairline de contraste. Aplica a
+ambos heroes (presupuesto y balance), preservando la semántica azul/rojo del fondo.
+
 ---
 
 ## 5. Implementación (HECHA)
