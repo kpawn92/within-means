@@ -83,6 +83,7 @@ dependencies {
     implementation(project(":shared"))
     implementation(project(":users"))
     implementation(project(":categories"))
+    implementation(project(":concepts"))
     implementation(project(":transactions"))
     implementation(project(":analytics"))
 

@@ -9,6 +9,7 @@ import within.means.android.di.analyticsModule
 import within.means.android.di.appModule
 import within.means.android.di.busModule
 import within.means.android.di.categoriesModule
+import within.means.android.di.conceptsModule
 import within.means.android.di.persistenceModule
 import within.means.android.di.transactionsModule
 import within.means.android.di.uiModule
@@ -26,6 +27,7 @@ class WithinMeansApplication : Application() {
                 persistenceModule,
                 usersModule,
                 categoriesModule,
+                conceptsModule,
                 transactionsModule,
                 analyticsModule,
                 busModule,

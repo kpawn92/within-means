@@ -6,6 +6,9 @@ import within.means.android.persistence.DatabaseUnlocker
 import within.means.categories.db.CategoriesDatabase
 import within.means.categories.domain.CategoryRepository
 import within.means.categories.infrastructure.persistence.SqlDelightCategoryRepository
+import within.means.concepts.db.ConceptsDatabase
+import within.means.concepts.domain.ConceptRepository
+import within.means.concepts.infrastructure.persistence.SqlDelightConceptRepository
 import within.means.shared.db.SharedDatabase
 import within.means.shared.domain.UuidGenerator
 import within.means.shared.domain.bus.event.DomainEventStore
@@ -29,6 +32,7 @@ val persistenceModule = module {
     single<SharedDatabase> { get<DatabaseUnlocker>().shared }
     single<UsersDatabase> { get<DatabaseUnlocker>().users }
     single<CategoriesDatabase> { get<DatabaseUnlocker>().categories }
+    single<ConceptsDatabase> { get<DatabaseUnlocker>().concepts }
     single<TransactionsDatabase> { get<DatabaseUnlocker>().transactions }
 
     single<DomainEventStore> {
@@ -40,6 +44,9 @@ val persistenceModule = module {
     }
     single<CategoryRepository> {
         SqlDelightCategoryRepository(get(), get(named("io")))
+    }
+    single<ConceptRepository> {
+        SqlDelightConceptRepository(get(), get(named("io")))
     }
     single<TransactionRepository> {
         SqlDelightTransactionRepository(get(), get(named("io")))

@@ -32,7 +32,7 @@ include(":shared")
 project(":shared").projectDir = file("src/shared")
 
 // Bounded contexts del MVP
-listOf("users", "categories", "transactions", "analytics").forEach { ctx ->
+listOf("users", "categories", "concepts", "transactions", "analytics").forEach { ctx ->
     include(":$ctx")
     project(":$ctx").projectDir = file("src/$ctx")
 }

@@ -22,6 +22,19 @@ import within.means.categories.domain.CategoryDeleted
 import within.means.categories.domain.CategoryReclassified
 import within.means.categories.domain.CategoryRenamed
 import within.means.categories.domain.CategoryRestyled
+import within.means.concepts.application.create.CreateConceptCommandHandler
+import within.means.concepts.application.delete.DeleteConceptCommandHandler
+import within.means.concepts.application.find.FindConceptQueryHandler
+import within.means.concepts.application.recategorize.SetConceptDefaultCategoryCommandHandler
+import within.means.concepts.application.record_usage.RecordConceptUsageCommandHandler
+import within.means.concepts.application.rename.RenameConceptCommandHandler
+import within.means.concepts.application.suggest.ListAllConceptsQueryHandler
+import within.means.concepts.application.suggest.SuggestConceptsQueryHandler
+import within.means.concepts.domain.ConceptCreated
+import within.means.concepts.domain.ConceptDefaultCategoryChanged
+import within.means.concepts.domain.ConceptDeleted
+import within.means.concepts.domain.ConceptRenamed
+import within.means.concepts.domain.ConceptUsageRecorded
 import within.means.shared.domain.bus.command.Command
 import within.means.shared.domain.bus.command.CommandBus
 import within.means.shared.domain.bus.command.CommandHandler
@@ -73,6 +86,11 @@ val busModule = module {
             get<RestyleCategoryCommandHandler>(),
             get<ReclassifyCategoryCommandHandler>(),
             get<DeleteCategoryCommandHandler>(),
+            get<CreateConceptCommandHandler>(),
+            get<RecordConceptUsageCommandHandler>(),
+            get<SetConceptDefaultCategoryCommandHandler>(),
+            get<RenameConceptCommandHandler>(),
+            get<DeleteConceptCommandHandler>(),
             get<RegisterTransactionCommandHandler>(),
             get<EditTransactionCommandHandler>(),
             get<DeleteTransactionCommandHandler>(),
@@ -89,6 +107,9 @@ val busModule = module {
             get<FindCategoryQueryHandler>(),
             get<SearchCategoriesQueryHandler>(),
             get<ListAllCategoriesQueryHandler>(),
+            get<FindConceptQueryHandler>(),
+            get<SuggestConceptsQueryHandler>(),
+            get<ListAllConceptsQueryHandler>(),
             get<FindTransactionQueryHandler>(),
             get<SearchTransactionsQueryHandler>(),
             get<ListActiveRecurringRulesQueryHandler>(),
@@ -111,6 +132,11 @@ val busModule = module {
             CategoryRestyled.NAME to CategoryRestyled.serializer(),
             CategoryReclassified.NAME to CategoryReclassified.serializer(),
             CategoryDeleted.NAME to CategoryDeleted.serializer(),
+            ConceptCreated.NAME to ConceptCreated.serializer(),
+            ConceptRenamed.NAME to ConceptRenamed.serializer(),
+            ConceptDefaultCategoryChanged.NAME to ConceptDefaultCategoryChanged.serializer(),
+            ConceptUsageRecorded.NAME to ConceptUsageRecorded.serializer(),
+            ConceptDeleted.NAME to ConceptDeleted.serializer(),
             TransactionRegistered.NAME to TransactionRegistered.serializer(),
             TransactionEdited.NAME to TransactionEdited.serializer(),
             TransactionDeleted.NAME to TransactionDeleted.serializer(),

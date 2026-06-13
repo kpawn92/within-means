@@ -1,0 +1,41 @@
+CREATE TABLE concept (
+    id                  TEXT NOT NULL PRIMARY KEY,
+    kind                TEXT NOT NULL,
+    label               TEXT NOT NULL,
+    concept_key         TEXT NOT NULL,
+    default_category_id TEXT,
+    usage_count         INTEGER NOT NULL DEFAULT 0,
+    last_used_at        TEXT,
+    created_at          TEXT NOT NULL
+);
+
+-- (kind, concept_key) identity lookup. NOT unique on purpose: uniqueness is
+-- enforced in ConceptCreator so a rename can never crash on a clashing insert.
+CREATE INDEX idx_concept_kind_key ON concept(kind, concept_key);
+
+-- Chip-row ordering: most-used, then most-recent.
+CREATE INDEX idx_concept_suggest ON concept(kind, usage_count DESC, last_used_at DESC);
+
+upsert:
+INSERT OR REPLACE INTO concept(
+    id, kind, label, concept_key, default_category_id, usage_count, last_used_at, created_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+findById:
+SELECT * FROM concept WHERE id = ?;
+
+findByKey:
+SELECT * FROM concept WHERE kind = ? AND concept_key = ? LIMIT 1;
+
+findByKind:
+SELECT * FROM concept WHERE kind = ?
+ORDER BY usage_count DESC, last_used_at DESC, label;
+
+findAll:
+SELECT * FROM concept ORDER BY usage_count DESC, last_used_at DESC, label;
+
+countAll:
+SELECT COUNT(*) FROM concept;
+
+deleteById:
+DELETE FROM concept WHERE id = ?;

@@ -2,6 +2,7 @@ package within.means.android.persistence
 
 import app.cash.sqldelight.db.SqlDriver
 import within.means.categories.db.CategoriesDatabase
+import within.means.concepts.db.ConceptsDatabase
 import within.means.shared.db.SharedDatabase
 import within.means.transactions.db.TransactionsDatabase
 import within.means.users.db.UsersDatabase
@@ -27,6 +28,9 @@ class DatabaseUnlocker(
     private var categoriesDb: CategoriesDatabase? = null
 
     @Volatile
+    private var conceptsDb: ConceptsDatabase? = null
+
+    @Volatile
     private var transactionsDb: TransactionsDatabase? = null
 
     @Volatile
@@ -36,7 +40,8 @@ class DatabaseUnlocker(
     private var lastPin: String? = null
 
     val isUnlocked: Boolean
-        get() = sharedDb != null && usersDb != null && categoriesDb != null && transactionsDb != null
+        get() = sharedDb != null && usersDb != null && categoriesDb != null &&
+            conceptsDb != null && transactionsDb != null
 
     /**
      * The PIN that unlocked the current session, kept in memory only while the
@@ -52,12 +57,16 @@ class DatabaseUnlocker(
         val shared = factory.buildShared(passphrase)
         val users = factory.buildUsers(passphrase)
         val categories = factory.buildCategories(passphrase)
+        val concepts = factory.buildConcepts(passphrase)
         val transactions = factory.buildTransactions(passphrase)
         sharedDb = shared.database
         usersDb = users.database
         categoriesDb = categories.database
+        conceptsDb = concepts.database
         transactionsDb = transactions.database
-        drivers = listOf(shared.driver, users.driver, categories.driver, transactions.driver)
+        drivers = listOf(
+            shared.driver, users.driver, categories.driver, concepts.driver, transactions.driver
+        )
         lastPin = pin
     }
 
@@ -94,6 +103,7 @@ class DatabaseUnlocker(
         sharedDb = null
         usersDb = null
         categoriesDb = null
+        conceptsDb = null
         transactionsDb = null
         drivers.forEach { runCatching { it.close() } }
         drivers = emptyList()
@@ -108,6 +118,9 @@ class DatabaseUnlocker(
 
     val categories: CategoriesDatabase
         get() = categoriesDb ?: error("CategoriesDatabase requested before unlock()")
+
+    val concepts: ConceptsDatabase
+        get() = conceptsDb ?: error("ConceptsDatabase requested before unlock()")
 
     val transactions: TransactionsDatabase
         get() = transactionsDb ?: error("TransactionsDatabase requested before unlock()")
