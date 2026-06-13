@@ -1,5 +1,6 @@
 package within.means.android.capture
 
+import within.means.categories.domain.CategoryRepository
 import within.means.concepts.application.create.ConceptCreator
 import within.means.concepts.application.create.CreateConceptCommand
 import within.means.concepts.domain.ConceptId
@@ -28,6 +29,8 @@ import within.means.transactions.application.register.RegisterTransactionCommand
 class MovementCaptureService(
     private val conceptCreator: ConceptCreator,
     private val concepts: ConceptRepository,
+    private val categories: CategoryRepository,
+    private val suggester: ConceptCategorySuggester,
     private val fallbackCategory: FallbackCategoryResolver,
     private val commandBus: CommandBus,
     private val uuids: UuidGenerator,
@@ -118,10 +121,19 @@ class MovementCaptureService(
      */
     suspend fun resolveConceptIds(type: String, labels: List<String>): List<String> {
         val kind = conceptKindFor(type) ?: return emptyList()
+        // Same-kind categories feed the suggester so a brand-new concept can be
+        // born already mapped (e.g. "gasolina" → Transporte). Existing concepts
+        // ignore the suggestion — create is idempotent on (kind, key).
+        val sameKindCategories = categories.all().filter { it.kind.name == kind }
         return labels
             .map { it.trim() }
             .filter { it.isNotEmpty() }
-            .map { label -> conceptCreator.create(CreateConceptCommand(kind = kind, label = label)).value }
+            .map { label ->
+                val suggested = suggester.suggest(label, sameKindCategories)
+                conceptCreator.create(
+                    CreateConceptCommand(kind = kind, label = label, defaultCategoryId = suggested)
+                ).value
+            }
             .distinct()
     }
 

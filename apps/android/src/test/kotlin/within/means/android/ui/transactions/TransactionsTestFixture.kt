@@ -3,6 +3,7 @@ package within.means.android.ui.transactions
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
 import org.koin.dsl.module
+import within.means.android.capture.ConceptCategorySuggester
 import within.means.android.capture.FallbackCategoryResolver
 import within.means.android.capture.MovementCaptureService
 import within.means.android.ui.categories.SequentialUuidGenerator
@@ -14,7 +15,9 @@ import within.means.categories.application.search.SearchCategoriesQueryHandler
 import within.means.categories.domain.CategoryRepository
 import within.means.categories.infrastructure.persistence.InMemoryCategoryRepository
 import within.means.concepts.application.create.ConceptCreator
+import within.means.concepts.application.create.CreateConceptCommandHandler
 import within.means.concepts.application.find.FindConceptQueryHandler
+import within.means.concepts.application.recategorize.SetConceptDefaultCategoryCommandHandler
 import within.means.concepts.application.record_usage.RecordConceptUsageCommandHandler
 import within.means.concepts.application.suggest.ListAllConceptsQueryHandler
 import within.means.concepts.application.suggest.SuggestConceptsQueryHandler
@@ -65,6 +68,9 @@ class TransactionsTestFixture(
     private val editHandler = EditTransactionCommandHandler(txRepository, uuids, eventBus)
     private val deleteHandler = DeleteTransactionCommandHandler(txRepository, uuids, eventBus)
     private val recordUsageHandler = RecordConceptUsageCommandHandler(conceptRepository, uuids, eventBus)
+    private val createConceptHandler = CreateConceptCommandHandler(conceptCreator)
+    private val setConceptCategoryHandler =
+        SetConceptDefaultCategoryCommandHandler(conceptRepository, uuids, eventBus)
 
     private val findHandler = FindTransactionQueryHandler(txRepository)
     private val searchHandler = SearchTransactionsQueryHandler(txRepository)
@@ -80,6 +86,8 @@ class TransactionsTestFixture(
         editHandler,
         deleteHandler,
         recordUsageHandler,
+        createConceptHandler,
+        setConceptCategoryHandler,
     )
     private val queryHandlers: List<QueryHandler<out Query, out Response>> = listOf(
         findHandler,
@@ -95,7 +103,10 @@ class TransactionsTestFixture(
     val queryBus: QueryBus = InMemoryQueryBus(queryHandlers)
 
     private val fallbackCategory = FallbackCategoryResolver(categoryRepository, categoryCreator)
-    val captureService = MovementCaptureService(conceptCreator, conceptRepository, fallbackCategory, commandBus, uuids)
+    private val conceptSuggester = ConceptCategorySuggester()
+    val captureService = MovementCaptureService(
+        conceptCreator, conceptRepository, categoryRepository, conceptSuggester, fallbackCategory, commandBus, uuids,
+    )
 
     suspend fun seedCategory(name: String, kind: String = "EXPENSE"): String {
         val before = categoryRepository.countAll()

@@ -267,6 +267,16 @@ fun TransactionEditScreen(
                     }
                 }
 
+                // Re-learn offer: re-point the concept's inferred category (§8.4).
+                state.relearnPrompt?.let { p ->
+                    RelearnPromptCard(
+                        conceptLabel = p.conceptLabel,
+                        categoryName = p.categoryName,
+                        onAccept = viewModel::applyRelearn,
+                        onDismiss = viewModel::dismissRelearn,
+                    )
+                }
+
                 OutlinedTextField(
                     value = state.description,
                     onValueChange = viewModel::onDescriptionChanged,
@@ -474,6 +484,35 @@ private fun ConceptChip(
                 modifier = Modifier.size(14.dp),
                 tint = accent,
             )
+        }
+    }
+}
+
+@Composable
+private fun RelearnPromptCard(
+    conceptLabel: String,
+    categoryName: String,
+    onAccept: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(WmRadii.md))
+            .background(WmTheme.colors.posSoft)
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            "¿Usar $categoryName para «$conceptLabel» a partir de ahora?",
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextButton(onClick = onAccept) { Text("Sí, usarla") }
+            TextButton(onClick = onDismiss) {
+                Text("Ahora no", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
 }

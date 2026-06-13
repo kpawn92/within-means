@@ -10,7 +10,9 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import io.kotest.matchers.nulls.shouldNotBeNull
 import within.means.android.ui.categories.MainDispatcherRule
+import within.means.concepts.application.create.CreateConceptCommand
 import within.means.transactions.application.register.RegisterTransactionCommand
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -128,6 +130,48 @@ class TransactionEditViewModelTest {
         stored.conceptRefs.ids shouldHaveSize 1
         val cerveza = fixture.conceptRepository.all().single { it.label.value == "Cerveza" }
         stored.conceptRefs.ids.single() shouldBe cerveza.id.value
+    }
+
+    @Test
+    fun `overriding the category of a known concept offers to re-learn it`() = runTest {
+        val comida = fixture.seedCategory("Comida")
+        val transporte = fixture.seedCategory("Transporte")
+        // A known concept "Bus" currently mapped to Comida (a wrong default).
+        fixture.commandBus.dispatch(
+            CreateConceptCommand(kind = "EXPENSE", label = "Bus", defaultCategoryId = comida)
+        )
+
+        val vm = TransactionEditViewModel()
+        advanceUntilIdle()
+
+        vm.onToggleConcept("Bus")
+        vm.onCategoryChanged(transporte)
+
+        val prompt = vm.state.value.relearnPrompt.shouldNotBeNull()
+        prompt.conceptLabel shouldBe "Bus"
+        prompt.categoryId shouldBe transporte
+
+        vm.applyRelearn()
+        advanceUntilIdle()
+
+        vm.state.value.relearnPrompt shouldBe null
+        val bus = fixture.conceptRepository.all().single { it.label.value == "Bus" }
+        bus.defaultCategoryId shouldBe transporte
+    }
+
+    @Test
+    fun `no re-learn offer when the category already matches the concept`() = runTest {
+        val transporte = fixture.seedCategory("Transporte")
+        fixture.commandBus.dispatch(
+            CreateConceptCommand(kind = "EXPENSE", label = "Bus", defaultCategoryId = transporte)
+        )
+        val vm = TransactionEditViewModel()
+        advanceUntilIdle()
+
+        vm.onToggleConcept("Bus")
+        vm.onCategoryChanged(transporte)
+
+        vm.state.value.relearnPrompt shouldBe null
     }
 
     @Test

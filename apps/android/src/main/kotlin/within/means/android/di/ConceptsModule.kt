@@ -2,9 +2,12 @@ package within.means.android.di
 
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
+import within.means.android.capture.ConceptCategorySuggester
+import within.means.android.capture.ConceptsFromCategoriesSeeder
 import within.means.android.capture.FallbackCategoryResolver
 import within.means.android.capture.MovementCaptureService
 import within.means.android.subscribers.RecordConceptUsageOnTransactionRegistered
+import within.means.android.subscribers.SeedConceptsOnUserDefaultCreated
 import within.means.concepts.application.create.ConceptCreator
 import within.means.concepts.application.create.CreateConceptCommandHandler
 import within.means.concepts.application.delete.DeleteConceptCommandHandler
@@ -31,6 +34,15 @@ val conceptsModule = module {
 
     // Capture orchestration (F3) — spans concepts + categories + transactions.
     singleOf(::FallbackCategoryResolver)
-    singleOf(::MovementCaptureService)
     singleOf(::RecordConceptUsageOnTransactionRegistered)
+
+    // Learning (F6): category suggestion + day-1 concepts from categories.
+    singleOf(::ConceptCategorySuggester)
+    singleOf(::ConceptsFromCategoriesSeeder)
+    singleOf(::SeedConceptsOnUserDefaultCreated)
+
+    // 7 ctor params exceed singleOf's arity, so wire it explicitly.
+    single {
+        MovementCaptureService(get(), get(), get(), get(), get(), get(), get())
+    }
 }

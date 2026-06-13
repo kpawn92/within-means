@@ -5,6 +5,14 @@ import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import within.means.categories.application.create.CategoryCreator
+import within.means.categories.domain.Category
+import within.means.categories.domain.CategoryClassifiers
+import within.means.categories.domain.CategoryColor
+import within.means.categories.domain.CategoryIcon
+import within.means.categories.domain.CategoryId
+import within.means.categories.domain.CategoryKind
+import within.means.categories.domain.CategoryName
+import within.means.categories.domain.EngelGroup
 import within.means.categories.infrastructure.persistence.InMemoryCategoryRepository
 import within.means.concepts.application.create.ConceptCreator
 import within.means.concepts.application.create.CreateConceptCommand
@@ -44,8 +52,11 @@ class MovementCaptureServiceTest {
     private val categoryRepo = InMemoryCategoryRepository()
     private val categoryCreator = CategoryCreator(categoryRepo, uuids, eventBus)
     private val fallback = FallbackCategoryResolver(categoryRepo, categoryCreator)
+    private val suggester = ConceptCategorySuggester()
     private val bus = RecordingCommandBus()
-    private val service = MovementCaptureService(conceptCreator, conceptRepo, fallback, bus, uuids)
+    private val service = MovementCaptureService(
+        conceptCreator, conceptRepo, categoryRepo, suggester, fallback, bus, uuids,
+    )
 
     private val today = "2026-06-13"
 
@@ -110,6 +121,29 @@ class MovementCaptureServiceTest {
         registers shouldHaveSize 3
         registers.map { it.batchRef }.toSet() shouldBe setOf(result.batchRef)
         result.transactionIds shouldHaveSize 3
+    }
+
+    @Test
+    fun `a new concept is born mapped to a suggested category`() = runTest {
+        categoryRepo.save(
+            Category.rehydrate(
+                id = CategoryId("00000000-0000-4000-8000-000000000900"),
+                kind = CategoryKind.EXPENSE,
+                name = CategoryName("Transporte"),
+                color = CategoryColor("#0288D1"),
+                icon = CategoryIcon("label"),
+                classifiers = CategoryClassifiers(null, null, false, EngelGroup.TRANSPORT),
+                parentId = null,
+                createdAt = kotlinx.datetime.Instant.parse("2026-01-01T00:00:00Z"),
+            )
+        )
+
+        service.register(type = "EXPENSE", amountCents = 7800, date = today, conceptLabels = listOf("gasolina"))
+
+        val concept = conceptRepo.all().single { it.label.value == "gasolina" }
+        val transporte = categoryRepo.all().single { it.name.value == "Transporte" }
+        concept.defaultCategoryId shouldBe transporte.id.value
+        bus.registers().single().categoryId shouldBe transporte.id.value
     }
 
     @Test
