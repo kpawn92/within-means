@@ -188,6 +188,21 @@ class TransactionEditViewModel : ViewModel(), KoinComponent {
     fun onFrequencyChanged(value: String) { _state.update { it.copy(frequency = value) } }
     fun onToggleDetails() { _state.update { it.copy(showDetails = !it.showDetails) } }
 
+    /**
+     * Applies a deep-link preset (from a widget / app shortcut): preselect the
+     * type and, optionally, a concept. Create mode only — never rewrites an edit.
+     */
+    fun preset(type: String?, concept: String?) {
+        if (isEditMode) return
+        type?.takeIf { it in TYPES && it != _state.value.type }?.let { onTypeChanged(it) }
+        concept?.trim()?.takeIf { it.isNotEmpty() }?.let { label ->
+            _state.update { s ->
+                if (s.selectedConcepts.any { it.equals(label, ignoreCase = true) }) s
+                else s.copy(selectedConcepts = s.selectedConcepts + label)
+            }
+        }
+    }
+
     fun onConceptInputChanged(value: String) { _state.update { it.copy(conceptInput = value) } }
 
     /** Commits the typed "¿En qué?" text as a selected concept (deduped, case-insensitive). */
@@ -427,6 +442,9 @@ class TransactionEditViewModel : ViewModel(), KoinComponent {
 
 /** How many concept chips the QuickAdd row shows before the rest stay searchable. */
 private const val CHIP_LIMIT = 12
+
+/** Valid movement types a deep-link may preselect. */
+private val TYPES = setOf("EXPENSE", "INCOME", "TRANSFER")
 
 private fun todayIso(): String =
     Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date.toString()

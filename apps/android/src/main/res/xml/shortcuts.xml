@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="new_expense"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_expense"
+        android:shortcutShortLabel="@string/shortcut_new_expense_short"
+        android:shortcutLongLabel="@string/shortcut_new_expense_long">
+        <intent
+            android:action="within.means.android.action.NEW_EXPENSE"
+            android:targetPackage="within.means.android"
+            android:targetClass="within.means.android.MainActivity" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="new_income"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_income"
+        android:shortcutShortLabel="@string/shortcut_new_income_short"
+        android:shortcutLongLabel="@string/shortcut_new_income_long">
+        <intent
+            android:action="within.means.android.action.NEW_INCOME"
+            android:targetPackage="within.means.android"
+            android:targetClass="within.means.android.MainActivity" />
+    </shortcut>
+</shortcuts>

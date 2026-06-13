@@ -1,4 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">within means</string>
+
+    <!-- App shortcuts (long-press the launcher icon) -->
+    <string name="shortcut_new_expense_short">Gasto</string>
+    <string name="shortcut_new_expense_long">Nuevo gasto</string>
+    <string name="shortcut_new_income_short">Ingreso</string>
+    <string name="shortcut_new_income_long">Nuevo ingreso</string>
+
+    <!-- Home-screen widget -->
+    <string name="widget_description">Añade un gasto o ingreso de un toque</string>
 </resources>

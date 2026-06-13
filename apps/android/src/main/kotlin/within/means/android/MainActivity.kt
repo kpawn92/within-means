@@ -3,6 +3,7 @@ package within.means.android
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -67,6 +68,7 @@ import within.means.android.persistence.DatabaseUnlocker
 import within.means.android.persistence.OnboardingState
 import within.means.android.persistence.ThemeMode
 import within.means.android.persistence.ThemePreference
+import within.means.android.shortcuts.QuickActionShortcuts
 import within.means.android.ui.theme.WithinMeansTheme
 import within.means.android.ui.analytics.StatsScreen
 import within.means.android.ui.categories.CategoriesListScreen
@@ -124,6 +126,27 @@ private fun Context.relaunchToLock() {
     Runtime.getRuntime().exit(0)
 }
 
+/** Intent actions/extras used by the home widget and app shortcuts. */
+object QuickActions {
+    const val NEW_EXPENSE = "within.means.android.action.NEW_EXPENSE"
+    const val NEW_INCOME = "within.means.android.action.NEW_INCOME"
+    /** Optional concept label to preselect (dynamic "Nuevo · Cerveza" shortcuts). */
+    const val EXTRA_CONCEPT = "within.means.android.extra.CONCEPT"
+}
+
+/** A pending "open QuickAdd" request carried by a shortcut / widget intent. */
+data class QuickAddDeepLink(val type: String, val concept: String?)
+
+/** Reads a launch intent into a deep-link request, or null if it isn't one. */
+private fun quickAddDeepLink(intent: Intent?): QuickAddDeepLink? {
+    val type = when (intent?.action) {
+        QuickActions.NEW_EXPENSE -> "EXPENSE"
+        QuickActions.NEW_INCOME -> "INCOME"
+        else -> return null
+    }
+    return QuickAddDeepLink(type, intent.getStringExtra(QuickActions.EXTRA_CONCEPT))
+}
+
 private object Routes {
     const val Onboarding = "onboarding"
     const val Unlock = "unlock"
@@ -132,7 +155,7 @@ private object Routes {
     const val CategoryNew = "categories/new"
     const val CategoryEdit = "categories/edit/{categoryId}"
     const val Transactions = "transactions"
-    const val TransactionNew = "transactions/new"
+    const val TransactionNew = "transactions/new?type={type}&concept={concept}"
     const val TransactionEdit = "transactions/edit/{transactionId}"
     const val Stats = "stats"
     const val Settings = "settings"
@@ -141,6 +164,15 @@ private object Routes {
     const val Intro = "intro"
     const val ChangePin = "settings/change-pin"
     const val Help = "help"
+
+    /** Base route + optional deep-link preset (widget / app shortcut). */
+    fun transactionNew(type: String? = null, concept: String? = null): String {
+        val params = buildList {
+            type?.let { add("type=$it") }
+            concept?.takeIf { it.isNotBlank() }?.let { add("concept=${Uri.encode(it)}") }
+        }
+        return if (params.isEmpty()) "transactions/new" else "transactions/new?" + params.joinToString("&")
+    }
 
     fun recurringEdit(ruleId: String): String = "recurring/edit/$ruleId"
 
@@ -191,6 +223,27 @@ private fun WithinMeansApp() {
     var showQuickAdd by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
+    // Deep-link from a widget / app shortcut: once the app is past auth (Home),
+    // open the concept-enabled editor with the preset type (and concept, if any).
+    // Consume the intent action so a rotation doesn't re-fire it.
+    var pendingDeepLink by remember { mutableStateOf(quickAddDeepLink(activity?.intent)) }
+    LaunchedEffect(currentRoute, pendingDeepLink) {
+        val link = pendingDeepLink ?: return@LaunchedEffect
+        if (currentRoute == Routes.Home) {
+            activity?.intent?.action = Intent.ACTION_MAIN
+            pendingDeepLink = null
+            navController.navigate(Routes.transactionNew(type = link.type, concept = link.concept))
+        }
+    }
+
+    // Keep the dynamic shortcuts (top concepts) fresh once we're past auth.
+    val queryBus: within.means.shared.domain.bus.query.QueryBus = koinInject()
+    LaunchedEffect(currentRoute) {
+        if (currentRoute == Routes.Home) {
+            QuickActionShortcuts.refresh(context, queryBus)
+        }
+    }
+
     Scaffold(
         // Let auth/editor screens draw edge-to-edge; only main tabs reserve the bar.
         contentWindowInsets = if (showChrome) ScaffoldDefaults.contentWindowInsets
@@ -230,7 +283,7 @@ private fun WithinMeansApp() {
                 composable(Routes.Home) {
                     exitOnBack()
                     HomeScreen(
-                        onNewTransaction = { navController.navigate(Routes.TransactionNew) },
+                        onNewTransaction = { navController.navigate(Routes.transactionNew()) },
                         onOpenAllTransactions = { navController.navigateToTab(Routes.Transactions) },
                         onOpenTransaction = { id -> navController.navigate(Routes.transactionEdit(id)) },
                     )
@@ -260,15 +313,23 @@ private fun WithinMeansApp() {
                 }
                 composable(Routes.Transactions) {
                     TransactionsListScreen(
-                        onCreate = { navController.navigate(Routes.TransactionNew) },
+                        onCreate = { navController.navigate(Routes.transactionNew()) },
                         onEdit = { id -> navController.navigate(Routes.transactionEdit(id)) },
                     )
                 }
-                composable(Routes.TransactionNew) {
+                composable(
+                    route = Routes.TransactionNew,
+                    arguments = listOf(
+                        navArgument("type") { type = NavType.StringType; nullable = true; defaultValue = null },
+                        navArgument("concept") { type = NavType.StringType; nullable = true; defaultValue = null },
+                    ),
+                ) { entry ->
                     TransactionEditScreen(
                         transactionId = null,
                         onBack = { navController.popBackStack() },
                         onFinished = { navController.popBackStack() },
+                        initialType = entry.arguments?.getString("type"),
+                        initialConcept = entry.arguments?.getString("concept"),
                     )
                 }
                 composable(

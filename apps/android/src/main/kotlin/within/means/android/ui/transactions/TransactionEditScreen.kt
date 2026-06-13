@@ -87,9 +87,16 @@ fun TransactionEditScreen(
     transactionId: String?,
     onBack: () -> Unit,
     onFinished: () -> Unit,
+    initialType: String? = null,
+    initialConcept: String? = null,
 ) {
     val viewModel: TransactionEditViewModel = koinViewModel()
     val state by viewModel.state.collectAsState()
+
+    // Deep-link preset (widget / app shortcut): only in create mode, once.
+    LaunchedEffect(Unit) {
+        if (transactionId == null) viewModel.preset(initialType, initialConcept)
+    }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var showDeleteDialog by rememberSaveable { mutableStateOf(false) }
