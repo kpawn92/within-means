@@ -14,15 +14,17 @@ import kotlinx.datetime.minus
 import kotlinx.datetime.toLocalDateTime
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
+import within.means.android.capture.MovementCaptureService
 import within.means.android.ui.calculator.AmountCalculator
 import within.means.android.ui.error.ErrorContext
 import within.means.android.ui.error.toUserMessage
+import within.means.android.ui.transactions.ConceptChipUi
 import within.means.categories.application.CategoriesResponse
 import within.means.categories.application.CategoryResponse
 import within.means.categories.application.search.SearchCategoriesQuery
-import within.means.shared.domain.bus.command.CommandBus
+import within.means.concepts.application.ConceptsResponse
+import within.means.concepts.application.suggest.SuggestConceptsQuery
 import within.means.shared.domain.bus.query.QueryBus
-import within.means.transactions.application.register.RegisterTransactionCommand
 
 /** When the movement happened — QuickAdd keeps it to one tap. */
 enum class QuickWhen { TODAY, YESTERDAY }
@@ -34,6 +36,12 @@ data class QuickAddUiState(
     /** Live result of [expression] in cents; 0 when empty/invalid. */
     val amountCents: Long = 0L,
     val categoryId: String? = null,
+    /** Concepts the user picked/typed ("en qué fue"); order = relevance. */
+    val selectedConcepts: List<String> = emptyList(),
+    /** Frequent concepts of the current type, most-used first (chip row). */
+    val conceptSuggestions: List<ConceptChipUi> = emptyList(),
+    /** Free text of the "¿En qué?" field, not yet committed to a chip. */
+    val conceptInput: String = "",
     val note: String = "",
     /** Resolved movement date (ISO `yyyy-MM-dd`); blank until [reset] seeds today. */
     val date: String = "",
@@ -47,7 +55,11 @@ data class QuickAddUiState(
     val errorMessage: String? = null,
     val savedAmountCents: Long? = null,
 ) {
-    val canSave: Boolean get() = amountCents > 0L && !categoryId.isNullOrBlank() && !saving
+    // No category requirement: it's inferred from the concept / falls back to "Otros".
+    val canSave: Boolean get() = amountCents > 0L && !saving
+
+    /** Concepts apply to spend/income only; transfers carry none. */
+    val conceptsApply: Boolean get() = type == "EXPENSE" || type == "INCOME"
 }
 
 class QuickAddViewModel(
@@ -62,16 +74,61 @@ class QuickAddViewModel(
 
     init {
         viewModelScope.launch { loadCategoriesForCurrentType() }
+        viewModelScope.launch { loadConceptSuggestions() }
         viewModelScope.launch { loadCurrency() }
     }
 
     fun onTypeChanged(value: String) {
-        _state.update { it.copy(type = value, categoryId = null) }
+        _state.update {
+            it.copy(
+                type = value,
+                categoryId = null,
+                // Concepts are per-kind: switching type drops the picked ones.
+                selectedConcepts = emptyList(),
+                conceptSuggestions = emptyList(),
+                conceptInput = "",
+            )
+        }
         viewModelScope.launch { loadCategoriesForCurrentType() }
+        viewModelScope.launch { loadConceptSuggestions() }
     }
 
     fun onCategoryChanged(value: String) { _state.update { it.copy(categoryId = value, errorMessage = null) } }
     fun onNoteChanged(value: String) { _state.update { it.copy(note = value) } }
+
+    fun onConceptInputChanged(value: String) { _state.update { it.copy(conceptInput = value) } }
+
+    /** Commits the typed "¿En qué?" text as a selected concept (deduped, case-insensitive). */
+    fun onCommitTypedConcept() {
+        val raw = _state.value.conceptInput.trim()
+        if (raw.isEmpty()) return
+        _state.update { s ->
+            val already = s.selectedConcepts.any { it.equals(raw, ignoreCase = true) }
+            s.copy(
+                selectedConcepts = if (already) s.selectedConcepts else s.selectedConcepts + raw,
+                conceptInput = "",
+            )
+        }
+    }
+
+    fun onToggleConcept(label: String) {
+        _state.update { s ->
+            val present = s.selectedConcepts.any { it.equals(label, ignoreCase = true) }
+            s.copy(
+                selectedConcepts = if (present) {
+                    s.selectedConcepts.filterNot { it.equals(label, ignoreCase = true) }
+                } else {
+                    s.selectedConcepts + label
+                },
+            )
+        }
+    }
+
+    fun onRemoveConcept(label: String) {
+        _state.update { s ->
+            s.copy(selectedConcepts = s.selectedConcepts.filterNot { it.equals(label, ignoreCase = true) })
+        }
+    }
     fun onWhenChanged(value: QuickWhen) {
         _state.update { it.copy(whenChoice = value, date = resolveDate(value)) }
     }
@@ -94,29 +151,23 @@ class QuickAddViewModel(
     fun save() {
         val s = _state.value
         if (s.saving) return
-        // Validate with explicit feedback (like the full editor) instead of a
-        // silently-disabled button: tell the user what's missing.
+        // Only the amount is required now: the category is inferred from the
+        // concept (or falls back to "Otros"), so it never blocks a save.
         if (s.amountCents <= 0L) {
             _state.update { it.copy(errorMessage = "Escribe un importe mayor que 0") }
-            return
-        }
-        val categoryId = s.categoryId
-        if (categoryId.isNullOrBlank()) {
-            _state.update { it.copy(errorMessage = "Selecciona una categoría") }
             return
         }
         viewModelScope.launch {
             _state.update { it.copy(saving = true, errorMessage = null) }
             runCatching {
-                get<CommandBus>().dispatch(
-                    RegisterTransactionCommand(
-                        type = s.type,
-                        amountCents = s.amountCents,
-                        date = s.date.ifBlank { resolveDate(QuickWhen.TODAY) },
-                        time = s.time.ifBlank { null },
-                        description = s.note,
-                        categoryId = categoryId,
-                    )
+                get<MovementCaptureService>().register(
+                    type = s.type,
+                    amountCents = s.amountCents,
+                    date = s.date.ifBlank { resolveDate(QuickWhen.TODAY) },
+                    time = s.time.ifBlank { null },
+                    description = s.note,
+                    conceptLabels = if (s.conceptsApply) s.selectedConcepts else emptyList(),
+                    categoryOverride = s.categoryId,
                 )
             }.onSuccess {
                 _state.update { it.copy(saving = false, savedAmountCents = s.amountCents) }
@@ -139,6 +190,7 @@ class QuickAddViewModel(
             )
         }
         viewModelScope.launch { loadCategoriesForCurrentType() }
+        viewModelScope.launch { loadConceptSuggestions() }
     }
 
     private fun resolveDate(choice: QuickWhen): String {
@@ -162,6 +214,22 @@ class QuickAddViewModel(
                 SearchCategoriesQuery(kind = _state.value.type)
             )
         }.onSuccess { resp -> _state.update { it.copy(availableCategories = resp.items) } }
+    }
+
+    /** Most-used concepts of the current type, for the QuickAdd chip row. */
+    private suspend fun loadConceptSuggestions() {
+        val type = _state.value.type
+        if (type != "EXPENSE" && type != "INCOME") {
+            _state.update { it.copy(conceptSuggestions = emptyList()) }
+            return
+        }
+        runCatching {
+            get<QueryBus>().ask<SuggestConceptsQuery, ConceptsResponse>(SuggestConceptsQuery(kind = type))
+        }.onSuccess { resp ->
+            _state.update { s ->
+                s.copy(conceptSuggestions = resp.items.map { ConceptChipUi(id = it.id, label = it.label) })
+            }
+        }
     }
 
     private suspend fun loadCurrency() {

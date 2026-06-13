@@ -58,12 +58,21 @@ class QuickAddViewModelTest {
     }
 
     @Test
-    fun `canSave requires a positive amount and a category`() = runTest {
+    fun `canSave requires only a positive amount now`() = runTest {
         val vm = QuickAddViewModel()
         vm.state.value.canSave shouldBe false
         vm.onDigit('5')
-        vm.state.value.canSave shouldBe false // no category yet
-        vm.onCategoryChanged("cat-1")
+        // Category is no longer required: it's inferred from the concept / "Otros".
         vm.state.value.canSave shouldBe true
+    }
+
+    @Test
+    fun `typing a concept selects it and clears the input`() = runTest {
+        val vm = QuickAddViewModel()
+        vm.onConceptInputChanged("Cerveza")
+        vm.onCommitTypedConcept()
+
+        vm.state.value.selectedConcepts shouldBe listOf("Cerveza")
+        vm.state.value.conceptInput shouldBe ""
     }
 }

@@ -8,9 +8,12 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -36,6 +39,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.koin.compose.viewmodel.koinViewModel
@@ -112,7 +116,38 @@ fun QuickAddSheet(
                 )
             }
 
-            // Category chips for the current type.
+            // Concepts: "en qué fue". The category is inferred from these, so it
+            // sits below as an optional override.
+            if (state.conceptsApply) {
+                if (state.selectedConcepts.isNotEmpty()) {
+                    Text(
+                        "en ${state.selectedConcepts.joinToString(" · ")}",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+                val unpicked = state.conceptSuggestions
+                    .map { it.label }
+                    .filterNot { s -> state.selectedConcepts.any { it.equals(s, ignoreCase = true) } }
+                if (state.selectedConcepts.isNotEmpty() || unpicked.isNotEmpty()) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        state.selectedConcepts.forEach { label ->
+                            WmChip(label, true, { viewModel.onRemoveConcept(label) })
+                        }
+                        unpicked.forEach { label ->
+                            WmChip(label, false, { viewModel.onToggleConcept(label) })
+                        }
+                    }
+                }
+                ConceptInputField(
+                    value = state.conceptInput,
+                    onValueChange = viewModel::onConceptInputChanged,
+                    onCommit = viewModel::onCommitTypedConcept,
+                )
+            }
+
+            // Category override (optional — inferred from the concept otherwise).
             if (state.availableCategories.isEmpty()) {
                 Text(
                     "No hay categorías de este tipo. Crea una primero.",
@@ -237,6 +272,35 @@ private fun utcMillisToIso(millis: Long): String =
 /** Maps a canonical expression to math glyphs for display (`* / -` → `× ÷ −`). */
 private fun displayExpression(expr: String): String =
     expr.replace('*', '×').replace('/', '÷').replace('-', '−')
+
+@Composable
+private fun ConceptInputField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    onCommit: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+    ) {
+        if (value.isEmpty()) {
+            Text("¿En qué fue?  (cerveza, papá, bus…)", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            singleLine = true,
+            textStyle = TextStyle(fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface),
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { onCommit() }),
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
 
 @Composable
 private fun NoteField(value: String, onValueChange: (String) -> Unit) {
