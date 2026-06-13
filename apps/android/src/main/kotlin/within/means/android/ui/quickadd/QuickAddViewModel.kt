@@ -12,6 +12,7 @@ import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
 import kotlinx.datetime.toLocalDateTime
+import kotlin.math.roundToLong
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import within.means.android.capture.MovementCaptureService
@@ -28,6 +29,18 @@ import within.means.shared.domain.bus.query.QueryBus
 
 /** When the movement happened — QuickAdd keeps it to one tap. */
 enum class QuickWhen { TODAY, YESTERDAY }
+
+/** Single movement (calculator) vs. emptying a basket as a list (CONCEPTS-SPEC §4.4). */
+enum class QuickAddMode { SINGLE, LIST }
+
+/** One parsed row of the basket: concept + amount, with the inferred category preview. */
+data class BatchLineUi(
+    val id: Long,
+    val label: String,
+    val amountCents: Long,
+    /** Inferred category name (best-effort preview); null while resolving. */
+    val categoryName: String? = null,
+)
 
 data class QuickAddUiState(
     val type: String = "EXPENSE",
@@ -54,12 +67,22 @@ data class QuickAddUiState(
     val saving: Boolean = false,
     val errorMessage: String? = null,
     val savedAmountCents: Long? = null,
+    /** SINGLE = calculator; LIST = "vaciar la cesta" (batch, §4.4). */
+    val mode: QuickAddMode = QuickAddMode.SINGLE,
+    /** Free text of the batch field ("concepto monto"), not yet committed to a row. */
+    val batchInput: String = "",
+    /** Rows added in list mode; each becomes its own movement sharing one batchRef. */
+    val batchLines: List<BatchLineUi> = emptyList(),
 ) {
     // No category requirement: it's inferred from the concept / falls back to "Otros".
     val canSave: Boolean get() = amountCents > 0L && !saving
 
     /** Concepts apply to spend/income only; transfers carry none. */
     val conceptsApply: Boolean get() = type == "EXPENSE" || type == "INCOME"
+
+    /** Running total of the basket. */
+    val batchTotalCents: Long get() = batchLines.sumOf { it.amountCents }
+    val canSaveBatch: Boolean get() = batchLines.isNotEmpty() && !saving
 }
 
 class QuickAddViewModel(
@@ -71,6 +94,12 @@ class QuickAddViewModel(
     val state: StateFlow<QuickAddUiState> = _state.asStateFlow()
 
     private val calc = AmountCalculator()
+    private var nextLineId = 0L
+
+    private companion object {
+        /** `<concepto> <monto>` — captures the trailing number (`90`, `90.5`, `90,50`). */
+        val BATCH_LINE = Regex("""^(.*\S)\s+(\d+(?:[.,]\d{1,2})?)$""")
+    }
 
     init {
         viewModelScope.launch { loadCategoriesForCurrentType() }
@@ -83,10 +112,13 @@ class QuickAddViewModel(
             it.copy(
                 type = value,
                 categoryId = null,
-                // Concepts are per-kind: switching type drops the picked ones.
+                // Concepts (and inferred categories) are per-kind: switching type
+                // drops the picked concepts and any basket built for the old kind.
                 selectedConcepts = emptyList(),
                 conceptSuggestions = emptyList(),
                 conceptInput = "",
+                batchInput = "",
+                batchLines = emptyList(),
             )
         }
         viewModelScope.launch { loadCategoriesForCurrentType() }
@@ -147,6 +179,97 @@ class QuickAddViewModel(
             it.copy(expression = calc.expression, amountCents = calc.resultCents() ?: 0L, errorMessage = null)
         }
     }
+
+    // ---- List mode ("vaciar la cesta", §4.4) ------------------------------
+
+    fun onModeChanged(mode: QuickAddMode) { _state.update { it.copy(mode = mode, errorMessage = null) } }
+
+    fun onBatchInputChanged(value: String) { _state.update { it.copy(batchInput = value, errorMessage = null) } }
+
+    fun onRemoveBatchLine(id: Long) {
+        _state.update { s -> s.copy(batchLines = s.batchLines.filterNot { it.id == id }) }
+    }
+
+    /**
+     * Parses the batch field ("concepto monto", e.g. `carro ruta1 a ruta2 78`),
+     * appends a row and clears the input — Enter keeps adding without closing the
+     * keyboard. The inferred category preview resolves in the background.
+     */
+    fun onCommitBatchLine() {
+        val parsed = parseBatchLine(_state.value.batchInput)
+        if (parsed == null) {
+            _state.update { it.copy(errorMessage = "Escribe concepto y monto, p. ej. \"pan 15\"") }
+            return
+        }
+        val (label, cents) = parsed
+        val id = nextLineId++
+        _state.update { s ->
+            s.copy(
+                batchLines = s.batchLines + BatchLineUi(id = id, label = label, amountCents = cents),
+                batchInput = "",
+                errorMessage = null,
+            )
+        }
+        viewModelScope.launch {
+            val name = if (label.isBlank()) "Otros" else {
+                val catId = runCatching {
+                    get<MovementCaptureService>().previewCategoryId(_state.value.type, label)
+                }.getOrNull()
+                catId?.let { cid -> _state.value.availableCategories.firstOrNull { it.id == cid }?.name } ?: "Otros"
+            }
+            _state.update { s ->
+                s.copy(batchLines = s.batchLines.map { if (it.id == id) it.copy(categoryName = name) else it })
+            }
+        }
+    }
+
+    fun saveBatch() {
+        val s = _state.value
+        if (s.saving) return
+        if (s.batchLines.isEmpty()) {
+            _state.update { it.copy(errorMessage = "Añade al menos una línea") }
+            return
+        }
+        viewModelScope.launch {
+            _state.update { it.copy(saving = true, errorMessage = null) }
+            runCatching {
+                get<MovementCaptureService>().registerBatch(
+                    type = s.type,
+                    date = s.date.ifBlank { resolveDate(QuickWhen.TODAY) },
+                    time = s.time.ifBlank { null },
+                    lines = s.batchLines.map { line ->
+                        MovementCaptureService.Line(
+                            amountCents = line.amountCents,
+                            conceptLabels = if (line.label.isNotBlank()) listOf(line.label) else emptyList(),
+                        )
+                    },
+                )
+            }.onSuccess {
+                _state.update { it.copy(saving = false, savedAmountCents = s.batchTotalCents) }
+            }.onFailure { e ->
+                _state.update { it.copy(saving = false, errorMessage = e.toUserMessage(ErrorContext.GENERIC)) }
+            }
+        }
+    }
+
+    /** "carro ruta1 a ruta2 78" → ("carro ruta1 a ruta2", 7800). Trailing number is the amount. */
+    private fun parseBatchLine(raw: String): Pair<String, Long>? {
+        val s = raw.trim()
+        if (s.isEmpty()) return null
+        val m = BATCH_LINE.matchEntire(s)
+        val (label, amountStr) = when {
+            m != null -> m.groupValues[1].trim() to m.groupValues[2]
+            // A bare number (no concept) is allowed — it lands in "Otros".
+            s.all { it.isDigit() || it == '.' || it == ',' } -> "" to s
+            else -> return null
+        }
+        val cents = amountToCents(amountStr) ?: return null
+        if (cents <= 0L) return null
+        return label to cents
+    }
+
+    private fun amountToCents(s: String): Long? =
+        s.replace(',', '.').toDoubleOrNull()?.let { (it * 100).roundToLong() }
 
     fun save() {
         val s = _state.value

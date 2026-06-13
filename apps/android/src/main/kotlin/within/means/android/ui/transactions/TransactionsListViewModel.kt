@@ -130,6 +130,24 @@ class TransactionsListViewModel(
         }
     }
 
+    /**
+     * Deshacer el lote (§4.4 / D0.4): deletes every movement that shares [batchRef]
+     * in one go. They're independent transactions — the ref is only the grouping —
+     * so this is N deletes, not an aggregate operation.
+     */
+    fun deleteBatch(batchRef: String) {
+        val ids = _state.value.items.filter { it.batchRef == batchRef }.map { it.id }
+        if (ids.isEmpty()) return
+        viewModelScope.launch {
+            runCatching {
+                val bus = get<CommandBus>()
+                ids.forEach { bus.dispatch(DeleteTransactionCommand(it)) }
+            }.onFailure { e ->
+                _state.update { it.copy(errorMessage = e.toUserMessage(ErrorContext.GENERIC)) }
+            }
+        }
+    }
+
     fun clearError() {
         _state.update { it.copy(errorMessage = null) }
     }

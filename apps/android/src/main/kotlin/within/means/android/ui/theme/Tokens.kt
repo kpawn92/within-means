@@ -61,10 +61,13 @@ private val LightTokens = WmColorTokens(
     incomeSoft = Color(0xFFE1ECF7),
     incomeContainer = Color(0xFF3F6FA6),
     onIncomeContainer = Color(0xFFF2F7FD),
-    expense = Color(0xFFC5392B),
-    expenseSoft = Color(0xFFF8E1DD),
-    expenseContainer = Color(0xFFB5453A),
-    onExpenseContainer = Color(0xFFFDF3F1),
+    // Clean tonal red (not the old orange-brick): green≈blue channel so it reads
+    // as a true, refined red that pairs with the income blue. Hex values aren't
+    // sacred per HOME-DESIGN-SPEC §1 — only the blue-in / red-out convention is.
+    expense = Color(0xFFBE3636),
+    expenseSoft = Color(0xFFF7E6E3),
+    expenseContainer = Color(0xFFA23F3D),
+    onExpenseContainer = Color(0xFFFCF1EF),
     neg = Color(0xFFC25B47),
     negSoft = Color(0xFFF4E2DC),
     pos = Color(0xFF3F8F6B),
@@ -78,9 +81,11 @@ private val DarkTokens = WmColorTokens(
     incomeSoft = Color(0xFF1B2C3D),
     incomeContainer = Color(0xFF2C4A6B),
     onIncomeContainer = Color(0xFFDCE8F7),
-    expense = Color(0xFFFF5449),
+    // Soft coral-red instead of the old neon #FF5449: legible on dark surfaces
+    // without the harsh, cheap glow. Container is a muted deep red (not brick).
+    expense = Color(0xFFEC9A92),
     expenseSoft = Color(0xFF3A2420),
-    expenseContainer = Color(0xFF8C2F26),
+    expenseContainer = Color(0xFF7E3A37),
     onExpenseContainer = Color(0xFFFFDAD4),
     neg = Color(0xFFD98162),
     negSoft = Color(0xFF3A271F),

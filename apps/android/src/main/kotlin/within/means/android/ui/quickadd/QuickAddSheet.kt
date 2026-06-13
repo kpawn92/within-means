@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -36,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -53,6 +55,7 @@ import within.means.android.ui.format.formatMoney
 import within.means.android.ui.theme.WmTheme
 
 private val typeOptions = listOf("EXPENSE" to "Gasto", "INCOME" to "Ingreso", "TRANSFER" to "Ahorro")
+private val modeOptions = listOf("SINGLE" to "Uno", "LIST" to "Lista")
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -90,79 +93,90 @@ fun QuickAddSheet(
         ) {
             WmSegmented(typeOptions, state.type, viewModel::onTypeChanged)
 
-            // Expression line + giant display. Like the editor's calculator:
-            // show the raw number as you type (native feel), and switch to the
-            // live formatted result only once an operator is in play.
-            val hasOperator = state.expression.any { it in "+-*/" }
-            Column(
-                Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                if (hasOperator) {
+            // Opt-in list mode ("vaciar la cesta"): only where concepts apply.
+            val listMode = state.mode == QuickAddMode.LIST && state.conceptsApply
+            if (state.conceptsApply) {
+                WmSegmented(modeOptions, state.mode.name, onSelect = { viewModel.onModeChanged(QuickAddMode.valueOf(it)) })
+            }
+
+            if (listMode) {
+                BatchSection(state, sym, amountColor, viewModel)
+            } else {
+                // Expression line + giant display. Like the editor's calculator:
+                // show the raw number as you type (native feel), and switch to the
+                // live formatted result only once an operator is in play.
+                val hasOperator = state.expression.any { it in "+-*/" }
+                Column(
+                    Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    if (hasOperator) {
+                        Text(
+                            displayExpression(state.expression),
+                            fontSize = 15.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                        )
+                    }
                     Text(
-                        displayExpression(state.expression),
-                        fontSize = 15.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        if (hasOperator) "$sym${formatMoney(state.amountCents)}"
+                        else "$sym${state.expression.ifEmpty { "0" }}",
+                        fontSize = 52.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (state.expression.isEmpty()) amountColor.copy(alpha = 0.35f) else amountColor,
                         maxLines = 1,
                     )
                 }
-                Text(
-                    if (hasOperator) "$sym${formatMoney(state.amountCents)}"
-                    else "$sym${state.expression.ifEmpty { "0" }}",
-                    fontSize = 52.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (state.expression.isEmpty()) amountColor.copy(alpha = 0.35f) else amountColor,
-                    maxLines = 1,
-                )
-            }
 
-            // Concepts: "en qué fue". The category is inferred from these, so it
-            // sits below as an optional override.
-            if (state.conceptsApply) {
-                if (state.selectedConcepts.isNotEmpty()) {
-                    Text(
-                        "en ${state.selectedConcepts.joinToString(" · ")}",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
+                // Concepts: "en qué fue". The category is inferred from these, so it
+                // sits below as an optional override.
+                if (state.conceptsApply) {
+                    if (state.selectedConcepts.isNotEmpty()) {
+                        Text(
+                            "en ${state.selectedConcepts.joinToString(" · ")}",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                    val unpicked = state.conceptSuggestions
+                        .map { it.label }
+                        .filterNot { s -> state.selectedConcepts.any { it.equals(s, ignoreCase = true) } }
+                    if (state.selectedConcepts.isNotEmpty() || unpicked.isNotEmpty()) {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            state.selectedConcepts.forEach { label ->
+                                WmChip(label, true, { viewModel.onRemoveConcept(label) })
+                            }
+                            unpicked.forEach { label ->
+                                WmChip(label, false, { viewModel.onToggleConcept(label) })
+                            }
+                        }
+                    }
+                    ConceptInputField(
+                        value = state.conceptInput,
+                        onValueChange = viewModel::onConceptInputChanged,
+                        onCommit = viewModel::onCommitTypedConcept,
                     )
                 }
-                val unpicked = state.conceptSuggestions
-                    .map { it.label }
-                    .filterNot { s -> state.selectedConcepts.any { it.equals(s, ignoreCase = true) } }
-                if (state.selectedConcepts.isNotEmpty() || unpicked.isNotEmpty()) {
+
+                // Category override (optional — inferred from the concept otherwise).
+                if (state.availableCategories.isEmpty()) {
+                    Text(
+                        "No hay categorías de este tipo. Crea una primero.",
+                        fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        state.selectedConcepts.forEach { label ->
-                            WmChip(label, true, { viewModel.onRemoveConcept(label) })
-                        }
-                        unpicked.forEach { label ->
-                            WmChip(label, false, { viewModel.onToggleConcept(label) })
+                        state.availableCategories.forEach { c ->
+                            WmChip(c.name, state.categoryId == c.id, { viewModel.onCategoryChanged(c.id) })
                         }
                     }
                 }
-                ConceptInputField(
-                    value = state.conceptInput,
-                    onValueChange = viewModel::onConceptInputChanged,
-                    onCommit = viewModel::onCommitTypedConcept,
-                )
+
+                NoteField(state.note, viewModel::onNoteChanged)
             }
 
-            // Category override (optional — inferred from the concept otherwise).
-            if (state.availableCategories.isEmpty()) {
-                Text(
-                    "No hay categorías de este tipo. Crea una primero.",
-                    fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    state.availableCategories.forEach { c ->
-                        WmChip(c.name, state.categoryId == c.id, { viewModel.onCategoryChanged(c.id) })
-                    }
-                }
-            }
-
-            // Extras: note + when (date) + time.
-            NoteField(state.note, viewModel::onNoteChanged)
+            // Extras shared by both modes: when (date) + time.
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 WmChip("Hoy", state.whenChoice == QuickWhen.TODAY, { viewModel.onWhenChanged(QuickWhen.TODAY) })
                 WmChip("Ayer", state.whenChoice == QuickWhen.YESTERDAY, { viewModel.onWhenChanged(QuickWhen.YESTERDAY) })
@@ -170,12 +184,14 @@ fun QuickAddSheet(
                 WmChip("🕐 ${state.time.ifBlank { "--:--" }}", false, { showTimePicker = true })
             }
 
-            CalcKeypad(
-                onDigit = viewModel::onDigit,
-                onDot = viewModel::onDot,
-                onOperator = viewModel::onOperator,
-                onBackspace = viewModel::onBackspace,
-            )
+            if (!listMode) {
+                CalcKeypad(
+                    onDigit = viewModel::onDigit,
+                    onDot = viewModel::onDot,
+                    onOperator = viewModel::onOperator,
+                    onBackspace = viewModel::onBackspace,
+                )
+            }
 
             // Validation feedback (mirrors the full editor): the button stays
             // tappable and tells the user what's missing instead of going dead.
@@ -189,12 +205,26 @@ fun QuickAddSheet(
                 )
             }
 
-            WmPrimaryButton(
-                text = if (state.saving) "Guardando…" else "Guardar ${formatAmount(state.amountCents, sym)}",
-                onClick = viewModel::save,
-                enabled = !state.saving,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            if (listMode) {
+                val n = state.batchLines.size
+                WmPrimaryButton(
+                    text = when {
+                        state.saving -> "Guardando…"
+                        n == 0 -> "Añade líneas a la cesta"
+                        else -> "Guardar $n · ${formatAmount(state.batchTotalCents, sym)}"
+                    },
+                    onClick = viewModel::saveBatch,
+                    enabled = state.canSaveBatch,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            } else {
+                WmPrimaryButton(
+                    text = if (state.saving) "Guardando…" else "Guardar ${formatAmount(state.amountCents, sym)}",
+                    onClick = viewModel::save,
+                    enabled = !state.saving,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
     }
 
@@ -272,6 +302,122 @@ private fun utcMillisToIso(millis: Long): String =
 /** Maps a canonical expression to math glyphs for display (`* / -` → `× ÷ −`). */
 private fun displayExpression(expr: String): String =
     expr.replace('*', '×').replace('/', '÷').replace('-', '−')
+
+/** List mode ("vaciar la cesta", §4.4): one field that keeps adding rows + running total. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun BatchSection(
+    state: QuickAddUiState,
+    sym: String,
+    amountColor: Color,
+    viewModel: QuickAddViewModel,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        BatchInputField(
+            value = state.batchInput,
+            onValueChange = viewModel::onBatchInputChanged,
+            onCommit = viewModel::onCommitBatchLine,
+        )
+        if (state.batchLines.isEmpty()) {
+            Text(
+                "Escribe \"concepto monto\" y pulsa ↵. Ej: pan 15 · carro ruta1 a ruta2 78",
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                state.batchLines.forEach { line ->
+                    BatchRow(line, sym) { viewModel.onRemoveBatchLine(line.id) }
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "${state.batchLines.size} ${if (state.batchLines.size == 1) "movimiento" else "movimientos"}",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    "Total ${formatAmount(state.batchTotalCents, sym)}",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = amountColor,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun BatchRow(line: within.means.android.ui.quickadd.BatchLineUi, sym: String, onRemove: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                line.label.ifBlank { "(sin concepto)" },
+                fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface, maxLines = 1,
+            )
+            // Inferred category preview; a brand-new concept reads "Otros" with no fuss.
+            line.categoryName?.let {
+                Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+            }
+        }
+        Text(
+            formatAmount(line.amountCents, sym),
+            fontSize = 15.sp, fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Text(
+            "✕",
+            fontSize = 15.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .clickable(onClick = onRemove)
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+        )
+    }
+}
+
+@Composable
+private fun BatchInputField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    onCommit: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+    ) {
+        if (value.isEmpty()) {
+            Text("concepto monto  (pan 15)", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            singleLine = true,
+            textStyle = TextStyle(fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface),
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+            // Done keeps the field focused so the keyboard stays up for the next row.
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { onCommit() }),
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
 
 @Composable
 private fun ConceptInputField(

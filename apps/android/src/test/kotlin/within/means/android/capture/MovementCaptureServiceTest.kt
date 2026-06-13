@@ -147,6 +147,35 @@ class MovementCaptureServiceTest {
     }
 
     @Test
+    fun `previewCategoryId infers without creating a concept`() = runTest {
+        categoryRepo.save(
+            Category.rehydrate(
+                id = CategoryId("00000000-0000-4000-8000-000000000901"),
+                kind = CategoryKind.EXPENSE,
+                name = CategoryName("Transporte"),
+                color = CategoryColor("#0288D1"),
+                icon = CategoryIcon("label"),
+                classifiers = CategoryClassifiers(null, null, false, EngelGroup.TRANSPORT),
+                parentId = null,
+                createdAt = kotlinx.datetime.Instant.parse("2026-01-01T00:00:00Z"),
+            )
+        )
+
+        val catId = service.previewCategoryId("EXPENSE", "gasolina")
+
+        catId shouldBe "00000000-0000-4000-8000-000000000901"
+        // The preview must be a pure read — no concept persisted, no command sent.
+        conceptRepo.countAll() shouldBe 0L
+        bus.registers() shouldHaveSize 0
+    }
+
+    @Test
+    fun `previewCategoryId returns null when nothing matches (caller shows Otros)`() = runTest {
+        service.previewCategoryId("EXPENSE", "xyzzy") shouldBe null
+        conceptRepo.countAll() shouldBe 0L
+    }
+
+    @Test
     fun `TRANSFER carries no concepts`() = runTest {
         service.register(type = "TRANSFER", amountCents = 100, date = today, conceptLabels = listOf("ignored"))
 

@@ -21,6 +21,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -28,11 +29,14 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,6 +61,31 @@ import within.means.transactions.application.TransactionResponse
 
 private data class DayGroup(val label: String, val items: List<TransactionResponse>, val totalCents: Long)
 
+/** A pending "deshacer lote" confirmation (§4.4 / D0.4). */
+private data class BatchPrompt(val batchRef: String, val count: Int, val totalCents: Long)
+
+/** A row in a day card: a lone movement, or a basket of ≥2 sharing a batchRef. */
+private sealed interface RowUnit {
+    data class Single(val tx: TransactionResponse) : RowUnit
+    data class Batch(val batchRef: String, val items: List<TransactionResponse>) : RowUnit
+}
+
+/** Collapses contiguous-by-batch movements into [RowUnit.Batch]; the rest stay single. */
+private fun buildUnits(items: List<TransactionResponse>): List<RowUnit> {
+    val counts = items.groupingBy { it.batchRef }.eachCount()
+    val seen = HashSet<String>()
+    val out = ArrayList<RowUnit>(items.size)
+    for (tx in items) {
+        val br = tx.batchRef
+        if (br != null && (counts[br] ?: 0) >= 2) {
+            if (seen.add(br)) out += RowUnit.Batch(br, items.filter { it.batchRef == br })
+        } else {
+            out += RowUnit.Single(tx)
+        }
+    }
+    return out
+}
+
 private fun signedCents(tx: TransactionResponse): Long = when (tx.type) {
     "INCOME" -> tx.amountCents
     "EXPENSE" -> -tx.amountCents
@@ -71,6 +100,7 @@ fun TransactionsListScreen(
     val viewModel: TransactionsListViewModel = koinViewModel()
     val state by viewModel.state.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    var confirmBatch by remember { mutableStateOf<BatchPrompt?>(null) }
 
     LaunchedEffect(state.errorMessage) {
         state.errorMessage?.let {
@@ -141,9 +171,26 @@ fun TransactionsListScreen(
                             }
                             WmCard(contentPadding = 6.dp) {
                                 Column {
-                                    group.items.forEachIndexed { i, tx ->
-                                        TransactionRow(tx, state.categories[tx.categoryId], sym) { onEdit(tx.id) }
-                                        if (i < group.items.lastIndex) Spacer(Modifier.height(2.dp))
+                                    val units = remember(group.items) { buildUnits(group.items) }
+                                    units.forEachIndexed { i, unit ->
+                                        when (unit) {
+                                            is RowUnit.Single -> TransactionRow(
+                                                unit.tx, state.categories[unit.tx.categoryId], sym,
+                                            ) { onEdit(unit.tx.id) }
+                                            is RowUnit.Batch -> BatchBlock(
+                                                items = unit.items,
+                                                categories = state.categories,
+                                                sym = sym,
+                                                onEdit = onEdit,
+                                                onUndo = {
+                                                    confirmBatch = BatchPrompt(
+                                                        unit.batchRef, unit.items.size,
+                                                        unit.items.sumOf { it.amountCents },
+                                                    )
+                                                },
+                                            )
+                                        }
+                                        if (i < units.lastIndex) Spacer(Modifier.height(2.dp))
                                     }
                                 }
                             }
@@ -152,6 +199,25 @@ fun TransactionsListScreen(
                 }
             }
         }
+    }
+
+    confirmBatch?.let { prompt ->
+        AlertDialog(
+            onDismissRequest = { confirmBatch = null },
+            title = { Text("Deshacer compra") },
+            text = {
+                Text(
+                    "Se borrarán los ${prompt.count} movimientos de esta compra " +
+                        "(${formatAmount(prompt.totalCents, sym, decimals = false)}). No se puede deshacer.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.deleteBatch(prompt.batchRef); confirmBatch = null }) {
+                    Text("Borrar ${prompt.count}", color = WmTheme.colors.neg)
+                }
+            },
+            dismissButton = { TextButton(onClick = { confirmBatch = null }) { Text("Cancelar") } },
+        )
     }
 }
 
@@ -188,6 +254,50 @@ private fun SearchField(value: String, onValueChange: (String) -> Unit) {
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                 modifier = Modifier.fillMaxWidth(),
             )
+        }
+    }
+}
+
+/** A basket: "🧺 Compra · N mov · total" header with one-tap undo, then its rows. */
+@Composable
+private fun BatchBlock(
+    items: List<TransactionResponse>,
+    categories: Map<String, CategoryView>,
+    sym: String,
+    onEdit: (String) -> Unit,
+    onUndo: () -> Unit,
+) {
+    val total = items.sumOf { it.amountCents }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f))
+            .padding(2.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 10.dp, end = 4.dp, top = 6.dp, bottom = 2.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                "🧺 Compra · ${items.size} mov · ${formatAmount(total, sym, decimals = false)}",
+                fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "Deshacer",
+                fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                color = WmTheme.colors.neg,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(onClick = onUndo)
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+            )
+        }
+        items.forEachIndexed { i, tx ->
+            TransactionRow(tx, categories[tx.categoryId], sym) { onEdit(tx.id) }
+            if (i < items.lastIndex) Spacer(Modifier.height(2.dp))
         }
     }
 }

@@ -60,8 +60,9 @@ Se introducen tokens semánticos nuevos que reemplazan el rol de `pos`/`neg` com
 |---|---|---|---|
 | `income` | Ingreso / positivo | `#2F6FB3` | `#5FA8E0` |
 | `incomeSoft` | Fondo suave de ingreso (badge/chip) | `#E1ECF7` | `#1B2C3D` |
-| `expense` | Gasto / negativo | `#C5392B` | `#E5705C` |
-| `expenseSoft` | Fondo suave de gasto | `#F8E1DD` | `#3A2420` |
+| `expense` | Gasto / negativo (rojo tonal limpio, no brick/neón) | `#BE3636` | `#EC9A92` |
+| `expenseSoft` | Fondo suave de gasto | `#F7E6E3` | `#3A2420` |
+| `expenseContainer` | Hero gasto (relleno, mira `onExpenseContainer`) | `#A23F3D` | `#7E3A37` |
 | `savings` | Ahorro / transferencia (sin cambios) | `#6E8B3D` | `#9CB35E` |
 
 > Los hex son un **punto de partida** ajustable en implementación (se afinan para

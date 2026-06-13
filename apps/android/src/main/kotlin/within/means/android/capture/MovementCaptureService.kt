@@ -4,6 +4,8 @@ import within.means.categories.domain.CategoryRepository
 import within.means.concepts.application.create.ConceptCreator
 import within.means.concepts.application.create.CreateConceptCommand
 import within.means.concepts.domain.ConceptId
+import within.means.concepts.domain.ConceptKey
+import within.means.concepts.domain.ConceptKind
 import within.means.concepts.domain.ConceptRepository
 import within.means.shared.domain.UuidGenerator
 import within.means.shared.domain.bus.command.CommandBus
@@ -135,6 +137,23 @@ class MovementCaptureService(
                 ).value
             }
             .distinct()
+    }
+
+    /**
+     * Best-effort, **side-effect-free** preview of the category a label would land
+     * in, for the batch list rows (§4.4). Returns a category id, or null when it
+     * would fall back to "Otros" (we don't find-or-create "Otros" just to preview).
+     * Unlike [resolveConceptIds] this never creates a concept.
+     */
+    suspend fun previewCategoryId(type: String, label: String): String? {
+        val kind = conceptKindFor(type) ?: return null
+        val trimmed = label.trim()
+        if (trimmed.isEmpty()) return null
+        val key = runCatching { ConceptKey.of(trimmed) }.getOrNull() ?: return null
+        // An existing concept's own default is the most accurate; else heuristics.
+        concepts.findByKey(ConceptKind.valueOf(kind), key)?.defaultCategoryId?.let { return it }
+        val sameKindCategories = categories.all().filter { it.kind.name == kind }
+        return suggester.suggest(trimmed, sameKindCategories)
     }
 
     /** override → first concept that has a default category → "Otros" (find-or-create). */

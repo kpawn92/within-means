@@ -1,5 +1,6 @@
 package within.means.android.ui.quickadd
 
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
@@ -74,5 +75,52 @@ class QuickAddViewModelTest {
 
         vm.state.value.selectedConcepts shouldBe listOf("Cerveza")
         vm.state.value.conceptInput shouldBe ""
+    }
+
+    @Test
+    fun `list mode parses 'concepto monto' into a row and clears the field`() = runTest {
+        val vm = QuickAddViewModel()
+        vm.onModeChanged(QuickAddMode.LIST)
+        vm.onBatchInputChanged("carro ruta1 a ruta2 78")
+        vm.onCommitBatchLine()
+
+        val line = vm.state.value.batchLines.single()
+        line.label shouldBe "carro ruta1 a ruta2"
+        line.amountCents shouldBe 7800L
+        vm.state.value.batchInput shouldBe ""
+    }
+
+    @Test
+    fun `list mode keeps a running total across rows`() = runTest {
+        val vm = QuickAddViewModel()
+        vm.onModeChanged(QuickAddMode.LIST)
+        vm.onBatchInputChanged("pan 15"); vm.onCommitBatchLine()
+        vm.onBatchInputChanged("leche 1,50"); vm.onCommitBatchLine()
+
+        vm.state.value.batchLines shouldHaveSize 2
+        vm.state.value.batchTotalCents shouldBe 1650L
+        vm.state.value.canSaveBatch shouldBe true
+    }
+
+    @Test
+    fun `list mode rejects a line with no amount`() = runTest {
+        val vm = QuickAddViewModel()
+        vm.onModeChanged(QuickAddMode.LIST)
+        vm.onBatchInputChanged("solo texto")
+        vm.onCommitBatchLine()
+
+        vm.state.value.batchLines shouldHaveSize 0
+        vm.state.value.errorMessage shouldBe "Escribe concepto y monto, p. ej. \"pan 15\""
+    }
+
+    @Test
+    fun `removing a batch line drops it from the basket`() = runTest {
+        val vm = QuickAddViewModel()
+        vm.onModeChanged(QuickAddMode.LIST)
+        vm.onBatchInputChanged("pan 15"); vm.onCommitBatchLine()
+        val id = vm.state.value.batchLines.single().id
+        vm.onRemoveBatchLine(id)
+
+        vm.state.value.batchLines shouldHaveSize 0
     }
 }

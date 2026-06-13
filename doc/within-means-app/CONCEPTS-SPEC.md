@@ -559,7 +559,7 @@ comunican por buses. El orquestador conoce a todos porque es app, no dominio.
 | **F2 — Enlace en `transactions`** | `ConceptRefs` + `batchRef` en `Transaction` (register/edit/rehydrate/eventos), tabla puente `TransactionConcept.sq`, migración in-place, `SearchTransactionsQuery += conceptId` | ✅ `src/transactions/` + tests (`ConceptRefsTest`, `TransactionConceptsTest`, repo SQL round-trip/search). |
 | **F3 — Orquestación app** | `MovementCaptureService` (resolver labels→ids, inferir categoría, registrar; +`registerBatch` con `batchRef`), `FallbackCategoryResolver` (find-or-create "Otros"), suscriptor `TransactionRegistered`→`RecordConceptUsage` (lazy, sin ciclo Koin) | ✅ `apps/android/capture` + tests. |
 | **F4 — `QuickAdd` conceptos** | Chips=conceptos, campo "¿En qué?", multi-selección, `Detalles` expander con categoría override | ✅ en **ambas** superficies: `TransactionEditScreen` (editor) **y** `QuickAddSheet` (héroe del FAB). **Desviación (§10-A):** no se hizo mini-selector inline para concepto nuevo; se usa inferencia → "Otros" (la UI nunca pide categoría). |
-| **F4b — Captura por lotes** | `batchRef` compartido + `registerBatch` (parseo `concepto monto`, categoría inferida por línea) | ⚠️ **Parcial:** el **backend** está (`registerBatch` + `batchRef` + tests). Falta el **modo lista UI** ("vaciar la cesta" con filas + "deshacer lote" en Movimientos). |
+| **F4b — Captura por lotes** | `batchRef` compartido + `registerBatch` (parseo `concepto monto`, categoría inferida por línea) | ✅ **completo y verificado en emulador.** Backend (`registerBatch` + `batchRef`). UI: toggle **Uno/Lista** en `QuickAddSheet`; campo `concepto monto` (Enter añade fila, mantiene teclado), preview de categoría por fila vía `previewCategoryId` (read-only, no crea concepto), total corrido y `Guardar N · $total`. En **Movimientos**: filas del mismo `batchRef` (≥2) se agrupan en "🧺 Compra · N · total" con **Deshacer** (diálogo de confirmación → borra los N). Verificado E2E: `patata 90 / pan 15 / detergente 70 / carro ruta1 a ruta2 78` → 4 movimientos, donut repartido en 3 categorías, deshacer borra el lote. |
 | **F5 — Consulta** | Filtro por concepto en Movimientos (búsqueda por label + total visible); `FindConceptBreakdownQuery`/`InRange` + lente "Conceptos" en Stats con aviso de no-partición | ✅ `analytics` + `TransactionsList*` + `StatsScreen` + tests. |
 | **F6 — Aprendizaje** | `ConceptCategorySuggester` (sinónimos→Engel + match por nombre) enchufado a la captura; seed day-1 de conceptos desde categorías (suscriptor); re-aprendizaje opt-in | ✅ + tests. **Desviación:** el re-aprendizaje es una **tarjeta inline** en *Detalles* (no un toast). Seed solo en onboarding (instalaciones existentes pueblan por uso). |
 | **F7 — Widgets y accesos rápidos** | Deps **Glance** + widget "Añadir rápido" (Material You, deep-link); App Shortcuts estáticos+dinámicos (`ShortcutManagerCompat`, conceptos top); deep-link `transactions/new?type=&concept=` con espera tras desbloqueo | ✅ **verificado en emulador**: deep-link abre el editor con tipo preseleccionado; shortcuts estáticos y widget provider **registrados** (`dumpsys`). Warm-start del deep-link no cubierto (solo arranque en frío). `TileService` post-MVP. |
@@ -568,10 +568,10 @@ comunican por buses. El orquestador conoce a todos porque es app, no dominio.
 > (`QuickAddSheet`) y el editor completo (`TransactionEditScreen`) son **dos superficies**
 > distintas; ambas comparten ahora el flujo de conceptos vía `MovementCaptureService`.
 >
-> **Pendiente conocido:** (1) F4b modo-lista UI ("vaciar la cesta" + deshacer lote);
-> (2) warm-start del deep-link (solo arranque en frío cubierto); (3) seed de conceptos
-> para instalaciones existentes (hoy solo dispara en el onboarding); (4) `TileService`
-> (§4.2-3) post-MVP; (5) merge/sinónimos de conceptos (§10-D) post-MVP.
+> **Pendiente conocido:** (1) warm-start del deep-link (solo arranque en frío cubierto);
+> (2) seed de conceptos para instalaciones existentes (hoy solo dispara en el onboarding);
+> (3) `TileService` (§4.2-3) post-MVP; (4) merge/sinónimos de conceptos (§10-D) post-MVP.
+> F4b (modo-lista UI + deshacer lote) quedó **completo y verificado en emulador**.
 >
 > F7 quedó **verificado en emulador** (deep-link, shortcuts estáticos y widget provider
 > registrados vía `dumpsys`); los 2 bugs de integración hallados están corregidos y
