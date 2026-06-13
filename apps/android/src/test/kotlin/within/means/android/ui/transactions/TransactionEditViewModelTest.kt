@@ -97,7 +97,7 @@ class TransactionEditViewModelTest {
     }
 
     @Test
-    fun `save without selecting a category surfaces a validation error`() = runTest {
+    fun `save without a category falls back to Otros instead of erroring`() = runTest {
         val vm = TransactionEditViewModel()
         advanceUntilIdle()
 
@@ -105,7 +105,29 @@ class TransactionEditViewModelTest {
         vm.save()
         advanceUntilIdle()
 
-        vm.state.value.errorMessage shouldBe "Selecciona una categoría"
+        // Category is no longer required: it's inferred / falls back to "Otros".
+        vm.state.value.errorMessage shouldBe null
+        vm.state.value.isFinished shouldBe true
+        fixture.txRepository.all() shouldHaveSize 1
+        val otros = fixture.categoryRepository.all().single { it.name.value == "Otros" }
+        fixture.txRepository.all().single().categoryRef.value shouldBe otros.id.value
+    }
+
+    @Test
+    fun `save attaches typed concepts and infers the category from the first one`() = runTest {
+        val vm = TransactionEditViewModel()
+        advanceUntilIdle()
+
+        vm.onAmountTextChanged("5")
+        vm.onConceptInputChanged("Cerveza")
+        vm.onCommitTypedConcept()
+        vm.save()
+        advanceUntilIdle()
+
+        val stored = fixture.txRepository.all().single()
+        stored.conceptRefs.ids shouldHaveSize 1
+        val cerveza = fixture.conceptRepository.all().single { it.label.value == "Cerveza" }
+        stored.conceptRefs.ids.single() shouldBe cerveza.id.value
     }
 
     @Test

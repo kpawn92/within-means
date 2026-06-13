@@ -90,8 +90,8 @@ class MovementCaptureService(
         line: Line,
         batchRef: String?,
     ): String {
-        val conceptIds = resolveConcepts(type, line.conceptLabels)
-        val categoryId = inferCategory(type, conceptIds, line.categoryOverride)
+        val conceptIds = resolveConceptIds(type, line.conceptLabels)
+        val categoryId = inferCategoryId(type, conceptIds, line.categoryOverride)
 
         val id = uuids.next()
         commandBus.dispatch(
@@ -111,8 +111,12 @@ class MovementCaptureService(
         return id
     }
 
-    /** Labels → distinct concept ids (order preserved). TRANSFER carries none. */
-    private suspend fun resolveConcepts(type: String, labels: List<String>): List<String> {
+    /**
+     * Labels → distinct concept ids (order preserved), creating new concepts on
+     * the fly. TRANSFER carries none. Exposed so the editor can resolve concepts
+     * for the recurring/edit paths that don't go through [register].
+     */
+    suspend fun resolveConceptIds(type: String, labels: List<String>): List<String> {
         val kind = conceptKindFor(type) ?: return emptyList()
         return labels
             .map { it.trim() }
@@ -121,9 +125,9 @@ class MovementCaptureService(
             .distinct()
     }
 
-    /** override → first concept that has a default category → "Otros". */
-    private suspend fun inferCategory(type: String, conceptIds: List<String>, override: String?): String {
-        override?.let { return it }
+    /** override → first concept that has a default category → "Otros" (find-or-create). */
+    suspend fun inferCategoryId(type: String, conceptIds: List<String>, override: String?): String {
+        override?.takeIf { it.isNotBlank() }?.let { return it }
         conceptIds.firstNotNullOfOrNull { concepts.search(ConceptId(it))?.defaultCategoryId }?.let { return it }
         return fallbackCategory.otrosId(type)
     }

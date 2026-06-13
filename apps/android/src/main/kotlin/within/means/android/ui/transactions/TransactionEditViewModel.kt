@@ -13,11 +13,16 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
+import within.means.android.capture.MovementCaptureService
 import within.means.android.ui.error.ErrorContext
 import within.means.android.ui.error.toUserMessage
 import within.means.categories.application.CategoriesResponse
 import within.means.categories.application.CategoryResponse
 import within.means.categories.application.search.SearchCategoriesQuery
+import within.means.concepts.application.ConceptsResponse
+import within.means.concepts.application.OptionalConceptResponse
+import within.means.concepts.application.find.FindConceptQuery
+import within.means.concepts.application.suggest.SuggestConceptsQuery
 import within.means.shared.domain.bus.command.CommandBus
 import within.means.shared.domain.bus.query.QueryBus
 import within.means.transactions.application.OptionalTransactionResponse
@@ -29,7 +34,9 @@ import within.means.users.application.find.FindDefaultUserQuery
 import within.means.transactions.application.recurring.CreateRecurringRuleCommand
 import within.means.transactions.application.recurring.ListActiveRecurringRulesQuery
 import within.means.transactions.application.recurring.RecurringRulesResponse
-import within.means.transactions.application.register.RegisterTransactionCommand
+
+/** A concept the user can tap to attach to the movement. [id] is null until resolved. */
+data class ConceptChipUi(val id: String?, val label: String)
 
 data class TransactionEditUiState(
     val transactionId: String? = null,
@@ -42,6 +49,14 @@ data class TransactionEditUiState(
     val categoryId: String? = null,
     val incomeSource: String = "",
     val availableCategories: List<CategoryResponse> = emptyList(),
+    /** Concepts the user picked/typed ("en qué fue"); order = relevance. */
+    val selectedConcepts: List<String> = emptyList(),
+    /** Frequent concepts of the current type, most-used first (chip row). */
+    val conceptSuggestions: List<ConceptChipUi> = emptyList(),
+    /** Free text of the "¿En qué?" field, not yet committed to a chip. */
+    val conceptInput: String = "",
+    /** Whether the advanced "Detalles" section (category, date, recurring…) is open. */
+    val showDetails: Boolean = false,
     val recurring: Boolean = false,
     val frequency: String = "MONTHLY",
     val activeRecurringCount: Int = 0,
@@ -52,6 +67,8 @@ data class TransactionEditUiState(
     val errorMessage: String? = null,
     val isFinished: Boolean = false,
 ) {
+    /** Concepts apply to spend/income only; transfers carry none (CONCEPTS-SPEC §10-C). */
+    val conceptsApply: Boolean get() = type == "EXPENSE" || type == "INCOME"
     /** Parsed amount in cents for display; 0 when blank/invalid. */
     val amountCents: Long
         get() {
@@ -69,6 +86,7 @@ class TransactionEditViewModel : ViewModel(), KoinComponent {
 
     init {
         viewModelScope.launch { loadCategoriesForCurrentType() }
+        viewModelScope.launch { loadConceptSuggestions() }
         viewModelScope.launch { loadActiveRecurringCount() }
         viewModelScope.launch { loadCurrency() }
     }
@@ -99,6 +117,7 @@ class TransactionEditViewModel : ViewModel(), KoinComponent {
                     FindTransactionQuery(transactionId)
                 ).transaction ?: error("Transaction not found")
             }.onSuccess { t ->
+                val conceptLabels = resolveConceptLabels(t.conceptIds)
                 _state.update {
                     it.copy(
                         loading = false,
@@ -109,9 +128,13 @@ class TransactionEditViewModel : ViewModel(), KoinComponent {
                         description = t.description,
                         categoryId = t.categoryId,
                         incomeSource = t.incomeSource.orEmpty(),
+                        selectedConcepts = conceptLabels,
+                        // Editing reveals the full form (category, date, recurring…).
+                        showDetails = true,
                     )
                 }
                 loadCategoriesForCurrentType()
+                loadConceptSuggestions()
             }.onFailure { e ->
                 _state.update { it.copy(loading = false, errorMessage = e.toUserMessage(ErrorContext.GENERIC)) }
             }
@@ -124,9 +147,14 @@ class TransactionEditViewModel : ViewModel(), KoinComponent {
                 type = value,
                 categoryId = null,
                 incomeSource = if (value == "INCOME") it.incomeSource else "",
+                // Concepts are per-kind: switching type drops the picked ones.
+                selectedConcepts = emptyList(),
+                conceptSuggestions = emptyList(),
+                conceptInput = "",
             )
         }
         viewModelScope.launch { loadCategoriesForCurrentType() }
+        viewModelScope.launch { loadConceptSuggestions() }
     }
 
     fun onAmountTextChanged(value: String) { _state.update { it.copy(amountText = value) } }
@@ -137,6 +165,42 @@ class TransactionEditViewModel : ViewModel(), KoinComponent {
     fun onIncomeSourceChanged(value: String) { _state.update { it.copy(incomeSource = value) } }
     fun onRecurringChanged(value: Boolean) { _state.update { it.copy(recurring = value) } }
     fun onFrequencyChanged(value: String) { _state.update { it.copy(frequency = value) } }
+    fun onToggleDetails() { _state.update { it.copy(showDetails = !it.showDetails) } }
+
+    fun onConceptInputChanged(value: String) { _state.update { it.copy(conceptInput = value) } }
+
+    /** Commits the typed "¿En qué?" text as a selected concept (deduped, case-insensitive). */
+    fun onCommitTypedConcept() {
+        val raw = _state.value.conceptInput.trim()
+        if (raw.isEmpty()) return
+        _state.update { s ->
+            val already = s.selectedConcepts.any { it.equals(raw, ignoreCase = true) }
+            s.copy(
+                selectedConcepts = if (already) s.selectedConcepts else s.selectedConcepts + raw,
+                conceptInput = "",
+            )
+        }
+    }
+
+    /** Taps a suggestion chip or a selected chip: toggles its membership. */
+    fun onToggleConcept(label: String) {
+        _state.update { s ->
+            val present = s.selectedConcepts.any { it.equals(label, ignoreCase = true) }
+            s.copy(
+                selectedConcepts = if (present) {
+                    s.selectedConcepts.filterNot { it.equals(label, ignoreCase = true) }
+                } else {
+                    s.selectedConcepts + label
+                },
+            )
+        }
+    }
+
+    fun onRemoveConcept(label: String) {
+        _state.update { s ->
+            s.copy(selectedConcepts = s.selectedConcepts.filterNot { it.equals(label, ignoreCase = true) })
+        }
+    }
 
     fun save() {
         val s = _state.value
@@ -145,55 +209,64 @@ class TransactionEditViewModel : ViewModel(), KoinComponent {
             _state.update { it.copy(errorMessage = "El monto debe ser mayor que 0") }
             return
         }
-        val categoryId = s.categoryId
-        if (categoryId.isNullOrBlank()) {
-            _state.update { it.copy(errorMessage = "Selecciona una categoría") }
-            return
-        }
+        // No category requirement: it's inferred from the first concept, or falls
+        // back to "Otros". The user never has to pick one (CONCEPTS-SPEC D0.3/§10-B).
 
         viewModelScope.launch {
             _state.update { it.copy(saving = true, errorMessage = null) }
             runCatching {
-                val bus = get<CommandBus>()
+                val capture = get<MovementCaptureService>()
+                val labels = if (s.conceptsApply) s.selectedConcepts else emptyList()
                 val incomeSource = s.incomeSource.takeIf { it.isNotBlank() && s.type == "INCOME" }
-                if (s.transactionId == null && s.recurring) {
-                    // Recurring is create-only: the rule materializes its own
-                    // occurrences (including the first one due today).
-                    bus.dispatch(
-                        CreateRecurringRuleCommand(
-                            type = s.type,
-                            amountCents = cents,
-                            categoryId = categoryId,
-                            description = s.description,
-                            incomeSource = incomeSource,
-                            frequency = s.frequency,
-                            startDate = s.date,
+
+                when {
+                    s.transactionId == null && s.recurring -> {
+                        // Recurring is create-only and doesn't carry concepts in the
+                        // MVP; still infer the category so it's never asked for.
+                        val conceptIds = capture.resolveConceptIds(s.type, labels)
+                        val categoryId = capture.inferCategoryId(s.type, conceptIds, s.categoryId)
+                        get<CommandBus>().dispatch(
+                            CreateRecurringRuleCommand(
+                                type = s.type,
+                                amountCents = cents,
+                                categoryId = categoryId,
+                                description = s.description,
+                                incomeSource = incomeSource,
+                                frequency = s.frequency,
+                                startDate = s.date,
+                            )
                         )
-                    )
-                } else if (s.transactionId == null) {
-                    bus.dispatch(
-                        RegisterTransactionCommand(
+                    }
+
+                    s.transactionId == null -> {
+                        capture.register(
                             type = s.type,
                             amountCents = cents,
                             date = s.date,
                             time = s.time.ifBlank { null },
                             description = s.description,
-                            categoryId = categoryId,
+                            conceptLabels = labels,
+                            categoryOverride = s.categoryId,
                             incomeSource = incomeSource,
                         )
-                    )
-                } else {
-                    bus.dispatch(
-                        EditTransactionCommand(
-                            transactionId = s.transactionId,
-                            amountCents = cents,
-                            date = s.date,
-                            time = s.time.ifBlank { null },
-                            description = s.description,
-                            categoryId = categoryId,
-                            incomeSource = incomeSource,
+                    }
+
+                    else -> {
+                        val conceptIds = capture.resolveConceptIds(s.type, labels)
+                        val categoryId = capture.inferCategoryId(s.type, conceptIds, s.categoryId)
+                        get<CommandBus>().dispatch(
+                            EditTransactionCommand(
+                                transactionId = s.transactionId,
+                                amountCents = cents,
+                                date = s.date,
+                                time = s.time.ifBlank { null },
+                                description = s.description,
+                                categoryId = categoryId,
+                                incomeSource = incomeSource,
+                                conceptIds = conceptIds,
+                            )
                         )
-                    )
+                    }
                 }
             }.onSuccess {
                 _state.update { it.copy(saving = false, isFinished = true) }
@@ -244,6 +317,30 @@ class TransactionEditViewModel : ViewModel(), KoinComponent {
             _state.update { it.copy(availableCategories = resp.items) }
         }
     }
+
+    /** Most-used concepts of the current type, for the QuickAdd chip row. */
+    private suspend fun loadConceptSuggestions() {
+        val type = _state.value.type
+        if (type != "EXPENSE" && type != "INCOME") {
+            _state.update { it.copy(conceptSuggestions = emptyList()) }
+            return
+        }
+        runCatching {
+            get<QueryBus>().ask<SuggestConceptsQuery, ConceptsResponse>(SuggestConceptsQuery(kind = type))
+        }.onSuccess { resp ->
+            _state.update { s ->
+                s.copy(conceptSuggestions = resp.items.map { ConceptChipUi(id = it.id, label = it.label) })
+            }
+        }
+    }
+
+    /** Turns the saved concept ids of an edited movement back into their labels. */
+    private suspend fun resolveConceptLabels(conceptIds: List<String>): List<String> =
+        conceptIds.mapNotNull { id ->
+            runCatching {
+                get<QueryBus>().ask<FindConceptQuery, OptionalConceptResponse>(FindConceptQuery(id))
+            }.getOrNull()?.concept?.label
+        }
 
     private fun parseCents(input: String): Long? {
         val normalized = input.replace(',', '.').trim()

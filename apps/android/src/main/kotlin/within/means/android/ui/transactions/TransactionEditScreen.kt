@@ -18,10 +18,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.DeleteOutline
@@ -56,6 +61,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.datetime.Instant
@@ -204,86 +210,118 @@ fun TransactionEditScreen(
                 onClick = { showCalculator = true },
             )
 
-            // Category picker: horizontal chips with CatIcon.
-            if (state.availableCategories.isEmpty()) {
+            // "en ___" — what the movement was about (the chosen concepts).
+            if (state.conceptsApply && state.selectedConcepts.isNotEmpty()) {
                 Text(
-                    "No hay categorías de tipo ${typeLabel(state.type)}. Crea una primero.",
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    "en ${state.selectedConcepts.joinToString(" · ")}",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.fillMaxWidth(),
                 )
-            } else {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    state.availableCategories.forEach { c ->
-                        CategoryChip(
-                            name = c.name,
-                            color = categoryColor(c.color),
-                            icon = c.icon,
-                            selected = state.categoryId == c.id,
-                            onClick = { viewModel.onCategoryChanged(c.id) },
-                        )
+            }
+
+            // Concepts: tap a frequent one or type your own. The category is
+            // inferred from these, so it isn't asked for up front.
+            if (state.conceptsApply) {
+                ConceptSection(
+                    selected = state.selectedConcepts,
+                    suggestions = state.conceptSuggestions,
+                    input = state.conceptInput,
+                    accent = accent,
+                    onToggle = viewModel::onToggleConcept,
+                    onRemove = viewModel::onRemoveConcept,
+                    onInputChange = viewModel::onConceptInputChanged,
+                    onCommit = viewModel::onCommitTypedConcept,
+                )
+            }
+
+            // Everything advanced lives behind "Detalles": category override,
+            // date/time, description, income source, recurring.
+            DetailsHeader(open = state.showDetails, onToggle = viewModel::onToggleDetails)
+
+            if (state.showDetails) {
+                // Category override (optional — inferred from the concept otherwise).
+                if (state.availableCategories.isEmpty()) {
+                    Text(
+                        "No hay categorías de tipo ${typeLabel(state.type)}. Crea una primero.",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        state.availableCategories.forEach { c ->
+                            CategoryChip(
+                                name = c.name,
+                                color = categoryColor(c.color),
+                                icon = c.icon,
+                                selected = state.categoryId == c.id,
+                                onClick = { viewModel.onCategoryChanged(c.id) },
+                            )
+                        }
                     }
                 }
-            }
 
-            OutlinedTextField(
-                value = state.description,
-                onValueChange = viewModel::onDescriptionChanged,
-                label = { Text("Descripción (opcional)") },
-                singleLine = false,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            if (state.type == "INCOME") {
                 OutlinedTextField(
-                    value = state.incomeSource,
-                    onValueChange = viewModel::onIncomeSourceChanged,
-                    label = { Text("Fuente del ingreso (opcional)") },
-                    singleLine = true,
+                    value = state.description,
+                    onValueChange = viewModel::onDescriptionChanged,
+                    label = { Text("Descripción (opcional)") },
+                    singleLine = false,
                     modifier = Modifier.fillMaxWidth(),
                 )
-            }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                DateField(
-                    value = state.date,
-                    onValueChange = viewModel::onDateChanged,
-                    modifier = Modifier.weight(1f),
-                )
-                TimeField(
-                    value = state.time,
-                    onValueChange = viewModel::onTimeChanged,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-
-            if (!viewModel.isEditMode) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        if (state.activeRecurringCount > 0) {
-                            "Recurrente · ${state.activeRecurringCount} activos"
-                        } else {
-                            "Recurrente"
-                        },
+                if (state.type == "INCOME") {
+                    OutlinedTextField(
+                        value = state.incomeSource,
+                        onValueChange = viewModel::onIncomeSourceChanged,
+                        label = { Text("Fuente del ingreso (opcional)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
                     )
-                    WmToggle(state.recurring, viewModel::onRecurringChanged)
                 }
-                if (state.recurring) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("MONTHLY" to "Mensual", "WEEKLY" to "Semanal").forEach { (f, label) ->
-                            within.means.android.ui.components.WmChip(
-                                label = label,
-                                selected = state.frequency == f,
-                                onClick = { viewModel.onFrequencyChanged(f) },
-                            )
+
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    DateField(
+                        value = state.date,
+                        onValueChange = viewModel::onDateChanged,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TimeField(
+                        value = state.time,
+                        onValueChange = viewModel::onTimeChanged,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+
+                if (!viewModel.isEditMode) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            if (state.activeRecurringCount > 0) {
+                                "Recurrente · ${state.activeRecurringCount} activos"
+                            } else {
+                                "Recurrente"
+                            },
+                        )
+                        WmToggle(state.recurring, viewModel::onRecurringChanged)
+                    }
+                    if (state.recurring) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf("MONTHLY" to "Mensual", "WEEKLY" to "Semanal").forEach { (f, label) ->
+                                within.means.android.ui.components.WmChip(
+                                    label = label,
+                                    selected = state.frequency == f,
+                                    onClick = { viewModel.onFrequencyChanged(f) },
+                                )
+                            }
                         }
                     }
                 }
@@ -347,6 +385,119 @@ private fun AmountField(
             fontSize = 52.sp,
             fontWeight = FontWeight.Bold,
             color = if (isEmpty) color.copy(alpha = 0.35f) else color,
+        )
+    }
+}
+
+@Composable
+private fun ConceptSection(
+    selected: List<String>,
+    suggestions: List<ConceptChipUi>,
+    input: String,
+    accent: androidx.compose.ui.graphics.Color,
+    onToggle: (String) -> Unit,
+    onRemove: (String) -> Unit,
+    onInputChange: (String) -> Unit,
+    onCommit: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        val unpicked = suggestions
+            .map { it.label }
+            .filterNot { s -> selected.any { it.equals(s, ignoreCase = true) } }
+
+        if (selected.isNotEmpty() || unpicked.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                selected.forEach { label ->
+                    ConceptChip(label = label, selected = true, accent = accent, onClick = { onRemove(label) })
+                }
+                unpicked.forEach { label ->
+                    ConceptChip(label = label, selected = false, accent = accent, onClick = { onToggle(label) })
+                }
+            }
+        }
+
+        OutlinedTextField(
+            value = input,
+            onValueChange = onInputChange,
+            label = { Text("¿En qué fue?") },
+            placeholder = { Text("cerveza, papá, bus…") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { onCommit() }),
+            trailingIcon = {
+                if (input.isNotBlank()) {
+                    IconButton(onClick = onCommit) {
+                        Icon(Icons.Filled.Add, contentDescription = "Añadir concepto")
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@Composable
+private fun ConceptChip(
+    label: String,
+    selected: Boolean,
+    accent: androidx.compose.ui.graphics.Color,
+    onClick: () -> Unit,
+) {
+    val shape = RoundedCornerShape(WmRadii.pill)
+    Row(
+        modifier = Modifier
+            .clip(shape)
+            .background(if (selected) accent.copy(alpha = 0.16f) else MaterialTheme.colorScheme.surface)
+            .border(1.dp, if (selected) accent else MaterialTheme.colorScheme.outlineVariant, shape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            label,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            color = if (selected) MaterialTheme.colorScheme.onSurface
+            else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (selected) {
+            Icon(
+                Icons.Filled.Close,
+                contentDescription = "Quitar",
+                modifier = Modifier.size(14.dp),
+                tint = accent,
+            )
+        }
+    }
+}
+
+@Composable
+private fun DetailsHeader(open: Boolean, onToggle: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(WmRadii.md))
+            .clickable(onClick = onToggle)
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            "Detalles",
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Icon(
+            if (open) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+            contentDescription = if (open) "Ocultar detalles" else "Mostrar detalles",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
