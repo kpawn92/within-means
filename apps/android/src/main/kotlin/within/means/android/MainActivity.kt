@@ -237,10 +237,13 @@ private fun WithinMeansApp() {
     }
 
     // Keep the dynamic shortcuts (top concepts) fresh once we're past auth.
-    val queryBus: within.means.shared.domain.bus.query.QueryBus = koinInject()
+    // Resolve the QueryBus lazily *inside* the effect (only at Home): eagerly
+    // resolving it during composition would build every query handler → repo →
+    // database before unlock() and crash ("…requested before unlock()").
+    val koin = org.koin.compose.getKoin()
     LaunchedEffect(currentRoute) {
         if (currentRoute == Routes.Home) {
-            QuickActionShortcuts.refresh(context, queryBus)
+            QuickActionShortcuts.refresh(context, koin.get())
         }
     }
 

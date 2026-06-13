@@ -23,7 +23,9 @@ val conceptsModule = module {
     singleOf(::ConceptCreator)
 
     singleOf(::CreateConceptCommandHandler)
-    singleOf(::RecordConceptUsageCommandHandler)
+    // Takes an optional Clock with a default; `singleOf` would try to resolve
+    // Clock from DI and fail. Explicit factory lets the Kotlin default apply.
+    single { RecordConceptUsageCommandHandler(get(), get(), get()) }
     singleOf(::SetConceptDefaultCategoryCommandHandler)
     singleOf(::RenameConceptCommandHandler)
     singleOf(::DeleteConceptCommandHandler)

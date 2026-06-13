@@ -536,18 +536,43 @@ comunican por buses. El orquestador conoce a todos porque es app, no dominio.
 
 ## 12. Fases de implementación
 
-| Fase | Entregable | Contextos/archivos |
-|---|---|---|
-| **F1 — Dominio `concepts`** | Agregado `Concept`, value objects, comandos/queries/eventos, `Concept.sq`, repos, seed desde categorías | `src/concepts/` `[nuevo-dominio]` |
-| **F2 — Enlace en `transactions`** | `ConceptRefs` en `Transaction` (register/edit/rehydrate/eventos), tabla puente `TransactionConcept.sq`, migración, `SearchTransactionsQuery += conceptId` | `src/transactions/` `[nuevo-dominio]` |
-| **F3 — Orquestación app** | Use-case de Guardar (resolver labels→ids, inferir categoría, registrar uso), suscriptor `TransactionRegistered`→`RecordConceptUsage` | `apps/android` (app layer) `[nuevo-ui]` |
-| **F4 — `QuickAdd` conceptos** | Chips=conceptos, campo "¿En qué?", multi-selección, mini-selector inline, `Detalles` expander con categoría override | `QuickAdd`/`TxnEditViewModel`/`TxnEditScreen` `[restyle]` |
-| **F4b — Captura por lotes** | Modo lista "vaciar la cesta": parseo `concepto monto` por línea, filas editables con categoría inferida, total corrido, commit de N `RegisterTransactionCommand` con `batchRef` compartido (D0.4); en la lista, fila de grupo "Compra · N · $total" con "deshacer lote" | `QuickAdd`/app layer · `transactions` (`batchRef`) · `TransactionsList*` `[nuevo-ui]`/`[nuevo-dominio]` |
-| **F5 — Consulta** | Autocompletar+filtrar por concepto en Movimientos; `FindConceptBreakdownQuery` + vista "Conceptos" en Stats con aviso de no-partición | `transactions`, `analytics`, `TransactionsList*`, `StatsScreen` `[restyle]`/`[nuevo-ui]` |
-| **F6 — Aprendizaje** | Sinónimos sembrados, sugerencia de categoría, re-aprendizaje opt-in por toast | `apps/android` (app layer) `[nuevo-ui]` |
-| **F7 — Widgets y accesos rápidos** | Añadir deps **Glance** (`glance-appwidget` + `glance-material3`) al catalog; widget Glance "Añadir rápido" (Material 3, color dinámico API 31+/fallback marca, `SizeMode.Responsive`, deep-link a `QuickAdd`, importes ocultos si bloqueado); App Shortcuts estáticos+dinámicos (`ShortcutManagerCompat`) con conceptos top; (post-MVP) `TileService` | `apps/android` (infra/UI) `[nuevo-ui]` |
+> **Estado:** F1–F7 **entregadas** y verificadas por build + tests unitarios + **prueba en
+> emulador** (instalación del APK debug y recorrido end-to-end). Marcadas ✅ abajo, con las
+> desviaciones respecto al plan original.
+>
+> **Dos bugs de integración encontrados en la prueba en dispositivo (no los veían los tests
+> unitarios), ya corregidos:**
+> 1. `koinInject<QueryBus>()` eager en la raíz de `WithinMeansApp` construía todos los
+>    handlers→repos→DBs **antes del desbloqueo** → crash "…requested before unlock()". Fix:
+>    resolver el `QueryBus` perezosamente dentro del efecto (solo en Home).
+> 2. `singleOf(::RecordConceptUsageCommandHandler)` fallaba porque su ctor tiene
+>    `clock: Clock = Clock.System` y el DSL `*Of` de Koin no respeta defaults de Kotlin →
+>    `NoDefinitionFoundException(Clock)` al construir el `CommandBus` → todo guardado fallaba.
+>    Fix: factory explícito `single { RecordConceptUsageCommandHandler(get(), get(), get()) }`
+>    (ver [[clock_injection_in_viewmodels]]). Se añadió `ConceptsModuleWiringTest` (arranca
+>    Koin con `conceptsModule`+fakes y resuelve cada definición) como **guard de regresión**
+>    que caza esta clase de bug sin necesidad de dispositivo.
 
-> Cada fase es entregable y testeable de forma independiente. F1–F3 no cambian la UI visible;
-> F4 es el salto perceptible (entrada por concepto); F5 desbloquea "¿cuánto gasté en X?". F7
-> (widgets) depende solo de que exista el deep-link a `QuickAdd` con `type`/`concept`
-> preseleccionados (F4); puede ir en paralelo a F5–F6.
+| Fase | Entregable | Estado |
+|---|---|---|
+| **F1 — Dominio `concepts`** | Agregado `Concept`, value objects, comandos/queries/eventos, `Concept.sq`, repos | ✅ `src/concepts/` + tests (`ConceptKeyTest`, `ConceptTest`, `ConceptCreatorTest`, repo SQL). El *seed desde categorías* se movió a F6 (es cross-context, vive en app). |
+| **F2 — Enlace en `transactions`** | `ConceptRefs` + `batchRef` en `Transaction` (register/edit/rehydrate/eventos), tabla puente `TransactionConcept.sq`, migración in-place, `SearchTransactionsQuery += conceptId` | ✅ `src/transactions/` + tests (`ConceptRefsTest`, `TransactionConceptsTest`, repo SQL round-trip/search). |
+| **F3 — Orquestación app** | `MovementCaptureService` (resolver labels→ids, inferir categoría, registrar; +`registerBatch` con `batchRef`), `FallbackCategoryResolver` (find-or-create "Otros"), suscriptor `TransactionRegistered`→`RecordConceptUsage` (lazy, sin ciclo Koin) | ✅ `apps/android/capture` + tests. |
+| **F4 — `QuickAdd` conceptos** | Chips=conceptos, campo "¿En qué?", multi-selección, `Detalles` expander con categoría override | ✅ en **ambas** superficies: `TransactionEditScreen` (editor) **y** `QuickAddSheet` (héroe del FAB). **Desviación (§10-A):** no se hizo mini-selector inline para concepto nuevo; se usa inferencia → "Otros" (la UI nunca pide categoría). |
+| **F4b — Captura por lotes** | `batchRef` compartido + `registerBatch` (parseo `concepto monto`, categoría inferida por línea) | ⚠️ **Parcial:** el **backend** está (`registerBatch` + `batchRef` + tests). Falta el **modo lista UI** ("vaciar la cesta" con filas + "deshacer lote" en Movimientos). |
+| **F5 — Consulta** | Filtro por concepto en Movimientos (búsqueda por label + total visible); `FindConceptBreakdownQuery`/`InRange` + lente "Conceptos" en Stats con aviso de no-partición | ✅ `analytics` + `TransactionsList*` + `StatsScreen` + tests. |
+| **F6 — Aprendizaje** | `ConceptCategorySuggester` (sinónimos→Engel + match por nombre) enchufado a la captura; seed day-1 de conceptos desde categorías (suscriptor); re-aprendizaje opt-in | ✅ + tests. **Desviación:** el re-aprendizaje es una **tarjeta inline** en *Detalles* (no un toast). Seed solo en onboarding (instalaciones existentes pueblan por uso). |
+| **F7 — Widgets y accesos rápidos** | Deps **Glance** + widget "Añadir rápido" (Material You, deep-link); App Shortcuts estáticos+dinámicos (`ShortcutManagerCompat`, conceptos top); deep-link `transactions/new?type=&concept=` con espera tras desbloqueo | ✅ **verificado en emulador**: deep-link abre el editor con tipo preseleccionado; shortcuts estáticos y widget provider **registrados** (`dumpsys`). Warm-start del deep-link no cubierto (solo arranque en frío). `TileService` post-MVP. |
+
+> Cada fase fue entregable y testeable de forma independiente. El "héroe" del FAB
+> (`QuickAddSheet`) y el editor completo (`TransactionEditScreen`) son **dos superficies**
+> distintas; ambas comparten ahora el flujo de conceptos vía `MovementCaptureService`.
+>
+> **Pendiente conocido:** (1) F4b modo-lista UI ("vaciar la cesta" + deshacer lote);
+> (2) warm-start del deep-link (solo arranque en frío cubierto); (3) seed de conceptos
+> para instalaciones existentes (hoy solo dispara en el onboarding); (4) `TileService`
+> (§4.2-3) post-MVP; (5) merge/sinónimos de conceptos (§10-D) post-MVP.
+>
+> F7 quedó **verificado en emulador** (deep-link, shortcuts estáticos y widget provider
+> registrados vía `dumpsys`); los 2 bugs de integración hallados están corregidos y
+> blindados por `ConceptsModuleWiringTest`.
