@@ -4,6 +4,8 @@ import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
 import within.means.analytics.application.find_breakdown.FindBreakdownInRangeQueryHandler
 import within.means.analytics.application.find_breakdown.FindCategoryBreakdownQueryHandler
+import within.means.analytics.application.find_breakdown.FindConceptBreakdownInRangeQueryHandler
+import within.means.analytics.application.find_breakdown.FindConceptBreakdownQueryHandler
 import within.means.analytics.application.find_evolution.FindMonthlyEvolutionQueryHandler
 import within.means.analytics.application.find_summary.FindCurrentMonthSummaryQueryHandler
 import within.means.analytics.application.find_summary.FindMonthlySummaryQueryHandler
@@ -14,6 +16,8 @@ val analyticsModule = module {
     singleOf(::FindSummaryInRangeQueryHandler)
     singleOf(::FindCategoryBreakdownQueryHandler)
     singleOf(::FindBreakdownInRangeQueryHandler)
+    singleOf(::FindConceptBreakdownQueryHandler)
+    singleOf(::FindConceptBreakdownInRangeQueryHandler)
 
     // Handlers below take optional Clock+TimeZone with sane defaults; `singleOf`
     // would try to resolve them through DI and fail. Explicit factories let

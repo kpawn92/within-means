@@ -8,6 +8,7 @@ import org.koin.core.context.stopKoin
 import org.koin.dsl.module
 import within.means.analytics.application.find_breakdown.FindBreakdownInRangeQueryHandler
 import within.means.analytics.application.find_breakdown.FindCategoryBreakdownQueryHandler
+import within.means.analytics.application.find_breakdown.FindConceptBreakdownInRangeQueryHandler
 import within.means.analytics.application.find_evolution.FindMonthlyEvolutionQueryHandler
 import within.means.analytics.application.find_summary.FindCurrentMonthSummaryQueryHandler
 import within.means.analytics.application.find_summary.FindMonthlySummaryQueryHandler
@@ -18,6 +19,8 @@ import within.means.categories.application.create.CreateCategoryCommand
 import within.means.categories.application.create.CreateCategoryCommandHandler
 import within.means.categories.domain.CategoryRepository
 import within.means.categories.infrastructure.persistence.InMemoryCategoryRepository
+import within.means.concepts.domain.ConceptRepository
+import within.means.concepts.infrastructure.persistence.InMemoryConceptRepository
 import within.means.shared.domain.UuidGenerator
 import within.means.shared.domain.bus.command.Command
 import within.means.shared.domain.bus.command.CommandBus
@@ -44,6 +47,7 @@ import within.means.transactions.infrastructure.persistence.InMemoryTransactionR
 class StatsTestFixture(
     val txRepository: InMemoryTransactionRepository = InMemoryTransactionRepository(),
     val categoryRepository: InMemoryCategoryRepository = InMemoryCategoryRepository(),
+    val conceptRepository: InMemoryConceptRepository = InMemoryConceptRepository(),
     val uuids: UuidGenerator = SequentialUuidGenerator(),
     val clock: Clock = FixedClock(Instant.parse("2026-05-27T12:00:00Z")),
     val zone: TimeZone = TimeZone.UTC,
@@ -65,6 +69,8 @@ class StatsTestFixture(
         FindCategoryBreakdownQueryHandler(txRepository, categoryRepository)
     private val findBreakdownInRangeHandler =
         FindBreakdownInRangeQueryHandler(txRepository, categoryRepository)
+    private val findConceptBreakdownInRangeHandler =
+        FindConceptBreakdownInRangeQueryHandler(txRepository, conceptRepository)
     private val findEvolutionHandler =
         FindMonthlyEvolutionQueryHandler(txRepository, clock, zone)
 
@@ -78,6 +84,7 @@ class StatsTestFixture(
         findCurrentMonthSummaryHandler,
         findBreakdownHandler,
         findBreakdownInRangeHandler,
+        findConceptBreakdownInRangeHandler,
         findEvolutionHandler,
     )
 

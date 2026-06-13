@@ -18,10 +18,12 @@ import kotlinx.datetime.toLocalDateTime
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import within.means.analytics.application.CategoryBreakdownResponse
+import within.means.analytics.application.ConceptBreakdownResponse
 import within.means.analytics.application.EvolutionGranularity
 import within.means.analytics.application.MonthlyEvolutionResponse
 import within.means.analytics.application.MonthlySummaryResponse
 import within.means.analytics.application.find_breakdown.FindBreakdownInRangeQuery
+import within.means.analytics.application.find_breakdown.FindConceptBreakdownInRangeQuery
 import within.means.analytics.application.find_evolution.FindMonthlyEvolutionQuery
 import within.means.analytics.application.find_summary.FindSummaryInRangeQuery
 import within.means.android.ui.error.ErrorContext
@@ -47,6 +49,8 @@ data class StatsUiState(
     /** "que la semana pasada" / "que el mes pasado" / "que el año pasado". */
     val comparisonLabel: String = "",
     val breakdown: CategoryBreakdownResponse? = null,
+    /** Per-concept spend (non-partition; items can exceed the period total). */
+    val conceptBreakdown: ConceptBreakdownResponse? = null,
     val evolution: MonthlyEvolutionResponse? = null,
     val loading: Boolean = false,
     val errorMessage: String? = null,
@@ -111,14 +115,18 @@ class StatsViewModel(
             val evolution = bus.ask<FindMonthlyEvolutionQuery, MonthlyEvolutionResponse>(
                 FindMonthlyEvolutionQuery(monthsBack = 6, granularity = evolutionGranularity(period))
             )
-            Quad(summary, previous, breakdown, evolution)
-        }.onSuccess { (summary, previous, breakdown, evolution) ->
+            val conceptBreakdown = bus.ask<FindConceptBreakdownInRangeQuery, ConceptBreakdownResponse>(
+                FindConceptBreakdownInRangeQuery(start.toString(), end.toString(), type = "EXPENSE")
+            )
+            Quint(summary, previous, breakdown, conceptBreakdown, evolution)
+        }.onSuccess { (summary, previous, breakdown, conceptBreakdown, evolution) ->
             _state.update {
                 it.copy(
                     summary = summary,
                     previousSummary = previous,
                     comparisonLabel = comparisonLabel(period),
                     breakdown = breakdown,
+                    conceptBreakdown = conceptBreakdown,
                     evolution = evolution,
                     periodLabel = periodLabel(it.period, today),
                     loading = false,
@@ -183,4 +191,10 @@ private fun currentYearMonth(clock: Clock, zone: TimeZone): String {
 }
 
 /** Four-value tuple — the period summaries plus breakdown and evolution. */
-private data class Quad<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
+private data class Quint<A, B, C, D, E>(
+    val first: A,
+    val second: B,
+    val third: C,
+    val fourth: D,
+    val fifth: E,
+)

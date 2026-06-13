@@ -239,6 +239,16 @@ private fun EvolutionCard(evolution: MonthlyEvolutionResponse?, sym: String) {
 
 private data class BreakdownRow(val name: String, val cents: Long, val color: Color)
 
+/** Concepts have no colour of their own, so the bars cycle a small accent palette. */
+private val conceptPalette: List<Color> = listOf(
+    categoryColor("#3F8F6B"),
+    categoryColor("#3E7A8C"),
+    categoryColor("#A65D3C"),
+    categoryColor("#7A6BB1"),
+    categoryColor("#C8783C"),
+    categoryColor("#5B6BB4"),
+)
+
 @Composable
 private fun BreakdownCard(state: StatsUiState, lens: String, onLens: (String) -> Unit, sym: String) {
     val summary = state.summary ?: return
@@ -250,6 +260,11 @@ private fun BreakdownCard(state: StatsUiState, lens: String, onLens: (String) ->
         "categoria" -> state.breakdown?.items.orEmpty()
             .sortedByDescending { it.totalCents }
             .map { BreakdownRow(it.categoryName, it.totalCents, categoryColor(it.color)) }
+        "conceptos" -> state.conceptBreakdown?.items.orEmpty()
+            .sortedByDescending { it.totalCents }
+            .mapIndexed { i, item ->
+                BreakdownRow(item.conceptLabel, item.totalCents, conceptPalette[i % conceptPalette.size])
+            }
         "tipo" -> listOf(
             BreakdownRow("Fijo", summary.fixedExpenseCents, categoryColor("#717A8C")),
             BreakdownRow("Variable", summary.variableExpenseCents, categoryColor("#C8783C")),
@@ -267,15 +282,27 @@ private fun BreakdownCard(state: StatsUiState, lens: String, onLens: (String) ->
             WmSegmented(
                 options = listOf(
                     "categoria" to "Categoría",
+                    "conceptos" to "Conceptos",
                     "necesidad" to "Necesidad",
                     "tipo" to "Tipo",
                 ),
                 selected = lens, onSelect = onLens,
             )
             if (rows.isEmpty()) {
-                Text("Sin gastos en el mes", fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    if (lens == "conceptos") "Aún no has usado conceptos este periodo"
+                    else "Sin gastos en el mes",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             } else {
+                if (lens == "conceptos") {
+                    Text(
+                        "Un movimiento puede aparecer en varios conceptos, así que la suma puede superar el total.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 rows.forEach { r ->
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Row(modifier = Modifier.fillMaxWidth(),

@@ -22,6 +22,7 @@ kotlin {
             api(project(":shared"))
             api(project(":transactions"))
             api(project(":categories"))
+            api(project(":concepts"))
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.datetime)
             implementation(libs.kotlinx.serialization.json)

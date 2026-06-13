@@ -15,9 +15,16 @@ import within.means.categories.domain.CategoryName
 import within.means.categories.domain.CategoryNature
 import within.means.categories.domain.CategoryRepository
 import within.means.categories.infrastructure.persistence.InMemoryCategoryRepository
+import within.means.concepts.domain.Concept
+import within.means.concepts.domain.ConceptId
+import within.means.concepts.domain.ConceptKind
+import within.means.concepts.domain.ConceptLabel
+import within.means.concepts.domain.ConceptRepository
+import within.means.concepts.infrastructure.persistence.InMemoryConceptRepository
 import within.means.shared.domain.UuidGenerator
 import within.means.transactions.domain.Amount
 import within.means.transactions.domain.CategoryRef
+import within.means.transactions.domain.ConceptRefs
 import within.means.transactions.domain.Transaction
 import within.means.transactions.domain.TransactionDate
 import within.means.transactions.domain.TransactionDescription
@@ -41,6 +48,7 @@ class FixedClock(private val moment: Instant) : Clock {
 class AnalyticsTestEnv(
     val transactions: TransactionRepository = InMemoryTransactionRepository(),
     val categories: CategoryRepository = InMemoryCategoryRepository(),
+    val concepts: ConceptRepository = InMemoryConceptRepository(),
     val zone: TimeZone = TimeZone.UTC,
     val clockMoment: Instant = Instant.parse("2026-05-27T12:00:00Z"),
 ) {
@@ -102,6 +110,35 @@ class AnalyticsTestEnv(
                 date = TransactionDate(on),
                 description = TransactionDescription.EMPTY,
                 categoryRef = CategoryRef(categoryId),
+                uuids = uuids,
+                clock = clock,
+                timeZone = zone,
+            )
+        )
+    }
+
+    suspend fun concept(label: String, kind: ConceptKind = ConceptKind.EXPENSE): String {
+        val c = Concept.create(
+            id = ConceptId(uuids.next()),
+            kind = kind,
+            label = ConceptLabel(label),
+            uuids = uuids,
+            clock = clock,
+        )
+        concepts.save(c)
+        return c.id.value
+    }
+
+    suspend fun expense(cents: Long, on: LocalDate, categoryId: String, conceptIds: List<String>) {
+        transactions.save(
+            Transaction.register(
+                id = TransactionId(uuids.next()),
+                type = TransactionType.EXPENSE,
+                amount = Amount(cents),
+                date = TransactionDate(on),
+                description = TransactionDescription.EMPTY,
+                categoryRef = CategoryRef(categoryId),
+                conceptRefs = ConceptRefs(conceptIds),
                 uuids = uuids,
                 clock = clock,
                 timeZone = zone,

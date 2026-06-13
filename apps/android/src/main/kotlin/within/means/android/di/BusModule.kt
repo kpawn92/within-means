@@ -4,6 +4,8 @@ import kotlinx.serialization.KSerializer
 import org.koin.dsl.module
 import within.means.analytics.application.find_breakdown.FindBreakdownInRangeQueryHandler
 import within.means.analytics.application.find_breakdown.FindCategoryBreakdownQueryHandler
+import within.means.analytics.application.find_breakdown.FindConceptBreakdownInRangeQueryHandler
+import within.means.analytics.application.find_breakdown.FindConceptBreakdownQueryHandler
 import within.means.analytics.application.find_evolution.FindMonthlyEvolutionQueryHandler
 import within.means.analytics.application.find_summary.FindCurrentMonthSummaryQueryHandler
 import within.means.analytics.application.find_summary.FindMonthlySummaryQueryHandler
@@ -119,6 +121,8 @@ val busModule = module {
             get<FindSummaryInRangeQueryHandler>(),
             get<FindCategoryBreakdownQueryHandler>(),
             get<FindBreakdownInRangeQueryHandler>(),
+            get<FindConceptBreakdownQueryHandler>(),
+            get<FindConceptBreakdownInRangeQueryHandler>(),
             get<FindMonthlyEvolutionQueryHandler>(),
         )
         InMemoryQueryBus(handlers)

@@ -16,6 +16,7 @@ import within.means.categories.infrastructure.persistence.InMemoryCategoryReposi
 import within.means.concepts.application.create.ConceptCreator
 import within.means.concepts.application.find.FindConceptQueryHandler
 import within.means.concepts.application.record_usage.RecordConceptUsageCommandHandler
+import within.means.concepts.application.suggest.ListAllConceptsQueryHandler
 import within.means.concepts.application.suggest.SuggestConceptsQueryHandler
 import within.means.concepts.domain.ConceptRepository
 import within.means.concepts.infrastructure.persistence.InMemoryConceptRepository
@@ -70,6 +71,7 @@ class TransactionsTestFixture(
     private val searchCategoriesHandler = SearchCategoriesQueryHandler(categoryRepository)
     private val listAllCategoriesHandler = ListAllCategoriesQueryHandler(categoryRepository)
     private val suggestConceptsHandler = SuggestConceptsQueryHandler(conceptRepository)
+    private val listAllConceptsHandler = ListAllConceptsQueryHandler(conceptRepository)
     private val findConceptHandler = FindConceptQueryHandler(conceptRepository)
 
     private val commandHandlers: List<CommandHandler<out Command>> = listOf(
@@ -85,6 +87,7 @@ class TransactionsTestFixture(
         searchCategoriesHandler,
         listAllCategoriesHandler,
         suggestConceptsHandler,
+        listAllConceptsHandler,
         findConceptHandler,
     )
 
