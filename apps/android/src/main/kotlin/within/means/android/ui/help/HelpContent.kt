@@ -219,6 +219,17 @@ private val techniques = LessonLibrary(
             action = HelpAction.QUICK_ADD,
             alsoKnownAs = "método Kakebo",
         ),
+        Lesson(
+            emoji = "🧺",
+            title = "Apunta la compra entera de una vez",
+            oneLiner = "«Patata 90, pan 15, detergente 70…», seguido, sin parar.",
+            whatItIs = "Cuando vuelves de comprar, anotas cada cosa con su importe en una lista rápida. Cada línea queda como su propio gasto.",
+            whyItMatters = "Cada artículo va solo a su categoría (la patata a comida, el detergente a hogar) y luego puedes consultar cada uno por separado.",
+            inTheApp = "En el registro rápido, el modo de varios: escribes «concepto importe» y pasas al siguiente. Al guardar, quedan agrupados como una compra.",
+            rule = "Anota la cesta del tirón; luego cada cosa cuenta por su lado.",
+            example = "Patata 90, pan 15, detergente 70, bus 78 → cuatro gastos en tres categorías, anotados en diez segundos.",
+            action = HelpAction.QUICK_ADD,
+        ),
     ),
 )
 
@@ -256,6 +267,18 @@ private val theFullFlow = LessonLibrary(
             inTheApp = "Revisa y ajusta tus categorías en cualquier momento.",
             rule = "Piensa la categoría una vez; luego se cuida sola.",
             action = HelpAction.CATEGORIES,
+        ),
+        Lesson(
+            emoji = "🔖",
+            title = "Di en qué fue, no solo de qué tipo",
+            oneLiner = "Más fino que la categoría: «cerveza», «papá», «el bus al trabajo».",
+            whatItIs = "Al anotar un gasto dices en qué fue, con tus palabras. La app lo recuerda y, la próxima vez, lo tienes a un toque.",
+            whyItMatters = "La categoría te dice «comida»; el concepto te dice «cerveza». Así puedes preguntarte luego cuánto se fue en algo concreto, sin llenar la app de categorías.",
+            inTheApp = "En el registro rápido, junto al importe, eliges en qué fue. La categoría se rellena sola a partir de eso: no tienes que elegirla.",
+            rule = "Escribe lo que comprarías de verdad; deja que el concepto deduzca la categoría.",
+            example = "Anotas «cerveza» tres veces este mes: en tus números ves cuánto se fue en cerveza, aunque viva dentro de «comida».",
+            action = HelpAction.QUICK_ADD,
+            alsoKnownAs = "concepto del movimiento",
         ),
         Lesson(
             emoji = "⏱️",

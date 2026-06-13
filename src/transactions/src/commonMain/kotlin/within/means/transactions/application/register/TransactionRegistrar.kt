@@ -5,7 +5,9 @@ import kotlinx.datetime.LocalTime
 import within.means.shared.domain.UuidGenerator
 import within.means.shared.domain.bus.event.EventBus
 import within.means.transactions.domain.Amount
+import within.means.transactions.domain.BatchRef
 import within.means.transactions.domain.CategoryRef
+import within.means.transactions.domain.ConceptRefs
 import within.means.transactions.domain.IncomeSource
 import within.means.transactions.domain.OriginRef
 import within.means.transactions.domain.RecurringRef
@@ -32,8 +34,10 @@ class TransactionRegistrar(
             description = TransactionDescription(command.description),
             categoryRef = CategoryRef(command.categoryId),
             incomeSource = command.incomeSource?.let { IncomeSource(it) },
+            conceptRefs = ConceptRefs(command.conceptIds),
             originRef = command.originRef?.let { OriginRef(it) },
             recurringRef = command.recurringRef?.let { RecurringRef(it) },
+            batchRef = command.batchRef?.let { BatchRef(it) },
             uuids = uuids,
         )
         repository.save(transaction)

@@ -18,6 +18,8 @@ data class TransactionEdited(
     val description: String,
     val categoryId: String,
     val incomeSource: String?,
+    // Defaulted so events serialized before concepts existed still deserialize.
+    val conceptIds: List<String> = emptyList(),
 ) : DomainEvent {
     override val eventName: String = NAME
 

@@ -5,7 +5,9 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import within.means.transactions.db.Transaction_entry as TransactionRow
 import within.means.transactions.domain.Amount
+import within.means.transactions.domain.BatchRef
 import within.means.transactions.domain.CategoryRef
+import within.means.transactions.domain.ConceptRefs
 import within.means.transactions.domain.IncomeSource
 import within.means.transactions.domain.OriginRef
 import within.means.transactions.domain.RecurringRef
@@ -15,7 +17,11 @@ import within.means.transactions.domain.TransactionDescription
 import within.means.transactions.domain.TransactionId
 import within.means.transactions.domain.TransactionType
 
-internal fun TransactionRow.toAggregate(): Transaction = Transaction.rehydrate(
+/**
+ * [conceptIds] come from the `transaction_concept` bridge table (a separate
+ * query); the rest is read straight off the [transaction_entry] row.
+ */
+internal fun TransactionRow.toAggregate(conceptIds: List<String>): Transaction = Transaction.rehydrate(
     id = TransactionId(id),
     type = TransactionType.valueOf(type),
     amount = Amount(amount_cents),
@@ -24,7 +30,9 @@ internal fun TransactionRow.toAggregate(): Transaction = Transaction.rehydrate(
     description = TransactionDescription(description),
     categoryRef = CategoryRef(category_id),
     incomeSource = income_source?.let { IncomeSource(it) },
+    conceptRefs = ConceptRefs(conceptIds),
     originRef = origin_ref?.let { OriginRef(it) },
     recurringRef = recurring_ref?.let { RecurringRef(it) },
+    batchRef = batch_ref?.let { BatchRef(it) },
     createdAt = Instant.parse(created_at),
 )

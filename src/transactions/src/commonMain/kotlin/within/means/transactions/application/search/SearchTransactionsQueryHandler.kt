@@ -27,6 +27,9 @@ class SearchTransactionsQueryHandler(
             query.categoryId?.let {
                 add(Filter(FilterField("categoryId"), FilterOperator.EQUALS, FilterValue(it)))
             }
+            query.conceptId?.let {
+                add(Filter(FilterField("conceptId"), FilterOperator.EQUALS, FilterValue(it)))
+            }
             query.dateFrom?.let {
                 add(Filter(FilterField("date"), FilterOperator.GTE, FilterValue(it)))
             }

@@ -11,6 +11,8 @@ import within.means.shared.domain.bus.query.Query
 data class SearchTransactionsQuery(
     val type: String? = null,
     val categoryId: String? = null,
+    /** Filter to movements carrying this concept id ("¿cuánto gasté en X?"). */
+    val conceptId: String? = null,
     val dateFrom: String? = null,
     val dateTo: String? = null,
     val amountMinCents: Long? = null,

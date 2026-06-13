@@ -33,6 +33,7 @@ class InMemoryTransactionRepository : TransactionRepository {
             result = when (filter.field.value) {
                 "type" -> result.filter { it.type.name == raw }
                 "categoryId" -> result.filter { it.categoryRef.value == raw }
+                "conceptId" -> result.filter { raw in it.conceptRefs.ids }
                 "date" -> {
                     val pivot = LocalDate.parse(raw)
                     when (filter.operator) {

@@ -12,6 +12,10 @@ data class RegisterTransactionCommand(
     val description: String = "",
     val categoryId: String,
     val incomeSource: String? = null,
+    /** Opaque concept ids; 0..N, order = relevance (first drives the category). */
+    val conceptIds: List<String> = emptyList(),
     val originRef: String? = null,
     val recurringRef: String? = null,
+    /** Shared id grouping a batch capture ("vaciar la cesta"); null if standalone. */
+    val batchRef: String? = null,
 ) : Command

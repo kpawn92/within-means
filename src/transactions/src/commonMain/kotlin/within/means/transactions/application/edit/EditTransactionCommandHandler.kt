@@ -7,6 +7,7 @@ import within.means.shared.domain.bus.command.CommandHandler
 import within.means.shared.domain.bus.event.EventBus
 import within.means.transactions.domain.Amount
 import within.means.transactions.domain.CategoryRef
+import within.means.transactions.domain.ConceptRefs
 import within.means.transactions.domain.IncomeSource
 import within.means.transactions.domain.TransactionDate
 import within.means.transactions.domain.TransactionDescription
@@ -34,6 +35,7 @@ class EditTransactionCommandHandler(
             newDescription = TransactionDescription(command.description),
             newCategoryRef = CategoryRef(command.categoryId),
             newIncomeSource = command.incomeSource?.let { IncomeSource(it) },
+            newConceptRefs = ConceptRefs(command.conceptIds),
             uuids = uuids,
         )
 

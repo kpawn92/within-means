@@ -11,7 +11,9 @@ fun Transaction.toResponse(): TransactionResponse = TransactionResponse(
     description = description.value,
     categoryId = categoryRef.value,
     incomeSource = incomeSource?.value,
+    conceptIds = conceptRefs.ids,
     originRef = originRef?.value,
     recurringRef = recurringRef?.value,
+    batchRef = batchRef?.value,
     createdAt = createdAt.toString(),
 )

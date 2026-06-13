@@ -18,8 +18,10 @@ class Transaction private constructor(
     description: TransactionDescription,
     categoryRef: CategoryRef,
     incomeSource: IncomeSource?,
+    conceptRefs: ConceptRefs,
     val originRef: OriginRef?,
     val recurringRef: RecurringRef?,
+    val batchRef: BatchRef?,
     val createdAt: Instant,
 ) : AggregateRoot() {
 
@@ -37,6 +39,9 @@ class Transaction private constructor(
     var incomeSource: IncomeSource? = incomeSource
         private set
 
+    var conceptRefs: ConceptRefs = conceptRefs
+        private set
+
     fun edit(
         newAmount: Amount,
         newDate: TransactionDate,
@@ -44,6 +49,7 @@ class Transaction private constructor(
         newDescription: TransactionDescription,
         newCategoryRef: CategoryRef,
         newIncomeSource: IncomeSource?,
+        newConceptRefs: ConceptRefs = ConceptRefs.EMPTY,
         uuids: UuidGenerator,
         clock: Clock = Clock.System,
         timeZone: TimeZone = TimeZone.currentSystemDefault(),
@@ -56,7 +62,8 @@ class Transaction private constructor(
             newTime == this.time &&
             newDescription == this.description &&
             newCategoryRef == this.categoryRef &&
-            newIncomeSource == this.incomeSource
+            newIncomeSource == this.incomeSource &&
+            newConceptRefs == this.conceptRefs
         if (unchanged) return
 
         this.amount = newAmount
@@ -65,6 +72,7 @@ class Transaction private constructor(
         this.description = newDescription
         this.categoryRef = newCategoryRef
         this.incomeSource = newIncomeSource
+        this.conceptRefs = newConceptRefs
 
         record(
             TransactionEdited(
@@ -77,6 +85,7 @@ class Transaction private constructor(
                 description = newDescription.value,
                 categoryId = newCategoryRef.value,
                 incomeSource = newIncomeSource?.value,
+                conceptIds = newConceptRefs.ids,
             )
         )
     }
@@ -102,8 +111,10 @@ class Transaction private constructor(
             description: TransactionDescription = TransactionDescription.EMPTY,
             categoryRef: CategoryRef,
             incomeSource: IncomeSource? = null,
+            conceptRefs: ConceptRefs = ConceptRefs.EMPTY,
             originRef: OriginRef? = null,
             recurringRef: RecurringRef? = null,
+            batchRef: BatchRef? = null,
             uuids: UuidGenerator,
             clock: Clock = Clock.System,
             timeZone: TimeZone = TimeZone.currentSystemDefault(),
@@ -121,8 +132,10 @@ class Transaction private constructor(
                 description = description,
                 categoryRef = categoryRef,
                 incomeSource = incomeSource,
+                conceptRefs = conceptRefs,
                 originRef = originRef,
                 recurringRef = recurringRef,
+                batchRef = batchRef,
                 createdAt = now,
             ).apply {
                 record(
@@ -137,8 +150,10 @@ class Transaction private constructor(
                         description = description.value,
                         categoryId = categoryRef.value,
                         incomeSource = incomeSource?.value,
+                        conceptIds = conceptRefs.ids,
                         originRef = originRef?.value,
                         recurringRef = recurringRef?.value,
+                        batchRef = batchRef?.value,
                     )
                 )
             }
@@ -153,8 +168,10 @@ class Transaction private constructor(
             description: TransactionDescription,
             categoryRef: CategoryRef,
             incomeSource: IncomeSource?,
+            conceptRefs: ConceptRefs = ConceptRefs.EMPTY,
             originRef: OriginRef?,
             recurringRef: RecurringRef?,
+            batchRef: BatchRef? = null,
             createdAt: Instant,
         ): Transaction = Transaction(
             id = id,
@@ -165,8 +182,10 @@ class Transaction private constructor(
             description = description,
             categoryRef = categoryRef,
             incomeSource = incomeSource,
+            conceptRefs = conceptRefs,
             originRef = originRef,
             recurringRef = recurringRef,
+            batchRef = batchRef,
             createdAt = createdAt,
         )
 

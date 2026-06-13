@@ -35,6 +35,23 @@ class RecurringRef(value: String) : StringValueObject(value.trim()) {
 }
 
 /**
+ * Groups the N movements created together in a single batch capture ("vaciar la
+ * cesta", CONCEPTS-SPEC §4.4 / D0.4): they share this opaque id so the list can
+ * show them together and "undo the batch" deletes them as one. Purely a
+ * presentation/undo grouping — each movement remains an independent aggregate.
+ */
+class BatchRef(value: String) : StringValueObject(value.trim()) {
+    init {
+        require(this.value.isNotEmpty()) { "BatchRef cannot be blank if present" }
+        require(this.value.length <= MAX_LENGTH) { "BatchRef cannot exceed $MAX_LENGTH characters" }
+    }
+
+    companion object {
+        const val MAX_LENGTH = 64
+    }
+}
+
+/**
  * Identifies the payer or origin entity of an income (salary employer,
  * client name, government scheme...). Only meaningful when the
  * transaction's type is INCOME; the aggregate enforces that consistency.

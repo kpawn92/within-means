@@ -80,6 +80,29 @@ class AndroidDatabaseFactory(private val context: Context) {
         val driver = openDriver(TransactionsDatabase.Schema, sentinelTable = "transaction_entry", passphrase = passphrase)
         // Additive migration: optional time-of-day for installs created before it existed.
         ensureColumn(driver, "transaction_entry", "time", "TEXT")
+        // Concepts (CONCEPTS-SPEC F2): batch grouping column + the N-to-N bridge.
+        // A pre-existing install skips Schema.create (the sentinel table exists),
+        // so the new column and table must be added in place. Idempotent.
+        ensureColumn(driver, "transaction_entry", "batch_ref", "TEXT")
+        ensureStatement(
+            driver,
+            """
+            CREATE TABLE IF NOT EXISTS transaction_concept (
+                transaction_id TEXT NOT NULL,
+                concept_id     TEXT NOT NULL,
+                position       INTEGER NOT NULL,
+                PRIMARY KEY (transaction_id, concept_id)
+            )
+            """.trimIndent(),
+        )
+        ensureStatement(
+            driver,
+            "CREATE INDEX IF NOT EXISTS idx_txn_concept_concept ON transaction_concept(concept_id)",
+        )
+        ensureStatement(
+            driver,
+            "CREATE INDEX IF NOT EXISTS idx_transaction_batch ON transaction_entry(batch_ref)",
+        )
         return Opened(TransactionsDatabase(driver), driver)
     }
 
@@ -120,6 +143,11 @@ class AndroidDatabaseFactory(private val context: Context) {
             typedSchema.create(driver).value
         }
         return driver
+    }
+
+    /** Runs a self-guarded DDL statement (e.g. `CREATE TABLE/INDEX IF NOT EXISTS`). Idempotent. */
+    private fun ensureStatement(driver: SqlDriver, sql: String) {
+        driver.execute(identifier = null, sql = sql, parameters = 0)
     }
 
     /** Adds [column] to [table] if it isn't already present. Idempotent. */

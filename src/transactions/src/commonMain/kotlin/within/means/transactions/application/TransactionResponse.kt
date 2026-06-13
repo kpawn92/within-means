@@ -11,8 +11,10 @@ data class TransactionResponse(
     val description: String,
     val categoryId: String,
     val incomeSource: String?,
+    val conceptIds: List<String>,
     val originRef: String?,
     val recurringRef: String?,
+    val batchRef: String?,
     val createdAt: String,
 ) : Response
 

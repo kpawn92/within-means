@@ -14,6 +14,7 @@ import within.means.categories.application.find.FindCategoryQueryHandler
 import within.means.categories.application.reclassify.ReclassifyCategoryCommandHandler
 import within.means.categories.application.recolor.RestyleCategoryCommandHandler
 import within.means.categories.application.rename.RenameCategoryCommandHandler
+import within.means.android.subscribers.RecordConceptUsageOnTransactionRegistered
 import within.means.android.subscribers.SeedDefaultCategoriesOnUserDefaultCreated
 import within.means.categories.application.search.ListAllCategoriesQueryHandler
 import within.means.categories.application.search.SearchCategoriesQueryHandler
@@ -150,6 +151,7 @@ val busModule = module {
     single<EventBus> {
         val subscribers: List<DomainEventSubscriber<out DomainEvent>> = listOf(
             get<SeedDefaultCategoriesOnUserDefaultCreated>(),
+            get<RecordConceptUsageOnTransactionRegistered>(),
         )
         EventStoreBackedEventBus(get(), get(), subscribers)
     }

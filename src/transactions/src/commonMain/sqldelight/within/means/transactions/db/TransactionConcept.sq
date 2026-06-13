@@ -1,0 +1,25 @@
+-- Bridge table for the N-to-N link between a movement and its concepts
+-- (CONCEPTS-SPEC §6.2/§7). concept_id is an opaque id from the `concepts`
+-- context; this table never references it by FK to keep contexts decoupled.
+CREATE TABLE transaction_concept (
+    transaction_id  TEXT NOT NULL,
+    concept_id      TEXT NOT NULL,
+    position        INTEGER NOT NULL,
+    PRIMARY KEY (transaction_id, concept_id)
+);
+
+-- "¿cuánto gasté en X?" — find every movement carrying a given concept.
+CREATE INDEX idx_txn_concept_concept ON transaction_concept(concept_id);
+
+insertLink:
+INSERT OR REPLACE INTO transaction_concept(transaction_id, concept_id, position)
+VALUES (?, ?, ?);
+
+deleteLinksFor:
+DELETE FROM transaction_concept WHERE transaction_id = ?;
+
+conceptIdsFor:
+SELECT concept_id FROM transaction_concept WHERE transaction_id = ? ORDER BY position;
+
+transactionIdsFor:
+SELECT transaction_id FROM transaction_concept WHERE concept_id = ?;

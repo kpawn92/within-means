@@ -19,8 +19,11 @@ data class TransactionRegistered(
     val description: String,
     val categoryId: String,
     val incomeSource: String?,
+    // Defaulted so events serialized before concepts/batch existed still deserialize.
+    val conceptIds: List<String> = emptyList(),
     val originRef: String?,
     val recurringRef: String?,
+    val batchRef: String? = null,
 ) : DomainEvent {
     override val eventName: String = NAME
 

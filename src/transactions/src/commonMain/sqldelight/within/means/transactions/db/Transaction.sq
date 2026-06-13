@@ -9,18 +9,20 @@ CREATE TABLE transaction_entry (
     income_source   TEXT,
     origin_ref      TEXT,
     recurring_ref   TEXT,
+    batch_ref       TEXT,
     created_at      TEXT NOT NULL
 );
 
 CREATE INDEX idx_transaction_date     ON transaction_entry(date);
 CREATE INDEX idx_transaction_type     ON transaction_entry(type);
 CREATE INDEX idx_transaction_category ON transaction_entry(category_id);
+CREATE INDEX idx_transaction_batch    ON transaction_entry(batch_ref);
 
 upsert:
 INSERT OR REPLACE INTO transaction_entry(
     id, type, amount_cents, date, time, description, category_id,
-    income_source, origin_ref, recurring_ref, created_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    income_source, origin_ref, recurring_ref, batch_ref, created_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 findById:
 SELECT * FROM transaction_entry WHERE id = ?;

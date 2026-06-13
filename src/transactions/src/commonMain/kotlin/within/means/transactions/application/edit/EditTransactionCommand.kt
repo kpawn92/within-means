@@ -11,4 +11,6 @@ data class EditTransactionCommand(
     val description: String,
     val categoryId: String,
     val incomeSource: String? = null,
+    /** Opaque concept ids; replaces the movement's concepts wholesale. */
+    val conceptIds: List<String> = emptyList(),
 ) : Command
